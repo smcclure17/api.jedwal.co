@@ -1,0 +1,25 @@
+# Use AWS Lambda Python 3.11 runtime as the base image
+FROM python:3.11-slim
+
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the poetry.lock and pyproject.toml files to the container
+COPY poetry.lock pyproject.toml /app/
+
+# Install Poetry
+RUN pip install poetry
+
+# Install project dependencies
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi
+
+# Copy the rest of the application code to the container
+COPY . /app
+
+# Expose the port that the FastAPI app will run on
+EXPOSE 80
+
+# Start the FastAPI app
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "80"]

@@ -1,0 +1,21 @@
+# Ignore build scripts
+
+deploy-stack.sh
+
+build-and-push-image.sh
+
+
+# Fargate dockerfile
+Dockerfile.ecs
+
+# Cloudformation templates
+ecs.yaml
+lambda.yaml
+
+# Ignore the .git directory
+.git
+
+# ignore dist and .vscode directories
+dist/
+.vscode
+

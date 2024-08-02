@@ -1,0 +1,13 @@
+__pycache__
+
+.env
+
+.vscode
+
+dist/
+
+# docker build script contains sensitive information
+build-and-push-image.sh
+
+# cloudformation deploy script contains sensitive parameters
+deploy-stack.sh
