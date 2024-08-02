@@ -5,7 +5,7 @@ FastAPI app powering the backend for [Jedwal](https://jedwal.co), a tool to turn
 ## Taxonomy
 
 ### API
-The API routes are served via a FastAPI/Starllette ASGI web server.
+The API routes are served via a FastAPI/Starlette ASGI web server.
 
 ### Auth
 [Google Oauth](https://developers.google.com/identity/protocols/oauth2) is used for user authentication, integrated with Starlette sessions.
