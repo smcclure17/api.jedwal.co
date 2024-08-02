@@ -168,6 +168,10 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
         refresh_token=refresh_token,
     )
 
+    # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
+    if "docs.google.com/spreadsheets/d/" in sheet_id:
+        sheet_id = sheet_id.split("/d/")[1].split("/")[0]
+
     try:
         name = sheets_handler.add_sheet_to_repository(auth_creds, sheet_id, email)
     except google_sheets.SheetAlreadyExists as e:

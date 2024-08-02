@@ -158,6 +158,8 @@ Resources:
         - AttributeName: id
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
       # Add secondary indexes sheet_id-index and email-index
       GlobalSecondaryIndexes:
         - IndexName: sheet_id-index
