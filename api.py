@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 API_BASE_URL = "https://api.jedwal.co"
 CLIENT_BASE_URL = "https://jedwal.co"
+CLIENT_APP_BASE_URL = "https://app.jedwal.co"
 
 config.Config.init()
 sentry_helpers.init()
@@ -39,7 +40,7 @@ app.add_middleware(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[CLIENT_BASE_URL, "http://localhost:3000"],
+    allow_origins=[CLIENT_BASE_URL, CLIENT_APP_BASE_URL, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -110,7 +111,7 @@ async def auth(request: Request):
         request.session["access_token"] = access_token
 
     auth_utils.persist_user_if_not_exists(user, request)
-    return RedirectResponse(url=CLIENT_BASE_URL)
+    return RedirectResponse(url=CLIENT_APP_BASE_URL)
 
 
 @app.get("/logout")

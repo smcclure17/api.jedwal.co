@@ -50,11 +50,8 @@ class GoogleSheets:
             raise SheetAlreadyExists(f"Sheet with ID {sheet_id} already in repository.")
 
         name = _generate_api_name(self.repository)
-
-        # share sheet so that service account can read it
         user_client = auth_creds.init_gspread_client()
         sheet = user_client.open_by_key(sheet_id)
-
         self.repository.put_item(
             Config.Constants.SHEETS_API_TABLE,
             {
@@ -67,7 +64,6 @@ class GoogleSheets:
                 "cdn_ttl": 15,
             },
         )
-
         return name
 
     def get_sheet_data(self, name: str, worksheet_name: str = "Sheet1"):
