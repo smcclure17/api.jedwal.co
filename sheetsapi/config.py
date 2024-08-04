@@ -13,6 +13,10 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     SHEETS_API_TABLE: str
 
+    ANALYTICS_TABLE: str
+
+    SENTRY_DSN: str
+
     AWS_REGION: str = "us-west-2"
 
     GOOGLE_CLIENT_ID: str

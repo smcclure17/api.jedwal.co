@@ -31,7 +31,7 @@ class DynamoDBClient:
 
         return result["Item"]
 
-    def query_index(self, table: str, index: str, key: str, value: Any) -> List[dict]:
+    def query_index(self, table: str, index: str | None, key: str, value: Any) -> List[dict]:
         """Query index for items where `key` == `value`.
 
         Args:
@@ -43,8 +43,10 @@ class DynamoDBClient:
         Returns: List of rows matching query.
         """
         table = self._client.Table(table)
-
-        result = table.query(IndexName=index, KeyConditionExpression=Key(key).eq(value))
+        if index is None:
+            result = table.query(KeyConditionExpression=Key(key).eq(value))  # query on primary key
+        else:
+            result = table.query(IndexName=index, KeyConditionExpression=Key(key).eq(value))
         return result["Items"]
 
     def put_item(self, table: str, item: Dict[str, Any]) -> None:
@@ -57,23 +59,11 @@ class DynamoDBClient:
         table = self._client.Table(table)
         table.put_item(Item=item)
 
-    def update_item(self, table: str, key: dict, **updates):
-        """Update item in table.
+    def _generic_query(self, table: str, params: dict) -> List[dict]:
+        """Query table for items where `key` == `value`.
 
-        Args:
-            table: Table name.
-            key: Key to query table with. Should be in form {'<attribute name>': <attribute value>}.
-            updates: Key-value pairs of columns to update.
+        Returns: List of rows matching query.
         """
         table = self._client.Table(table)
-        update_expression = "set " + ", ".join(
-            f"{column}=:{column}" for column in updates
-        )
-        table.update_item(
-            Key=key,
-            UpdateExpression=update_expression,
-            ExpressionAttributeValues={
-                f":{column}": value for column, value in updates.items()
-            },
-            ReturnValues="UPDATED_NEW",
-        )
+        result = table.query(**params)
+        return result["Items"]

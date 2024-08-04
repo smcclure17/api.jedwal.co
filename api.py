@@ -1,13 +1,19 @@
 import logging
+import re
 
-from sheetsapi import auth_utils, google_sheets, config
+from sheetsapi import (
+    auth_utils,
+    google_sheets,
+    config,
+    analytics_client,
+    sentry_helpers,
+)
 
 import fastapi
 import gspread
 import mangum
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import HTMLResponse, RedirectResponse
@@ -20,8 +26,11 @@ API_BASE_URL = "https://api.jedwal.co"
 CLIENT_BASE_URL = "https://jedwal.co"
 
 config.Config.init()
+sentry_helpers.init()
+
 oauth = OAuth(config.Config.to_starlette_config())
 sheets_handler = google_sheets.GoogleSheets()
+analytics_handler = analytics_client.AnalyticsClient()
 
 app = fastapi.FastAPI()
 
@@ -186,6 +195,22 @@ def get_sheet_worksheet_names(name: str = fastapi.Query(...)):
         return sheets_handler.get_sheet_worksheets(name=name)
     except google_sheets.SheetNotFound as e:
         raise fastapi.HTTPException(status_code=404, detail="Sheet API not found.")
+
+
+@app.get("/get-api-invocations")
+def get_sheet_invocations(api_name: str, start_time: str):
+    date_regex = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
+    if not re.match(date_regex, start_time):
+        raise fastapi.HTTPException(
+            status_code=400, detail="Invalid start time format. Use ISO 8601 format."
+        )
+
+    return analytics_handler.get_api_logs(api_name, start_time)
+
+
+@app.get("/get-api-invocations-total")
+def get_sheet_invocations_total(api_name: str):
+    return analytics_handler.get_api_total_invocations(api_name)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
