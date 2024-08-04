@@ -17,6 +17,11 @@ Parameters:
     Description: ECR Image URI
     NoEcho: true
 
+  AnalyticsImageUri:
+    Type: String
+    Description: ECR Image URI for the analytics function
+    NoEcho: true
+
   Environment:
     Type: String
     Description: Environment
@@ -42,8 +47,12 @@ Parameters:
     Type: String
     NoEcho: true
 
-Resources:
+  SentryDSN:
+    Description: The Sentry DSN
+    Type: String
+    NoEcho: true
 
+Resources:
   # API Function
   LambdaApi:
     Type: AWS::Serverless::Function
@@ -59,6 +68,8 @@ Resources:
           OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
           SHEETS_API_TABLE: !Ref DynamoDBTable
+          ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
+          SENTRY_DSN: !Ref SentryDSN
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -130,7 +141,7 @@ Resources:
       RestApiId: !Ref ApiGateway
       Stage: !Sub "${Environment}"
     DependsOn:
-      - ApiGatewayStage  # See https://github.com/aws/serverless-application-model/issues/192#issuecomment-406834837
+      - ApiGatewayStage # See https://github.com/aws/serverless-application-model/issues/192#issuecomment-406834837
 
   ApiDNSRecord:
     Type: AWS::Route53::RecordSet
@@ -140,7 +151,7 @@ Resources:
       Type: A
       AliasTarget:
         DNSName: !GetAtt CloudFrontDistribution.DomainName
-        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront Hosted Zone ID
+        HostedZoneId: Z2FDTNDATAQYW2 # CloudFront Hosted Zone ID
 
   # DynamoDB Table
   DynamoDBTable:
@@ -175,12 +186,151 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+  LambdaStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref AnalyticsImageUri
+      Role: !GetAtt LambdaStreamFunctionExecutionRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
+          SENTRY_DSN: !Ref SentryDSN
+
+  LambdaStreamFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaS3InvokePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::cloudfront-logs-${AWS::Region}-sheetsapi-${Environment}"
+                  - !Sub "arn:aws:s3:::cloudfront-logs-${AWS::Region}-sheetsapi-${Environment}/*"
+        - PolicyName: LambdaDynamoDBWritePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: !GetAtt AnalyticsDynamoDBTable.Arn
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaStreamFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::cloudfront-logs-${AWS::Region}-sheetsapi-${Environment}"
+
+  CloudFrontLogsBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: LambdaInvokePermission
+    Properties:
+      BucketName: !Sub "cloudfront-logs-${AWS::Region}-sheetsapi-${Environment}"
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteLogs
+            Status: Enabled
+            ExpirationInDays: 7
+      AccessControl: LogDeliveryWrite
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt LambdaStreamFunction.Arn
+
   CloudFrontDistribution:
-      Type: AWS::CloudFront::Distribution
-      Properties:
-        DistributionConfig:
-          Enabled: true
-          DefaultCacheBehavior:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultCacheBehavior:
+          TargetOriginId: ApiGatewayOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: true
+            Headers:
+              - Origin
+              - Access-Control-Request-Headers
+              - Access-Control-Request-Method
+            Cookies:
+              Forward: none
+          DefaultTTL: 0
+          MaxTTL: 0
+          MinTTL: 0
+        Origins:
+          - Id: ApiGatewayOrigin
+            DomainName: !Sub "${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
+            OriginPath: !Sub "/${Environment}"
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+            OriginCustomHeaders:
+              - HeaderName: "X-Forwarded-Host"
+                HeaderValue: !Sub "api.${DomainName}"
+        CacheBehaviors:
+          - PathPattern: "/api/*"
+            TargetOriginId: ApiGatewayOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            ForwardedValues:
+              QueryString: true
+              Headers:
+                - Origin
+                - Access-Control-Request-Headers
+                - Access-Control-Request-Method
+              Cookies:
+                Forward: none # User session cookies are messing up the cache
+            DefaultTTL: 15
+            MaxTTL: 86400
+            MinTTL: 1
+          - PathPattern: "*"
             TargetOriginId: ApiGatewayOrigin
             ViewerProtocolPolicy: redirect-to-https
             AllowedMethods:
@@ -205,73 +355,40 @@ Resources:
             DefaultTTL: 0
             MaxTTL: 0
             MinTTL: 0
-          Origins:
-            - Id: ApiGatewayOrigin
-              DomainName: !Sub "${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
-              OriginPath: !Sub "/${Environment}"
-              CustomOriginConfig:
-                HTTPPort: 80
-                HTTPSPort: 443
-                OriginProtocolPolicy: https-only
-              OriginCustomHeaders:
-                - HeaderName: "X-Forwarded-Host"
-                  HeaderValue: !Sub "api.${DomainName}"
-          CacheBehaviors:
-            - PathPattern: "/api/*"
-              TargetOriginId: ApiGatewayOrigin
-              ViewerProtocolPolicy: redirect-to-https
-              AllowedMethods:
-                - GET
-                - HEAD
-                - OPTIONS
-                - PUT
-                - POST
-                - PATCH
-                - DELETE
-              CachedMethods:
-                - GET
-                - HEAD
-              ForwardedValues:
-                QueryString: true
-                Headers:
-                  - Origin
-                  - Access-Control-Request-Headers
-                  - Access-Control-Request-Method
-                Cookies:
-                  Forward: all
-              DefaultTTL: 15
-              MaxTTL: 86400
-              MinTTL: 1
-            - PathPattern: "*"
-              TargetOriginId: ApiGatewayOrigin
-              ViewerProtocolPolicy: redirect-to-https
-              AllowedMethods:
-                - GET
-                - HEAD
-                - OPTIONS
-                - PUT
-                - POST
-                - PATCH
-                - DELETE
-              CachedMethods:
-                - GET
-                - HEAD
-              ForwardedValues:
-                QueryString: true
-                Headers:
-                  - Origin
-                  - Access-Control-Request-Headers
-                  - Access-Control-Request-Method
-                Cookies:
-                  Forward: all
-              DefaultTTL: 0
-              MaxTTL: 0
-              MinTTL: 0
-          ViewerCertificate:
-            AcmCertificateArn: !Ref ApiCertificate
-            SslSupportMethod: sni-only
-          Aliases:
-            - !Sub "api.${DomainName}"
+        ViewerCertificate:
+          AcmCertificateArn: !Ref ApiCertificate
+          SslSupportMethod: sni-only
+        Aliases:
+          - !Sub "api.${DomainName}"
+        Logging:
+          Bucket: !GetAtt CloudFrontLogsBucket.RegionalDomainName
+          Prefix: !Sub "${Environment}/"
+          IncludeCookies: false
+
+  AnalyticsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: prod-sheetsapi-analytics-table
+      AttributeDefinitions:
+        - AttributeName: path
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: path
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: timestamp-index
+          KeySchema:
+            - AttributeName: timestamp
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
 
 Outputs:
   ApiDomainName:
