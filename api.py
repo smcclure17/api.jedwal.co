@@ -187,7 +187,7 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
     except google_sheets.SheetAlreadyExists as e:
         name = sheets_handler.get_sheet_name_from_id(sheet_id)
 
-    return {"url": f"{API_BASE_URL}/api/{name}"}
+    return {"url": f"{API_BASE_URL}/api/{name}", "name": name}
 
 
 @app.get("/get-sheet-worksheet-names")
