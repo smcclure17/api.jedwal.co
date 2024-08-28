@@ -47,7 +47,7 @@ def handler(event, _context):
             }
             db_client.put_item(config.Config.Constants.ANALYTICS_TABLE, line_item)
             lines_processed += 1
-            
+
     return {
         "statusCode": 200,
         "body": {"message": f"Successfully processed {lines_processed} records"},
@@ -56,7 +56,7 @@ def handler(event, _context):
 
 def parse_cloudfront_log_lines(content: str) -> list[dict]:
     """Parse CloudFront log lines text into a list of dictionaries
-    
+
     CloudFront log format is:
     ```txt
     #Version: 1.0

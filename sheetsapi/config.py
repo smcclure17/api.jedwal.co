@@ -15,7 +15,7 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     ANALYTICS_TABLE: str
 
-    AWS_REGION: str = "us-west-2"
+    AWS_REGION: str = "us-east-1"
 
     GOOGLE_CLIENT_ID: str
 
@@ -33,7 +33,6 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
 
 class Config:
-
     Constants: EnvConstants = None
 
     @staticmethod

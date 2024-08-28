@@ -3,23 +3,25 @@ from typing import TypeVar
 
 T = TypeVar("T")
 
+
 @dataclasses.dataclass
 class LRUCache:
     """Simple LRU cache implementation.
-    
+
     Args:
         capacity: Maximum number of items to store.
     """
+
     capacity: int
     cache: dict = dataclasses.field(default_factory=dict)
     order: list = dataclasses.field(default_factory=list)
 
     def get(self, key: str) -> T:
         """Get item from cache.
-        
+
         Args:
             key: Key to get.
-            
+
         Returns: Value if exists, None if missing.
         """
         if key in self.cache:
@@ -30,7 +32,7 @@ class LRUCache:
 
     def put(self, key: str, value: T) -> None:
         """Add item to cache.
-        
+
         Args:
             key: Key to add.
             value: Value to add.

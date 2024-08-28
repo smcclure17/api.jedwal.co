@@ -23,7 +23,6 @@ class DynamoDBClient:
         Returns: Row if exists, None if missing.
         """
         table = self._client.Table(table)
-
         result = table.get_item(Key=key)
 
         if "Item" not in result:
@@ -31,7 +30,9 @@ class DynamoDBClient:
 
         return result["Item"]
 
-    def query_index(self, table: str, index: str | None, key: str, value: Any) -> List[dict]:
+    def query_index(
+        self, table: str, index: str | None, key: str, value: Any
+    ) -> List[dict]:
         """Query index for items where `key` == `value`.
 
         Args:
@@ -44,9 +45,13 @@ class DynamoDBClient:
         """
         table = self._client.Table(table)
         if index is None:
-            result = table.query(KeyConditionExpression=Key(key).eq(value))  # query on primary key
+            result = table.query(
+                KeyConditionExpression=Key(key).eq(value)
+            )  # query on primary key
         else:
-            result = table.query(IndexName=index, KeyConditionExpression=Key(key).eq(value))
+            result = table.query(
+                IndexName=index, KeyConditionExpression=Key(key).eq(value)
+            )
         return result["Items"]
 
     def put_item(self, table: str, item: Dict[str, Any]) -> None:

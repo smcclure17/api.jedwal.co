@@ -22,12 +22,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger(__name__)
 
-API_BASE_URL = "https://api.jedwal.co"
-CLIENT_BASE_URL = "https://jedwal.co"
-CLIENT_APP_BASE_URL = "https://app.jedwal.co"
-
 config.Config.init()
 sentry_helpers.init()
+
+API_BASE_URL = (
+    "https://api.jedwal.co"
+    if config.Config.Constants.ENVIRONMENT != "local"
+    else "http://localhost:8000"
+)
+CLIENT_BASE_URL = (
+    "https://jedwal.co"
+    if config.Config.Constants.ENVIRONMENT != "local"
+    else "http://localhost:3000"
+)
+CLIENT_APP_BASE_URL = (
+    "https://app.jedwal.co"
+    if config.Config.Constants.ENVIRONMENT != "local"
+    else "http://localhost:3000/app"
+)
 
 oauth = OAuth(config.Config.to_starlette_config())
 sheets_handler = google_sheets.GoogleSheets()
@@ -102,7 +114,7 @@ async def auth(request: Request):
     except OAuthError as e:
         request.session.pop("user", None)
         logger.error(f"Error: {e.error}")
-        return HTMLResponse(f"<h1>Something went wrong</h1>")
+        return HTMLResponse(f"<h1>Something went wrong {e.error}</h1>")
     user = token.get("userinfo")
     access_token = token.get("access_token")
     if user:
@@ -167,7 +179,7 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
     user: dict | None = request.session.get("user")
 
     if not access_token or not user:
-        return {"error": "Not authenticated"}
+        raise fastapi.HTTPException(401, "Not Authenticated")
 
     email = user.get("email")
     if not refresh_token:
@@ -187,15 +199,28 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
     except google_sheets.SheetAlreadyExists as e:
         name = sheets_handler.get_sheet_name_from_id(sheet_id)
 
-    return {"url": f"{API_BASE_URL}/api/{name}", "name": name}
+    return {"url": f"{API_BASE_URL}/api/{name}", "api_name": name}
 
 
-@app.get("/get-sheet-worksheet-names")
-def get_sheet_worksheet_names(name: str = fastapi.Query(...)):
+@app.get("/get-api-info")
+def get_api_info(request: Request, name: str = fastapi.Query(...)):
+    user: dict | None = request.session.get("user")
+    if user is None:
+        raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
+
     try:
-        return sheets_handler.get_sheet_worksheets(name=name)
+        api, worksheets = sheets_handler.get_sheet_info(name)
     except google_sheets.SheetNotFound as e:
         raise fastapi.HTTPException(status_code=404, detail="Sheet API not found.")
+    if api["email"] != user.get("email"):
+        raise fastapi.HTTPException(status_code=404, detail="Sheet API not found.")
+    return {
+        "api_name": api["api_name"],
+        "sheet_id": api["sheet_id"],
+        "worksheets": worksheets,
+        "spreadsheet_name": api["spreadsheet_name"],
+        "cdn_ttl": api["cdn_ttl"],
+    }
 
 
 @app.get("/get-api-invocations")

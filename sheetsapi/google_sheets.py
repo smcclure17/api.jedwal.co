@@ -104,7 +104,7 @@ class GoogleSheets:
         }  # TODO: make this a dataclass/pydantic model instead
 
     def get_sheet_name_from_id(self, sheet_id: str) -> Optional[str]:
-        """Get the name of a sheet in the repository by ID."""
+        """Get the name of a sheet in the repository by Google Sheet ID."""
         sheets = self.repository.query_index(
             Config.Constants.SHEETS_API_TABLE, "sheet_id-index", "sheet_id", sheet_id
         )
@@ -128,10 +128,10 @@ class GoogleSheets:
 
     def get_sheet_worksheets(self, name: str) -> list[str]:
         """Get the worksheets for a sheet in the repository.
-        
+
         Args:
             name: The name of the sheet in the repository.
-            
+
         Returns:
             The names of the worksheets in the Google Sheet."""
         sheet = self.repository.get_item(
@@ -144,6 +144,21 @@ class GoogleSheets:
         client = auth_creds.init_gspread_client()
         sheet = client.open_by_key(sheet["sheet_id"])
         return [worksheet.title for worksheet in sheet.worksheets()]
+
+    def get_sheet_info(self, name: str) -> tuple[dict, list[str]]:
+        """Get the API from storage by name, and also return all the worksheets available"""
+
+        sheet = self.repository.get_item(
+            Config.Constants.SHEETS_API_TABLE, {"id": f"sheet-{name}"}
+        )
+        if sheet is None:
+            raise SheetNotFound(f"Sheet with name {name} not found in repository.")
+
+        auth_creds = GoogleOauthFields(**sheet["auth_creds"])
+        client = auth_creds.init_gspread_client()
+        spreadsheet = client.open_by_key(sheet["sheet_id"])
+        worksheets = [worksheet.title for worksheet in spreadsheet.worksheets()]
+        return sheet, worksheets
 
 
 def _generate_api_name(repo: dynamodb_client.DynamoDBClient) -> str:
