@@ -126,13 +126,18 @@ async def logout(request: Request):
 
 
 @app.get("/get-user-data")
-def check_auth(request: Request):
+def get_user_data(request: Request):
     user = request.session.get("user")
     if user is None:
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
+
+    email = user.get("email")
+    user_fields = user_helpers.fetch_fields_for_user(email, fields=["api_count"])
+
     return {
+        **user_fields,
         "name": user.get("given_name"),
-        "email": user.get("email"),
+        "email": email,
     }
 
 
@@ -140,7 +145,6 @@ def check_auth(request: Request):
 def read_sheet(name: str, worksheet: str = "Sheet1"):
     try:
         data = sheets_handler.get_sheet_data(name, worksheet)
-        print(data)
         return JSONResponse(
             content=data["data"],
             headers={"Cache-Control": f"max-age={data['cdn_ttl']}, public"},
@@ -290,7 +294,7 @@ async def webhook_received(
         customer_id = event.data.object["customer"]
         stripe_helpers.downgrade_user(customer_id)
     else:
-        print(f"unhandled event: {event_type}")
+        logger.info(f"unhandled event: {event_type}")
 
     return {"status": "success"}
 
