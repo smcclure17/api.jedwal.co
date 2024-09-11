@@ -3,8 +3,7 @@ from typing import Optional
 import randomname
 import gspread
 
-from sheetsapi import dynamodb_client, lru_cache
-from sheetsapi.auth_utils import GoogleOauthFields
+from sheetsapi import dynamodb_client, lru_cache, auth_utils
 from sheetsapi.config import Config
 
 
@@ -31,11 +30,11 @@ class GoogleSheets:
 
     def add_sheet_to_repository(
         self,
-        auth_creds: GoogleOauthFields,
+        auth_creds: auth_utils.GoogleOauthFields,
         sheet_id: str,
         email: str,
     ) -> str:
-        """Add a Google Sheet to the repository.
+        """Add a Google Sheet to the repository and update user API count.
 
         Args:
             sheet_id: The ID of the Google Sheet.
@@ -54,7 +53,7 @@ class GoogleSheets:
         sheet = user_client.open_by_key(sheet_id)
         self.repository.put_item(
             Config.Constants.SHEETS_API_TABLE,
-            {
+            item={
                 "id": f"sheet-{name}",
                 "sheet_id": sheet.id,
                 "email": email,
@@ -64,6 +63,12 @@ class GoogleSheets:
                 "cdn_ttl": 15,
             },
         )
+        self.repository.increment_item_field(
+            Config.Constants.SHEETS_API_TABLE,
+            key={"id": f"user-{email}"},
+            field="api_count",
+        )
+
         return name
 
     def get_sheet_data(self, name: str, worksheet_name: str = "Sheet1"):
@@ -91,7 +96,7 @@ class GoogleSheets:
         )
         if sheet is None:
             raise SheetNotFound(f"Sheet with name {name} not found in repository.")
-        auth_creds = GoogleOauthFields(**sheet["auth_creds"])
+        auth_creds = auth_utils.GoogleOauthFields(**sheet["auth_creds"])
 
         client = auth_creds.init_gspread_client()
         google_sheet = client.open_by_key(sheet["sheet_id"])
@@ -140,7 +145,7 @@ class GoogleSheets:
         if sheet is None:
             raise SheetNotFound(f"Sheet with name {name} not found in repository.")
 
-        auth_creds = GoogleOauthFields(**sheet["auth_creds"])
+        auth_creds = auth_utils.GoogleOauthFields(**sheet["auth_creds"])
         client = auth_creds.init_gspread_client()
         sheet = client.open_by_key(sheet["sheet_id"])
         return [worksheet.title for worksheet in sheet.worksheets()]
@@ -154,7 +159,7 @@ class GoogleSheets:
         if sheet is None:
             raise SheetNotFound(f"Sheet with name {name} not found in repository.")
 
-        auth_creds = GoogleOauthFields(**sheet["auth_creds"])
+        auth_creds = auth_utils.GoogleOauthFields(**sheet["auth_creds"])
         client = auth_creds.init_gspread_client()
         spreadsheet = client.open_by_key(sheet["sheet_id"])
         worksheets = [worksheet.title for worksheet in spreadsheet.worksheets()]

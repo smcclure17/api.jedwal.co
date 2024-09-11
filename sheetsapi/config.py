@@ -27,6 +27,16 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     ENVIRONMENT: str
 
+    STRIPE_WEBHOOK_SECRET: str
+
+    STRIPE_SECRET_KEY: str
+
+    API_BASE_URL: str
+
+    CLIENT_BASE_URL: str
+
+    CLIENT_APP_BASE_URL: str
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -3,15 +3,19 @@ import re
 
 from sheetsapi import (
     auth_utils,
+    dynamodb_client,
+    user_helpers,
     google_sheets,
     config,
     analytics_client,
     sentry_helpers,
+    stripe_helpers,
 )
 
 import fastapi
 import gspread
 import mangum
+import stripe
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -25,25 +29,10 @@ logger = logging.getLogger(__name__)
 config.Config.init()
 sentry_helpers.init()
 
-API_BASE_URL = (
-    "https://api.jedwal.co"
-    if config.Config.Constants.ENVIRONMENT != "local"
-    else "http://localhost:8000"
-)
-CLIENT_BASE_URL = (
-    "https://jedwal.co"
-    if config.Config.Constants.ENVIRONMENT != "local"
-    else "http://localhost:3000"
-)
-CLIENT_APP_BASE_URL = (
-    "https://app.jedwal.co"
-    if config.Config.Constants.ENVIRONMENT != "local"
-    else "http://localhost:3000/app"
-)
-
 oauth = OAuth(config.Config.to_starlette_config())
 sheets_handler = google_sheets.GoogleSheets()
 analytics_handler = analytics_client.AnalyticsClient()
+
 
 app = fastapi.FastAPI()
 
@@ -52,7 +41,10 @@ app.add_middleware(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[CLIENT_BASE_URL, CLIENT_APP_BASE_URL, "http://localhost:3000"],
+    allow_origins=[
+        config.Config.Constants.CLIENT_BASE_URL,
+        config.Config.Constants.CLIENT_APP_BASE_URL,
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -101,7 +93,7 @@ async def homepage(request: Request):
 
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = f"{API_BASE_URL}/auth"
+    redirect_uri = f"{config.Config.Constants.API_BASE_URL}/auth"
     return await oauth.google.authorize_redirect(
         request, redirect_uri, access_type="offline"
     )
@@ -122,15 +114,15 @@ async def auth(request: Request):
         request.session["user"] = dict(user)
         request.session["access_token"] = access_token
 
-    auth_utils.persist_user_if_not_exists(user, request)
-    return RedirectResponse(url=CLIENT_APP_BASE_URL)
+    user_helpers.persist_user_if_not_exists(user, request)
+    return RedirectResponse(url=config.Config.Constants.CLIENT_APP_BASE_URL)
 
 
 @app.get("/logout")
 async def logout(request: Request):
     request.session.pop("user", None)
     request.session.pop("refresh_token", None)
-    return RedirectResponse(url=CLIENT_BASE_URL)
+    return RedirectResponse(url=config.Config.Constants.CLIENT_BASE_URL)
 
 
 @app.get("/get-user-data")
@@ -182,10 +174,24 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
         raise fastapi.HTTPException(401, "Not Authenticated")
 
     email = user.get("email")
-    if not refresh_token:
-        refresh_token = auth_utils.fetch_refresh_token_for_user(email)
+    user_fields = user_helpers.fetch_fields_for_user(
+        email, ["refresh_token", "premium", "api_count"]
+    )
 
-    auth_creds = google_sheets.GoogleOauthFields.from_tokens(
+    # TODO: Need to think about what to do if a user:
+    # - Goes premium
+    # - Makes 10 APIs
+    # - Cancels premium
+    # Do we "freeze" the most recent X APIs?
+    if not user_fields["premium"] and user_fields["api_count"] >= 3:
+        raise fastapi.HTTPException(
+            403, detail="Non-premium users may only create up to 3 APIs."
+        )
+
+    if not refresh_token:
+        refresh_token = user_fields["refresh_token"]
+
+    auth_creds = auth_utils.GoogleOauthFields.from_tokens(
         access_token=access_token,
         refresh_token=refresh_token,
     )
@@ -199,7 +205,34 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
     except google_sheets.SheetAlreadyExists as e:
         name = sheets_handler.get_sheet_name_from_id(sheet_id)
 
-    return {"url": f"{API_BASE_URL}/api/{name}", "api_name": name}
+    return {
+        "url": f"{config.Config.Constants.API_BASE_URL}/api/{name}",
+        "api_name": name,
+    }
+
+
+@app.delete("/api/{name}")
+def delete_api(request: Request, name: str):
+    access_token = request.session.get("access_token")
+    user: dict | None = request.session.get("user")
+
+    if not access_token or not user:
+        raise fastapi.HTTPException(401, "Not Authenticated")
+
+    repo = dynamodb_client.DynamoDBClient()
+    user_email = user.get("email")
+    key = {"id": f"sheet-{name}"}
+    api = repo.get_item(config.Config.Constants.SHEETS_API_TABLE, key=key)
+
+    if api is None:
+        raise fastapi.HTTPException(
+            f"API with name {name} does not exist and cannot be deleted."
+        )
+    if api["email"] != user_email:
+        raise fastapi.HTTPException(
+            401, f"User with email {user_email} not authorized to delete api {name}"
+        )
+    repo.delete_item(config.Config.Constants.SHEETS_API_TABLE, key=key)
 
 
 @app.get("/get-api-info")
@@ -239,9 +272,27 @@ def get_sheet_invocations_total(api_name: str):
     return analytics_handler.get_api_total_invocations(api_name)
 
 
-@app.get("/favicon.ico", include_in_schema=False)
-async def favicon():
-    return RedirectResponse(url="/static/favicon.ico")
+@app.post("/stripe-webhook")
+async def webhook_received(
+    request: Request, stripe_signature: str = fastapi.Header(None)
+):
+    data = await request.body()
+    try:
+        event = stripe_helpers.get_event(payload=data, header=stripe_signature)
+    except stripe.SignatureVerificationError as error:
+        raise fastapi.HTTPException(400, detail=str(error))
+
+    event_type = event["type"]
+    if event_type == "checkout.session.completed":
+        user_email = event.data.object["customer_details"]["email"]
+        stripe_helpers.upgrade_user(user_email)
+    elif event_type == "customer.subscription.deleted":
+        customer_id = event.data.object["customer"]
+        stripe_helpers.downgrade_user(customer_id)
+    else:
+        print(f"unhandled event: {event_type}")
+
+    return {"status": "success"}
 
 
 # This handler exports the FastAPI app to a Lambda handler

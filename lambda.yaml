@@ -52,6 +52,28 @@ Parameters:
     Type: String
     NoEcho: true
 
+  StripeSecretKey:
+    Description: Stripe Secret API key
+    Type: String
+    NoEcho: true
+
+  StripeWebhookSecret:
+    Description: Stripe webhook URL
+    Type: String
+    NoEcho: true
+
+  ApiBaseUrl:
+    Description: The URL of the backend API
+    Type: String
+
+  ClientBaseUrl:
+    Description: The Client base URL
+    Type: String
+
+  ClientAppBaseUrl:
+    Description: The URL for the client dashboard
+    Type: String
+
 Resources:
   # API Function
   LambdaApi:
@@ -70,6 +92,11 @@ Resources:
           SHEETS_API_TABLE: !Ref DynamoDBTable
           ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
+          API_BASE_URL: !Ref ApiBaseUrl
+          CLIENT_BASE_URL: !Ref ClientBaseUrl
+          CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -195,9 +222,18 @@ Resources:
       Timeout: 30
       Environment:
         Variables:
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
+          OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
+          SHEETS_API_TABLE: !Ref DynamoDBTable
           ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
+          API_BASE_URL: !Ref ApiBaseUrl
+          CLIENT_BASE_URL: !Ref ClientBaseUrl
+          CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
 
   LambdaStreamFunctionExecutionRole:
     Type: AWS::IAM::Role

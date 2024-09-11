@@ -64,6 +64,13 @@ class DynamoDBClient:
         table = self._client.Table(table)
         table.put_item(Item=item)
 
+    def delete_item(self, table: str, key: Dict[str, Any]) -> None:
+        table = self._client.Table(table)
+        response = table.delete_item(Key=key, ReturnValues="ALL_OLD")
+
+        if "Attributes" not in response:
+            raise ValueError(f"Cannot delete item that does not exist. Key: {key}")
+
     def _generic_query(self, table: str, params: dict) -> List[dict]:
         """Query table for items where `key` == `value`.
 
@@ -72,3 +79,61 @@ class DynamoDBClient:
         table = self._client.Table(table)
         result = table.query(**params)
         return result["Items"]
+
+    def update_item(self, table: str, key: Dict[str, Any], item: Dict[str, Any]) -> Any:
+        """Update an item with the given id.
+
+        Keys in item that already exist will be updated, new keys will be added.
+        """
+        table = self._client.Table(table)
+
+        if not self.get_item(config.Config.Constants.SHEETS_API_TABLE, key):
+            raise ValueError(f"Cannot update item that does not exist. Key: {key}")
+
+        update_expression = []
+        expression_attribute_values = {}
+        expression_attribute_names = {}
+
+        for k, v in item.items():
+            if k != "id":  # Skip the partition key
+                update_expression.append(f"#{k} = :{k}")
+                expression_attribute_values[f":{k}"] = v
+                expression_attribute_names[f"#{k}"] = k
+
+        update_expression = "SET " + ", ".join(update_expression)
+
+        response = table.update_item(
+            Key=key,
+            UpdateExpression=update_expression,
+            ExpressionAttributeValues=expression_attribute_values,
+            ExpressionAttributeNames=expression_attribute_names,
+            ReturnValues="UPDATED_NEW",
+        )
+        return response
+
+    def increment_item_field(self, table: str, key: Dict[str, Any], field: str) -> Any:
+        """Increment the count of a field in an item"""
+        table_obj = self._client.Table(table)
+
+        # Check if the item exists
+        if not self.get_item(table, key):
+            raise ValueError(
+                f"Cannot increment field for an item that does not exist. Key: {key}"
+            )
+
+        # Create the update expression
+        update_expression = "SET #field = if_not_exists(#field, :zero) + :increment"
+
+        # Define the expression attribute names and values
+        expression_attribute_names = {"#field": field}
+        expression_attribute_values = {":zero": 0, ":increment": 1}
+
+        # Perform the update operation
+        response = table_obj.update_item(
+            Key=key,
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+            ExpressionAttributeValues=expression_attribute_values,
+            ReturnValues="UPDATED_NEW",
+        )
+        return response
