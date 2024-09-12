@@ -109,8 +109,9 @@ async def auth(request: Request):
         return HTMLResponse(f"<h1>Something went wrong {e.error}</h1>")
     user = token.get("userinfo")
     access_token = token.get("access_token")
+    refresh_token = token.get("refresh_token")
     if user:
-        request.session["refresh_token"] = token.get("refresh_token")
+        request.session["refresh_token"] = refresh_token
         request.session["user"] = dict(user)
         request.session["access_token"] = access_token
 
@@ -215,13 +216,13 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
     }
 
 
-@app.delete("/api/{name}")
+# TODO: DELETE method was having issues with credentials. The user was not
+# being passed. This should be a DELETE method, but for now we use GET.
+@app.get("/delete-api/{name}")
 def delete_api(request: Request, name: str):
-    access_token = request.session.get("access_token")
     user: dict | None = request.session.get("user")
-
-    if not access_token or not user:
-        raise fastapi.HTTPException(401, "Not Authenticated")
+    if user is None:
+        raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
 
     repo = dynamodb_client.DynamoDBClient()
     user_email = user.get("email")
@@ -230,13 +231,19 @@ def delete_api(request: Request, name: str):
 
     if api is None:
         raise fastapi.HTTPException(
-            f"API with name {name} does not exist and cannot be deleted."
+            500, f"API with name {name} does not exist and cannot be deleted."
         )
     if api["email"] != user_email:
         raise fastapi.HTTPException(
             401, f"User with email {user_email} not authorized to delete api {name}"
         )
     repo.delete_item(config.Config.Constants.SHEETS_API_TABLE, key=key)
+    repo.increment_item_field(
+        config.Config.Constants.SHEETS_API_TABLE,
+        key={"id": f"user-{user_email}"},
+        field="api_count",
+        decrement=True,
+    )
 
 
 @app.get("/get-api-info")

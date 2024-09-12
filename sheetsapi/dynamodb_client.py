@@ -111,8 +111,10 @@ class DynamoDBClient:
         )
         return response
 
-    def increment_item_field(self, table: str, key: Dict[str, Any], field: str) -> Any:
-        """Increment the count of a field in an item"""
+    def increment_item_field(
+        self, table: str, key: Dict[str, Any], field: str, decrement=False
+    ) -> Any:
+        """Increment the count of a field in an item. Also allows decrementing."""
         table_obj = self._client.Table(table)
 
         # Check if the item exists
@@ -121,12 +123,14 @@ class DynamoDBClient:
                 f"Cannot increment field for an item that does not exist. Key: {key}"
             )
 
+        adjustment_value = -1 if decrement else 1
+
         # Create the update expression
         update_expression = "SET #field = if_not_exists(#field, :zero) + :increment"
 
         # Define the expression attribute names and values
         expression_attribute_names = {"#field": field}
-        expression_attribute_values = {":zero": 0, ":increment": 1}
+        expression_attribute_values = {":zero": 0, ":increment": adjustment_value}
 
         # Perform the update operation
         response = table_obj.update_item(
