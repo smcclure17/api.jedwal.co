@@ -37,6 +37,10 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     CLIENT_APP_BASE_URL: str
 
+    COOKIE_ALLOWED_DOMAIN: str
+
+    CLOUDFRONT_DISTRIBUTION_ID: str
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

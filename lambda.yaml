@@ -74,6 +74,16 @@ Parameters:
     Description: The URL for the client dashboard
     Type: String
 
+  CloudFrontDistributionId:
+    Description: "Cloudfront ID generated for the CloudFrontDistribution. Taken from the AWS console"
+    Type: String
+    NoEcho: true
+
+  CookieAllowedDomain:
+    Description: Authorized origins for authorization headers
+    Type: String
+    Default: ".jedwal.co"
+
 Resources:
   # API Function
   LambdaApi:
@@ -97,6 +107,8 @@ Resources:
           CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
           STRIPE_SECRET_KEY: !Ref StripeSecretKey
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
+          COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -111,6 +123,14 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      Policies:
+        - PolicyName: CloudFrontInvalidationPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}
 
   # API Gateway
   ApiGateway:
@@ -234,6 +254,8 @@ Resources:
           CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
           STRIPE_SECRET_KEY: !Ref StripeSecretKey
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
+          COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
 
   LambdaStreamFunctionExecutionRole:
     Type: AWS::IAM::Role

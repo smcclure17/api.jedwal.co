@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 from typing import Optional
 import randomname
 import gspread
@@ -61,6 +62,7 @@ class GoogleSheets:
                 "api_name": name,
                 "auth_creds": dataclasses.asdict(auth_creds),
                 "cdn_ttl": 15,
+                "created_at": datetime.datetime.now().isoformat(),
             },
         )
         self.repository.increment_item_field(
@@ -89,6 +91,7 @@ class GoogleSheets:
                 "title": worksheet.title,
                 "data": worksheet.get_all_records(),
                 "cdn_ttl": 15,  # todo: save this in the repository
+                "frozen": False,  # TODO: keep frozen status in cache
             }  # TODO: make this a dataclass/pydantic model instead
 
         sheet = self.repository.get_item(

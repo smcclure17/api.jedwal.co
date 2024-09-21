@@ -8,7 +8,7 @@ from sheetsapi.config import Config
 logger = logging.getLogger(__name__)
 
 
-def persist_user_if_not_exists(user: dict, request: Request) -> None:
+def persist_user_if_not_exists(user: dict, refresh_token: str) -> None:
     """Persist a user in the repository if they do not already exist.
 
     Args:
@@ -21,12 +21,12 @@ def persist_user_if_not_exists(user: dict, request: Request) -> None:
         logger.error(f"User does not have an email. Cannot persist. User: {user}")
         return
 
-    session = request.session
     user_model = {
         **user,
         "id": f"user-{email}",
-        "refresh_token": session.get("refresh_token"),
+        "refresh_token": refresh_token,
         "api_count": 0,
+        "premium": False,
     }
 
     repo = dynamodb_client.DynamoDBClient()

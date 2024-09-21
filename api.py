@@ -10,6 +10,7 @@ from sheetsapi import (
     analytics_client,
     sentry_helpers,
     stripe_helpers,
+    cloudfront_helpers,
 )
 
 import fastapi
@@ -24,6 +25,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from fastapi.middleware.cors import CORSMiddleware
 
+
 logger = logging.getLogger(__name__)
 
 config.Config.init()
@@ -32,18 +34,23 @@ sentry_helpers.init()
 oauth = OAuth(config.Config.to_starlette_config())
 sheets_handler = google_sheets.GoogleSheets()
 analytics_handler = analytics_client.AnalyticsClient()
-
+cloudfront = cloudfront_helpers.create_cloudfront_client()
 
 app = fastapi.FastAPI()
 
 app.add_middleware(
-    SessionMiddleware, secret_key=config.Config.Constants.OAUTH_SECRET_TOKEN
+    SessionMiddleware,
+    secret_key=config.Config.Constants.OAUTH_SECRET_TOKEN,
+    same_site="none",
+    https_only=True,
+    domain="jedwal.co",
 )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         config.Config.Constants.CLIENT_BASE_URL,
         config.Config.Constants.CLIENT_APP_BASE_URL,
+        config.Config.Constants.API_BASE_URL,
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -81,14 +88,16 @@ async def homepage(request: Request):
         <h1>Google Sheets API</h1>
         <h2>Hello, {user.get("given_name")}!</h2>
         <form action="/create-api" method="post">
-            <input type="text" name="sheet_id" placeholder="Google Sheet ID" style="width: 400px;">
+            <input type="text" name="sheet_id" placeholder="Enter Google Sheet ID" style="width: 400px;">
             <button type="submit">Create API</button>
         </form>
         <a href="/logout">logout</a>
         """
 
         return HTMLResponse(html)
-    return HTMLResponse('<a href="/login" style="font-family: sans-serif;">login</a>')
+    return HTMLResponse(
+        '<a href="/login" style="font-family: sans-serif;">pls login</a>'
+    )
 
 
 @app.get("/login")
@@ -106,7 +115,9 @@ async def auth(request: Request):
     except OAuthError as e:
         request.session.pop("user", None)
         logger.error(f"Error: {e.error}")
-        return HTMLResponse(f"<h1>Something went wrong {e.error}</h1>")
+        raise fastapi.HTTPException(
+            status_code=500, detail=f"Something went wrong {e.error}"
+        )
     user = token.get("userinfo")
     access_token = token.get("access_token")
     refresh_token = token.get("refresh_token")
@@ -133,7 +144,12 @@ def get_user_data(request: Request):
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
 
     email = user.get("email")
-    user_fields = user_helpers.fetch_fields_for_user(email, fields=["api_count"])
+    user_fields = user_helpers.fetch_fields_for_user(
+        email, fields=["api_count", "premium"]
+    )
+
+    if user_fields is None:
+        user_fields = {}
 
     return {
         **user_fields,
@@ -146,6 +162,11 @@ def get_user_data(request: Request):
 def read_sheet(name: str, worksheet: str = "Sheet1"):
     try:
         data = sheets_handler.get_sheet_data(name, worksheet)
+        if data.get("frozen"):
+            raise fastapi.HTTPException(
+                401, "API is frozen. Upgrade to premium to unfreeze"
+            )
+
         return JSONResponse(
             content=data["data"],
             headers={"Cache-Control": f"max-age={data['cdn_ttl']}, public"},
@@ -245,6 +266,15 @@ def delete_api(request: Request, name: str):
         decrement=True,
     )
 
+    # Invalidate the cloudfront key for this sheet to make sure the API
+    # is immediately inaccessible.
+    if cloudfront is not None:
+        cloudfront_helpers.invalidate_cache(
+            cloudfront=cloudfront,
+            distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
+            path=f"/api/{name}",
+        )
+
 
 @app.get("/get-api-info")
 def get_api_info(request: Request, name: str = fastapi.Query(...)):
@@ -296,10 +326,10 @@ async def webhook_received(
     event_type = event["type"]
     if event_type == "checkout.session.completed":
         user_email = event.data.object["customer_details"]["email"]
-        stripe_helpers.upgrade_user(user_email)
+        stripe_helpers.upgrade_user(user_email, sheets_handler)
     elif event_type == "customer.subscription.deleted":
         customer_id = event.data.object["customer"]
-        stripe_helpers.downgrade_user(customer_id)
+        stripe_helpers.downgrade_user(customer_id, sheets_handler)
     else:
         logger.info(f"unhandled event: {event_type}")
 
