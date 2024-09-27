@@ -138,7 +138,7 @@ async def logout(request: Request):
 
 
 @app.get("/get-user-data")
-def get_user_data(request: Request):
+async def get_user_data(request: Request):
     user = request.session.get("user")
     if user is None:
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
@@ -159,7 +159,7 @@ def get_user_data(request: Request):
 
 
 @app.get("/api/{name}")
-def read_sheet(name: str, worksheet: str = "Sheet1"):
+async def read_sheet(name: str, worksheet: str = "Sheet1"):
     try:
         data = sheets_handler.get_sheet_data(name, worksheet)
         if data.get("frozen"):
@@ -182,7 +182,7 @@ def read_sheet(name: str, worksheet: str = "Sheet1"):
 
 
 @app.get("/get-user-sheets")
-def get_user_sheets(request: Request):
+async def get_user_sheets(request: Request):
     user: dict | None = request.session.get("user")
     if user is None:
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
@@ -191,7 +191,7 @@ def get_user_sheets(request: Request):
 
 
 @app.post("/create-api")
-def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
+async def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
     access_token = request.session.get("access_token")
     refresh_token = request.session.get("refresh_token")
     user: dict | None = request.session.get("user")
@@ -240,7 +240,7 @@ def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
 # TODO: DELETE method was having issues with credentials. The user was not
 # being passed. This should be a DELETE method, but for now we use GET.
 @app.get("/delete-api/{name}")
-def delete_api(request: Request, name: str):
+async def delete_api(request: Request, name: str):
     user: dict | None = request.session.get("user")
     if user is None:
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
@@ -277,7 +277,7 @@ def delete_api(request: Request, name: str):
 
 
 @app.get("/get-api-info")
-def get_api_info(request: Request, name: str = fastapi.Query(...)):
+async def get_api_info(request: Request, name: str = fastapi.Query(...)):
     user: dict | None = request.session.get("user")
     if user is None:
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
