@@ -55,7 +55,7 @@ class GoogleSheets:
         self.repository.put_item(
             Config.Constants.SHEETS_API_TABLE,
             item={
-                "id": f"sheet-{name}",
+                "id": f"sheet#{name}",
                 "sheet_id": sheet.id,
                 "email": email,
                 "spreadsheet_name": sheet.title,
@@ -67,7 +67,7 @@ class GoogleSheets:
         )
         self.repository.increment_item_field(
             Config.Constants.SHEETS_API_TABLE,
-            key={"id": f"user-{email}"},
+            key={"id": f"user#{email}"},
             field="api_count",
         )
 
@@ -95,7 +95,7 @@ class GoogleSheets:
             }  # TODO: make this a dataclass/pydantic model instead
 
         sheet = self.repository.get_item(
-            Config.Constants.SHEETS_API_TABLE, {"id": f"sheet-{name}"}
+            Config.Constants.SHEETS_API_TABLE, {"id": f"sheet#{name}"}
         )
         if sheet is None:
             raise SheetNotFound(f"Sheet with name {name} not found in repository.")
@@ -124,40 +124,29 @@ class GoogleSheets:
         sheets = self.repository.query_index(
             Config.Constants.SHEETS_API_TABLE, "email-index", "email", email
         )
-        return [
-            {
-                "api_name": sheet["api_name"],
-                "spreadsheet_name": sheet["spreadsheet_name"],
-                "sheet_id": sheet["sheet_id"],
-            }
-            for sheet in sheets
-            if sheet["id"].startswith("sheet-")  # HACK, do better single-table design
-        ]
+        output_sheets = []
+        for sheet in sheets:
+            if not sheet["id"].startswith("sheet#"):
+                continue
 
-    def get_sheet_worksheets(self, name: str) -> list[str]:
-        """Get the worksheets for a sheet in the repository.
-
-        Args:
-            name: The name of the sheet in the repository.
-
-        Returns:
-            The names of the worksheets in the Google Sheet."""
-        sheet = self.repository.get_item(
-            Config.Constants.SHEETS_API_TABLE, {"id": f"sheet-{name}"}
-        )
-        if sheet is None:
-            raise SheetNotFound(f"Sheet with name {name} not found in repository.")
-
-        auth_creds = auth_utils.GoogleOauthFields(**sheet["auth_creds"])
-        client = auth_creds.init_gspread_client()
-        sheet = client.open_by_key(sheet["sheet_id"])
-        return [worksheet.title for worksheet in sheet.worksheets()]
+            auth_creds = auth_utils.GoogleOauthFields(**sheet["auth_creds"])
+            output_sheets.append(
+                {
+                    "api_name": sheet["api_name"],
+                    "spreadsheet_name": sheet["spreadsheet_name"],
+                    "sheet_id": sheet["sheet_id"],
+                    "cdn_ttl": sheet["cdn_ttl"],
+                    "frozen": sheet.get("frozen"),
+                    "worksheets": _get_sheet_worksheets(sheet["sheet_id"], auth_creds),
+                }
+            )
+        return output_sheets
 
     def get_sheet_info(self, name: str) -> tuple[dict, list[str]]:
         """Get the API from storage by name, and also return all the worksheets available"""
 
         sheet = self.repository.get_item(
-            Config.Constants.SHEETS_API_TABLE, {"id": f"sheet-{name}"}
+            Config.Constants.SHEETS_API_TABLE, {"id": f"sheet#{name}"}
         )
         if sheet is None:
             raise SheetNotFound(f"Sheet with name {name} not found in repository.")
@@ -179,6 +168,15 @@ def _generate_api_name(repo: dynamodb_client.DynamoDBClient) -> str:
         A unique name.
     """
     name = randomname.get_name()
-    while repo.get_item(Config.Constants.SHEETS_API_TABLE, {"id": f"sheet-{name}"}):
+    while repo.get_item(Config.Constants.SHEETS_API_TABLE, {"id": f"sheet#{name}"}):
         name = randomname.get_name()
     return name
+
+
+def _get_sheet_worksheets(
+    id: str, auth_creds: auth_utils.GoogleOauthFields
+) -> tuple[dict, list[str]]:
+    """Get the API from storage by name, and also return all the worksheets available"""
+    client = auth_creds.init_gspread_client()
+    spreadsheet = client.open_by_key(id)
+    return [worksheet.title for worksheet in spreadsheet.worksheets()]

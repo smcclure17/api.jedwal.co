@@ -14,7 +14,7 @@ def upgrade_user(email: str, google_sheets_client: google_sheets.GoogleSheets) -
     # mark as premium user
     repo.update_item(
         table=Config.Constants.SHEETS_API_TABLE,
-        key={"id": f"user-{email}"},
+        key={"id": f"user#{email}"},
         item={"premium": True},
     )
 
@@ -44,7 +44,7 @@ def downgrade_user(
     # downgrade user
     repo.update_item(
         table=Config.Constants.SHEETS_API_TABLE,
-        key={"id": f"user-{email}"},
+        key={"id": f"user#{email}"},
         item={"premium": False},
     )
 

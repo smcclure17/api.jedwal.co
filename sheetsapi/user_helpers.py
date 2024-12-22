@@ -23,7 +23,7 @@ def persist_user_if_not_exists(user: dict, refresh_token: str) -> None:
 
     user_model = {
         **user,
-        "id": f"user-{email}",
+        "id": f"user#{email}",
         "refresh_token": refresh_token,
         "api_count": 0,
         "premium": False,
@@ -31,7 +31,7 @@ def persist_user_if_not_exists(user: dict, refresh_token: str) -> None:
 
     repo = dynamodb_client.DynamoDBClient()
     user_item = repo.get_item(
-        Config.Constants.SHEETS_API_TABLE, {"id": f"user-{email}"}
+        Config.Constants.SHEETS_API_TABLE, {"id": f"user#{email}"}
     )
 
     if user_item is None:
@@ -52,7 +52,7 @@ def fetch_fields_for_user(email: str, fields: Iterable[str]) -> str:
 
     repo = dynamodb_client.DynamoDBClient()
     user_item = repo.get_item(
-        Config.Constants.SHEETS_API_TABLE, {"id": f"user-{email}"}
+        Config.Constants.SHEETS_API_TABLE, {"id": f"user#{email}"}
     )
     if user_item is None:
         return None

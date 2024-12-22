@@ -79,6 +79,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def homepage(request: Request):
     user: dict | None = request.session.get("user")
     if user is not None:
+        sheets: list[dict] = sheets_handler.get_sheets_for_email(user["email"])
         html = f"""
         <style>
             body {{
@@ -91,12 +92,16 @@ async def homepage(request: Request):
             <input type="text" name="sheet_id" placeholder="Enter Google Sheet ID" style="width: 400px;">
             <button type="submit">Create API</button>
         </form>
+        <h3>Your Sheets:</h3>
+        <ul class="sheet-list">
+            {_generate_sheet_list_items(sheets)}
+        </ul>
         <a href="/logout">logout</a>
         """
 
         return HTMLResponse(html)
     return HTMLResponse(
-        '<a href="/login" style="font-family: sans-serif;">pls login</a>'
+        '<a href="/login" style="font-family: sans-serif;">please login</a>'
     )
 
 
@@ -126,7 +131,7 @@ async def auth(request: Request):
         request.session["user"] = dict(user)
         request.session["access_token"] = access_token
 
-    user_helpers.persist_user_if_not_exists(user, request)
+    user_helpers.persist_user_if_not_exists(user, refresh_token)
     return RedirectResponse(url=config.Config.Constants.CLIENT_APP_BASE_URL)
 
 
@@ -247,7 +252,7 @@ async def delete_api(request: Request, name: str):
 
     repo = dynamodb_client.DynamoDBClient()
     user_email = user.get("email")
-    key = {"id": f"sheet-{name}"}
+    key = {"id": f"sheet#{name}"}
     api = repo.get_item(config.Config.Constants.SHEETS_API_TABLE, key=key)
 
     if api is None:
@@ -261,7 +266,7 @@ async def delete_api(request: Request, name: str):
     repo.delete_item(config.Config.Constants.SHEETS_API_TABLE, key=key)
     repo.increment_item_field(
         config.Config.Constants.SHEETS_API_TABLE,
-        key={"id": f"user-{user_email}"},
+        key={"id": f"user#{user_email}"},
         field="api_count",
         decrement=True,
     )
@@ -274,27 +279,6 @@ async def delete_api(request: Request, name: str):
             distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
             path=f"/api/{name}",
         )
-
-
-@app.get("/get-api-info")
-async def get_api_info(request: Request, name: str = fastapi.Query(...)):
-    user: dict | None = request.session.get("user")
-    if user is None:
-        raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
-
-    try:
-        api, worksheets = sheets_handler.get_sheet_info(name)
-    except google_sheets.SheetNotFound as e:
-        raise fastapi.HTTPException(status_code=404, detail="Sheet API not found.")
-    if api["email"] != user.get("email"):
-        raise fastapi.HTTPException(status_code=404, detail="Sheet API not found.")
-    return {
-        "api_name": api["api_name"],
-        "sheet_id": api["sheet_id"],
-        "worksheets": worksheets,
-        "spreadsheet_name": api["spreadsheet_name"],
-        "cdn_ttl": api["cdn_ttl"],
-    }
 
 
 @app.get("/get-api-invocations")
@@ -334,6 +318,25 @@ async def webhook_received(
         logger.info(f"unhandled event: {event_type}")
 
     return {"status": "success"}
+
+
+def _generate_sheet_list_items(sheets: list[dict]) -> str:
+    """Generate HTML list items for each sheet."""
+    if not sheets:
+        return "<li>No sheets found</li>"
+
+    items = []
+    for sheet in sheets:
+        items.append(
+            f"""
+            <li class="sheet-item">
+                <strong>{sheet.get('title', 'Untitled Sheet')}</strong><br>
+                Sheet ID: {sheet.get('id', 'N/A')}<br>
+                <a class="sheet-link" href="/api/{sheet.get('name')}" target="_blank">View API</a>
+            </li>
+        """
+        )
+    return "\n".join(items)
 
 
 # This handler exports the FastAPI app to a Lambda handler
