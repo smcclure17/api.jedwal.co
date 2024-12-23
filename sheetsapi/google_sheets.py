@@ -135,6 +135,7 @@ class GoogleSheets:
             output_sheets.append(
                 {
                     "id": sheet["id"],
+                    "created_at": sheet["created_at"],
                     "api_name": sheet["api_name"],
                     "spreadsheet_name": sheet["spreadsheet_name"],
                     "sheet_id": sheet["sheet_id"],
