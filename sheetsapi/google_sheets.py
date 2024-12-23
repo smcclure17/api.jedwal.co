@@ -63,6 +63,7 @@ class GoogleSheets:
                 "auth_creds": dataclasses.asdict(auth_creds),
                 "cdn_ttl": 15,
                 "created_at": datetime.datetime.now().isoformat(),
+                "frozen": False,
             },
         )
         self.repository.increment_item_field(
@@ -109,6 +110,7 @@ class GoogleSheets:
             "title": worksheet.title,
             "data": worksheet.get_all_records(),
             "cdn_ttl": sheet.get("cdn_ttl", 15),
+            "frozen": sheet.get("frozen"),
         }  # TODO: make this a dataclass/pydantic model instead
 
     def get_sheet_name_from_id(self, sheet_id: str) -> Optional[str]:
@@ -132,6 +134,7 @@ class GoogleSheets:
             auth_creds = auth_utils.GoogleOauthFields(**sheet["auth_creds"])
             output_sheets.append(
                 {
+                    "id": sheet["id"],
                     "api_name": sheet["api_name"],
                     "spreadsheet_name": sheet["spreadsheet_name"],
                     "sheet_id": sheet["sheet_id"],
