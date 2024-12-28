@@ -15,7 +15,7 @@ def create_cloudfront_client():
 
 
 def invalidate_cache(cloudfront, distribution_id, path):
-    caller_reference = f"invalidation-{datetime.now().isoformat()}"
+    caller_reference = f"invalidation-{datetime.now().isoformat()}-{path}"
 
     # Specify the invalidation request parameters
     invalidation = cloudfront.create_invalidation(
@@ -23,7 +23,7 @@ def invalidate_cache(cloudfront, distribution_id, path):
         InvalidationBatch={
             "Paths": {
                 "Quantity": 1,
-                "Items": [path],  # Path of the deleted page, e.g., '/my-page'
+                "Items": [path],  # Path of the deleted route, e.g., '/my-page'
             },
             "CallerReference": caller_reference,
         },

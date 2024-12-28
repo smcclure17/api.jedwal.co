@@ -20,6 +20,10 @@ class InvalidCredentials(Exception):
     """Raised when credentials are invalid."""
 
 
+class InaccessibleDocument(Exception):
+    "Raised when a Google Sheet cannot be opened, e.g., if it's actually an XLSX"
+
+
 @dataclasses.dataclass
 class GoogleSheets:
     repository: dynamodb_client.DynamoDBClient = dataclasses.field(
@@ -51,7 +55,20 @@ class GoogleSheets:
 
         name = _generate_api_name(self.repository)
         user_client = auth_creds.init_gspread_client()
-        sheet = user_client.open_by_key(sheet_id)
+
+        try:
+            sheet = user_client.open_by_key(sheet_id)
+        except gspread.exceptions.APIError as e:
+            # can't use get_file_drive_metadata b/c we'd need to add more auth scopes
+            # parse the error to find out if it's a non-supported file.
+            if (
+                e.error["message"]
+                == "This operation is not supported for this document"
+            ):
+                raise InaccessibleDocument("Filetype is unsupported")
+            else:
+                raise e
+
         self.repository.put_item(
             Config.Constants.SHEETS_API_TABLE,
             item={

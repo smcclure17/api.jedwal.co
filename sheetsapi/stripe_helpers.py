@@ -48,11 +48,11 @@ def downgrade_user(
         item={"premium": False},
     )
 
-    # freeze all but the first three APIs
+    # freeze all but the most recent 2 APIs
     sheets = google_sheets_client.get_sheets_for_email(email=email)
     sorted_sheets = sorted(sheets, key=lambda item: item["created_at"])
-    all_but_last_three_sheets = sorted_sheets[:-3]
-    for sheet in all_but_last_three_sheets:
+    all_but_last_two_sheets = sorted_sheets[:-2]
+    for sheet in all_but_last_two_sheets:
         repo.update_item(
             Config.Constants.SHEETS_API_TABLE,
             key={"id": sheet["id"]},

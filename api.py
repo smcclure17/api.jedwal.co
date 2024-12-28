@@ -235,6 +235,11 @@ async def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
         name = sheets_handler.add_sheet_to_repository(auth_creds, sheet_id, email)
     except google_sheets.SheetAlreadyExists as e:
         name = sheets_handler.get_sheet_name_from_id(sheet_id)
+    except google_sheets.InaccessibleDocument:
+        raise fastapi.HTTPException(
+            status_code=415,
+            detail="Unsupported file type. Only Google Sheets are accepted (not, e.g, xlsx).",
+        )
 
     return {
         "url": f"{config.Config.Constants.API_BASE_URL}/api/{name}",
