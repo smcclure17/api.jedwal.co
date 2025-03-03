@@ -1,18 +1,5 @@
 import logging
 import re
-
-from sheetsapi import (
-    auth_utils,
-    dynamodb_client,
-    user_helpers,
-    google_sheets,
-    config,
-    analytics_client,
-    sentry_helpers,
-    stripe_helpers,
-    cloudfront_helpers,
-)
-
 import fastapi
 import gspread
 import mangum
@@ -25,16 +12,31 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from fastapi.middleware.cors import CORSMiddleware
 
+from sheetsapi import config, dynamodb_sheet_repo
 
 logger = logging.getLogger(__name__)
 
+# Initialize config first
 config.Config.init()
+
+# Then import modules that depend on config
+from sheetsapi import (
+    auth_utils,
+    user_helpers,
+    google_sheet_client,
+    analytics_client,
+    sentry_helpers,
+    stripe_helpers,
+    cloudfront_helpers,
+    sheet_api_manager,
+)
+
 sentry_helpers.init()
 
 oauth = OAuth(config.Config.to_starlette_config())
-sheets_handler = google_sheets.GoogleSheets()
 analytics_handler = analytics_client.AnalyticsClient()
 cloudfront = cloudfront_helpers.create_cloudfront_client()
+api_manager = sheet_api_manager.SheetManager()
 
 app = fastapi.FastAPI()
 
@@ -79,7 +81,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def homepage(request: Request):
     user: dict | None = request.session.get("user")
     if user is not None:
-        sheets: list[dict] = sheets_handler.get_sheets_for_email(user["email"])
+        sheets: list[dict] = api_manager.get_sheet_apis_for_email(user["email"])
         html = f"""
         <style>
             body {{
@@ -166,7 +168,7 @@ async def get_user_data(request: Request):
 @app.get("/api/{name}")
 async def read_sheet(name: str, worksheet: str = "Sheet1"):
     try:
-        data = sheets_handler.get_sheet_data(name, worksheet)
+        data = api_manager.get_worksheet_data(name, worksheet)
         if data.get("frozen"):
             raise fastapi.HTTPException(
                 401, "API is frozen. Upgrade to premium to unfreeze"
@@ -182,7 +184,7 @@ async def read_sheet(name: str, worksheet: str = "Sheet1"):
             status_code=404,
             detail=f"Worksheet {worksheet} not found. To specify a worksheet, use, e.g., ?worksheet=your_sheet_name.",
         )
-    except google_sheets.SheetNotFound as e:
+    except dynamodb_sheet_repo.SheetNotFound:
         raise fastapi.HTTPException(status_code=404, detail="Sheet API not found.")
 
 
@@ -192,7 +194,8 @@ async def get_user_sheets(request: Request):
     if user is None:
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
 
-    return sheets_handler.get_sheets_for_email(user.get("email"))
+    sheets = api_manager.get_sheet_apis_for_email(user.get("email"))
+    return sheets
 
 
 @app.post("/create-api")
@@ -232,10 +235,8 @@ async def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
         sheet_id = sheet_id.split("/d/")[1].split("/")[0]
 
     try:
-        name = sheets_handler.add_sheet_to_repository(auth_creds, sheet_id, email)
-    except google_sheets.SheetAlreadyExists as e:
-        name = sheets_handler.get_sheet_name_from_id(sheet_id)
-    except google_sheets.InaccessibleDocument:
+        name = api_manager.add_sheet_to_repository(auth_creds, sheet_id, email)
+    except google_sheet_client.InaccessibleDocument:
         raise fastapi.HTTPException(
             status_code=415,
             detail="Unsupported file type. Only Google Sheets are accepted (not, e.g, xlsx).",
@@ -247,18 +248,35 @@ async def create_api(request: Request, sheet_id: str = fastapi.Form(...)):
     }
 
 
-# TODO: DELETE method was having issues with credentials. The user was not
-# being passed. This should be a DELETE method, but for now we use GET.
-@app.get("/delete-api/{name}")
-async def delete_api(request: Request, name: str):
+@app.post("/update-api-ttl")
+async def update_ttl(request: Request):
+    """Update how long an API is cached for before being refreshed"""
     user: dict | None = request.session.get("user")
     if user is None:
         raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
 
-    repo = dynamodb_client.DynamoDBClient()
+    # TODO: use pydantic models
+    body = await request.json()
+    name = body.get("name")
+    cdn_ttl = body.get("cdn_ttl")
+
+    if not name:
+        raise fastapi.HTTPException(status_code=400, detail="API name is required")
+    if not isinstance(cdn_ttl, int) or cdn_ttl < 1:
+        raise fastapi.HTTPException(
+            status_code=400,
+            detail="Invalid cdn_ttl value. Cache duration must be an integer of at least 1 second.",
+        )
+
     user_email = user.get("email")
-    key = {"id": f"sheet#{name}"}
-    api = repo.get_item(config.Config.Constants.SHEETS_API_TABLE, key=key)
+    api = api_manager.get_sheet_api_info(name)
+    user_item = user_helpers.fetch_fields_for_user(user_email, ["premium"])
+
+    if not user_item["premium"] and cdn_ttl < 60:
+        raise fastapi.HTTPException(
+            status_code=422,
+            detail="Invalid refresh duration. Non-premium users must set a value of 60 seconds or greater.",
+        )
 
     if api is None:
         raise fastapi.HTTPException(
@@ -268,13 +286,37 @@ async def delete_api(request: Request, name: str):
         raise fastapi.HTTPException(
             401, f"User with email {user_email} not authorized to delete api {name}"
         )
-    repo.delete_item(config.Config.Constants.SHEETS_API_TABLE, key=key)
-    repo.increment_item_field(
-        config.Config.Constants.SHEETS_API_TABLE,
-        key={"id": f"user#{user_email}"},
-        field="api_count",
-        decrement=True,
+
+    api_manager.update_sheet_api_ttl(name, cdn_ttl)
+
+    return JSONResponse(
+        content={
+            "message": f"TTL for API '{name}' successfully updated to {cdn_ttl} seconds."
+        },
+        status_code=200,
     )
+
+
+# TODO: DELETE method was having issues with credentials. The user was not
+# being passed. This should be a DELETE method, but for now we use GET.
+@app.get("/delete-api/{name}")
+async def delete_api(request: Request, name: str):
+    user: dict | None = request.session.get("user")
+    if user is None:
+        raise fastapi.HTTPException(status_code=401, detail="Not authenticated")
+
+    api = api_manager.get_sheet_api_info(name)
+    if api is None:
+        raise fastapi.HTTPException(
+            500, f"API with name {name} does not exist and cannot be deleted."
+        )
+
+    user_email = user.get("email")
+    if api["email"] != user_email:
+        raise fastapi.HTTPException(
+            401, f"User with email {user_email} not authorized to delete api {name}"
+        )
+    api_manager.remove_sheet_from_repository(name, email=user_email)
 
     # Invalidate the cloudfront key for this sheet to make sure the API
     # is immediately inaccessible.
@@ -315,10 +357,10 @@ async def webhook_received(
     event_type = event["type"]
     if event_type == "checkout.session.completed":
         user_email = event.data.object["customer_details"]["email"]
-        stripe_helpers.upgrade_user(user_email, sheets_handler)
+        stripe_helpers.upgrade_user(user_email, api_manager)
     elif event_type == "customer.subscription.deleted":
         customer_id = event.data.object["customer"]
-        stripe_helpers.downgrade_user(customer_id, sheets_handler)
+        stripe_helpers.downgrade_user(customer_id, api_manager)
     else:
         logger.info(f"unhandled event: {event_type}")
 

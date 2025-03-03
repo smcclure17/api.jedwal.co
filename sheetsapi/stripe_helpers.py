@@ -1,5 +1,5 @@
 import stripe
-from sheetsapi import dynamodb_client, google_sheets
+from sheetsapi import dynamodb_client, sheet_api_manager
 from sheetsapi.config import Config
 
 Config.init()
@@ -7,7 +7,7 @@ stripe.api_key = Config.Constants.STRIPE_SECRET_KEY
 WEBHOOK_SECRET = Config.Constants.STRIPE_WEBHOOK_SECRET
 
 
-def upgrade_user(email: str, google_sheets_client: google_sheets.GoogleSheets) -> None:
+def upgrade_user(email: str, api_manager: sheet_api_manager.SheetManager) -> None:
     """Mark a user as a premium user"""
     repo = dynamodb_client.DynamoDBClient()
 
@@ -19,7 +19,7 @@ def upgrade_user(email: str, google_sheets_client: google_sheets.GoogleSheets) -
     )
 
     # reactivate any APIs that might be frozen
-    sheets = google_sheets_client.get_sheets_for_email(email=email)
+    sheets = api_manager.get_sheet_apis_for_email(email=email)
     for sheet in sheets:
         repo.update_item(
             Config.Constants.SHEETS_API_TABLE,
@@ -29,7 +29,7 @@ def upgrade_user(email: str, google_sheets_client: google_sheets.GoogleSheets) -
 
 
 def downgrade_user(
-    customer_id: str, google_sheets_client: google_sheets.GoogleSheets
+    customer_id: str, api_manager: sheet_api_manager.SheetManager
 ) -> None:
     """Mark a user as basic"""
     customer = stripe.Customer.retrieve(customer_id)
@@ -49,7 +49,7 @@ def downgrade_user(
     )
 
     # freeze all but the most recent 2 APIs
-    sheets = google_sheets_client.get_sheets_for_email(email=email)
+    sheets = api_manager.get_sheet_apis_for_email(email=email)
     sorted_sheets = sorted(sheets, key=lambda item: item["created_at"])
     all_but_last_two_sheets = sorted_sheets[:-2]
     for sheet in all_but_last_two_sheets:

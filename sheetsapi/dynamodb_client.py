@@ -2,7 +2,10 @@ from typing import Dict, List, Any, Optional
 
 import boto3
 from boto3.dynamodb.conditions import Key
-from sheetsapi import config
+from sheetsapi.config import Config
+
+class ItemNotFound(Exception):
+    """Raised when the specified item does not exist in the repo."""
 
 
 class DynamoDBClient:
@@ -10,7 +13,7 @@ class DynamoDBClient:
 
     def __init__(self, client=None):
         self._client = client or boto3.resource(
-            "dynamodb", region_name=config.Config.Constants.AWS_REGION
+            "dynamodb", region_name=Config.Constants.AWS_REGION
         )
 
     def get_item(self, table: str, key: Dict[str, Any]) -> Optional[Dict[Any, Any]]:
@@ -31,27 +34,45 @@ class DynamoDBClient:
         return result["Item"]
 
     def query_index(
-        self, table: str, index: str | None, key: str, value: Any
+        self,
+        table: str,
+        index: str | None,
+        key: str,
+        value: Any,
+        limit: int = None,
+        KeyConditionExpression: str = None,
+        ExpressionAttributeValues: Dict[str, Any] = None,
     ) -> List[dict]:
-        """Query index for items where `key` == `value`.
-
+        """Query index with extended functionality.
+        
         Args:
             table: Table name.
             index: Index name.
             key: Key to query.
             value: value.
-
-        Returns: List of rows matching query.
+            limit: Optional maximum number of items to return
+            KeyConditionExpression: Optional custom key condition
+            ExpressionAttributeValues: Optional values for expression
         """
         table = self._client.Table(table)
-        if index is None:
-            result = table.query(
-                KeyConditionExpression=Key(key).eq(value)
-            )  # query on primary key
+        params = {}
+        
+        if index is not None:
+            params["IndexName"] = index
+            
+        if KeyConditionExpression is not None:
+            params["KeyConditionExpression"] = KeyConditionExpression
+            params["ExpressionAttributeValues"] = {
+                ":pk": value,
+                **(ExpressionAttributeValues or {})
+            }
         else:
-            result = table.query(
-                IndexName=index, KeyConditionExpression=Key(key).eq(value)
-            )
+            params["KeyConditionExpression"] = Key(key).eq(value)
+            
+        if limit is not None:
+            params["Limit"] = limit
+
+        result = table.query(**params)
         return result["Items"]
 
     def put_item(self, table: str, item: Dict[str, Any]) -> None:
@@ -69,7 +90,7 @@ class DynamoDBClient:
         response = table.delete_item(Key=key, ReturnValues="ALL_OLD")
 
         if "Attributes" not in response:
-            raise ValueError(f"Cannot delete item that does not exist. Key: {key}")
+            raise ItemNotFound(f"Cannot delete item that does not exist. Key: {key}")
 
     def _generic_query(self, table: str, params: dict) -> List[dict]:
         """Query table for items where `key` == `value`.
@@ -87,8 +108,8 @@ class DynamoDBClient:
         """
         table = self._client.Table(table)
 
-        if not self.get_item(config.Config.Constants.SHEETS_API_TABLE, key):
-            raise ValueError(f"Cannot update item that does not exist. Key: {key}")
+        if not self.get_item(Config.Constants.SHEETS_API_TABLE, key):
+            raise ItemNotFound(f"Cannot update item that does not exist. Key: {key}")
 
         update_expression = []
         expression_attribute_values = {}
@@ -119,7 +140,7 @@ class DynamoDBClient:
 
         # Check if the item exists
         if not self.get_item(table, key):
-            raise ValueError(
+            raise ItemNotFound(
                 f"Cannot increment field for an item that does not exist. Key: {key}"
             )
 
@@ -141,3 +162,30 @@ class DynamoDBClient:
             ReturnValues="UPDATED_NEW",
         )
         return response
+
+    def transact_write_items(self, items: List[Dict[str, Any]]) -> None:
+        """Execute a transaction write with multiple items.
+        
+        Args:
+            items: List of transaction items in the format expected by transact_write_items
+        """
+        self._client.meta.client.transact_write_items(
+            TransactItems=items
+        )
+        
+    def batch_get_items(self, table: str, keys: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Get multiple items in a single request.
+        
+        Args:
+            table: Table name
+            keys: List of keys to fetch
+        """
+        table = self._client.Table(table)
+        response = table.meta.client.batch_get_item(
+            RequestItems={
+                table.name: {
+                    'Keys': keys
+                }
+            }
+        )
+        return response['Responses'][table.name]

@@ -4,7 +4,7 @@ from typing import TypeVar
 T = TypeVar("T")
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class LRUCache:
     """Simple LRU cache implementation.
 
@@ -16,7 +16,7 @@ class LRUCache:
     cache: dict = dataclasses.field(default_factory=dict)
     order: list = dataclasses.field(default_factory=list)
 
-    def get(self, key: str) -> T:
+    def get(self, key: str) -> T | None:
         """Get item from cache.
 
         Args:
