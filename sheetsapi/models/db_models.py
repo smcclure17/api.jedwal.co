@@ -6,6 +6,7 @@ These models include DynamoDB-specific fields like PK, SK, GSI1PK, etc.
 from pydantic import BaseModel, EmailStr, Field
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+import uuid
 
 
 class SheetMetadata(BaseModel):

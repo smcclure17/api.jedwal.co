@@ -10,4 +10,4 @@ COPY . ${LAMBDA_TASK_ROOT}
 
 RUN ls -la ${LAMBDA_TASK_ROOT}
 
-CMD [ "api.handler" ]
+CMD [ "app.handler" ]
