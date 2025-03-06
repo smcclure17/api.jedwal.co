@@ -1,5 +1,5 @@
 import stripe
-from sheetsapi import dynamodb_client, sheet_api_manager
+from sheetsapi import dynamodb_client, sheet_api_manager, user_helpers
 from sheetsapi.config import Config
 
 Config.init()
@@ -10,11 +10,12 @@ WEBHOOK_SECRET = Config.Constants.STRIPE_WEBHOOK_SECRET
 def upgrade_user(email: str, api_manager: sheet_api_manager.SheetManager) -> None:
     """Mark a user as a premium user"""
     repo = dynamodb_client.DynamoDBClient()
+    user_id = user_helpers.lookup_user_id_by_email(email, client=repo)
 
     # mark as premium user
     repo.update_item(
         table=Config.Constants.SHEETS_API_TABLE,
-        key={"id": f"user#{email}"},
+        key={"PK": f"USER#{user_id}", "SK": f"#PROFILE"},
         item={"premium": True},
     )
 
@@ -23,7 +24,7 @@ def upgrade_user(email: str, api_manager: sheet_api_manager.SheetManager) -> Non
     for sheet in sheets:
         repo.update_item(
             Config.Constants.SHEETS_API_TABLE,
-            key={"id": sheet["id"]},
+            key={"PK": sheet.PK, "SK": sheet.SK},
             item={"frozen": False},
         )
 
@@ -40,22 +41,23 @@ def downgrade_user(
         )
 
     repo = dynamodb_client.DynamoDBClient()
+    user_id = user_helpers.lookup_user_id_by_email(email, client=repo)
 
     # downgrade user
     repo.update_item(
         table=Config.Constants.SHEETS_API_TABLE,
-        key={"id": f"user#{email}"},
+        key={"PK": f"USER#{user_id}", "SK": f"#PROFILE"},
         item={"premium": False},
     )
 
     # freeze all but the most recent 2 APIs
     sheets = api_manager.get_sheet_apis_for_email(email=email)
-    sorted_sheets = sorted(sheets, key=lambda item: item["created_at"])
+    sorted_sheets = sorted(sheets, key=lambda item: item.createdAt)
     all_but_last_two_sheets = sorted_sheets[:-2]
     for sheet in all_but_last_two_sheets:
         repo.update_item(
             Config.Constants.SHEETS_API_TABLE,
-            key={"id": sheet["id"]},
+            key={"PK": sheet.PK, "SK": sheet.SK},
             item={"frozen": True},
         )
 

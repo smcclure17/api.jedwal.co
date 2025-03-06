@@ -1,6 +1,7 @@
 import dataclasses
 from sheetsapi import auth_utils, dynamodb_client, user_helpers
 from sheetsapi.config import Config
+from sheetsapi.models.db_models import SheetMetadata, SheetMetadataWithWorksheets
 
 
 class SheetNotFound(Exception):
@@ -13,39 +14,18 @@ class DynamoDBSheetRepository:
         default_factory=dynamodb_client.DynamoDBClient
     )
 
-    def add_sheet(self, sheet_data: dict):
+    def add_sheet(self, sheet_data: SheetMetadata):
         """Add a sheet and its metadata"""
-        # Transform to new schema
-        sheet_name = sheet_data["api_name"]
-        owner_id = sheet_data["user_id"]  # Assuming this is passed in
-
-        transformed_data = {
-            "PK": f"SHEET#{sheet_name}",
-            "SK": "#METADATA",
-            "GSI1PK": f"USER#{owner_id}",
-            "GSI1SK": f"SHEET#{sheet_name}",
-            "sheetId": sheet_data["sheet_id"],
-            "apiName": sheet_data["api_name"],
-            "spreadsheetName": sheet_data["spreadsheet_name"],
-            "createdAt": sheet_data["created_at"],
-            "cdnTtl": sheet_data["cdn_ttl"],
-            "frozen": sheet_data.get("frozen", False),
-            "authCreds": sheet_data["auth_creds"],
-            "ownerId": owner_id,
-            "email": sheet_data["email"],  # Keep for backwards compatibility
-            "sourceOrg": sheet_data.get("source_org"),
-        }
-
         self.repository.put_item(
             Config.Constants.SHEETS_API_TABLE,
-            item=transformed_data,
+            item=sheet_data.model_dump(),
         )
 
     def remove_sheet(self, name: str):
         key = {"PK": f"SHEET#{name}", "SK": "#METADATA"}
         self.repository.delete_item(Config.Constants.SHEETS_API_TABLE, key=key)
 
-    def get_sheet_api_by_name(self, name: str):
+    def get_sheet_api_by_name(self, name: str) -> SheetMetadata:
         """Retrieve a sheet"""
         sheet = self.repository.get_item(
             Config.Constants.SHEETS_API_TABLE,
@@ -53,36 +33,23 @@ class DynamoDBSheetRepository:
         )
         if sheet is None:
             raise SheetNotFound(f"Sheet with name {name} not found in repository.")
+        return SheetMetadata(**sheet)
 
-        # Transform to old format for backwards compatibility
-        return {
-            "id": f"sheet#{sheet['apiName']}",
-            "api_name": sheet["apiName"],
-            "spreadsheet_name": sheet["spreadsheetName"],
-            "created_at": sheet["createdAt"],
-            "sheet_id": sheet["sheetId"],
-            "cdn_ttl": sheet["cdnTtl"],
-            "frozen": sheet.get("frozen"),
-            "auth_creds": sheet["authCreds"],
-            "email": sheet["email"],
-            "source_org": sheet.get("sourceOrg") or sheet["email"],
-        }
-
-    def sheet_api_exists(self, name: str):
+    def sheet_api_exists(self, name: str) -> bool:
         try:
             self.get_sheet_api_by_name(name)
             return True
         except SheetNotFound:
             return False
 
-    def get_sheet_apis_for_email(self, email: str):
-        """Get all sheets for a given email"""
+    def get_sheet_apis_for_email(self, email: str) -> list[SheetMetadata]:
+        """Get all sheets for a given email (only personal sheets, not org sheets)"""
         try:
-            user_id = user_helpers.lookup_user_by_email(email)["userId"]
+            user_id = user_helpers.lookup_user_id_by_email(email)
         except user_helpers.UserNotFound:
             return []
 
-        # Then get all sheets for that user using GSI1
+        # Get all sheets for that user using GSI1
         sheets = self.repository.query_index(
             Config.Constants.SHEETS_API_TABLE,
             "GSI1",
@@ -91,21 +58,20 @@ class DynamoDBSheetRepository:
             KeyConditionExpression="GSI1PK = :pk AND begins_with(GSI1SK, :sk)",
             ExpressionAttributeValues={":sk": "SHEET#"},
         )
-
-        output_sheets = []
-        for sheet in sheets:
-            output = {
-                "id": f"sheet#{sheet['apiName']}",
-                "created_at": sheet["createdAt"],
-                "api_name": sheet["apiName"],
-                "spreadsheet_name": sheet["spreadsheetName"],
-                "sheet_id": sheet["sheetId"],
-                "source_org": sheet.get("sourceOrg") or sheet["email"],
-                "cdn_ttl": sheet["cdnTtl"],
-                "frozen": sheet.get("frozen"),
-            }
-            output_sheets.append(output)
-        return output_sheets
+        return [SheetMetadata(**sheet) for sheet in sheets]
+        
+    def get_sheet_apis_for_org(self, org_id: str) -> list[SheetMetadata]:
+        """Get all sheets for a given organization"""
+        # Get all sheets for that organization using GSI1
+        sheets = self.repository.query_index(
+            Config.Constants.SHEETS_API_TABLE,
+            "GSI1",
+            "GSI1PK",
+            f"ORG#{org_id}",
+            KeyConditionExpression="GSI1PK = :pk AND begins_with(GSI1SK, :sk)",
+            ExpressionAttributeValues={":sk": "SHEET#"},
+        )
+        return [SheetMetadata(**sheet) for sheet in sheets]
 
     def increment_user_sheet_count(self, email: str, decrement=False):
         """Update user sheet count"""
@@ -127,7 +93,7 @@ class DynamoDBSheetRepository:
         )
 
     def get_sheet_auth_credentials(self, name):
-        creds = self.get_sheet_api_by_name(name)["auth_creds"]
+        creds = self.get_sheet_api_by_name(name).authCreds
         return auth_utils.GoogleOauthFields(**creds)
 
     def update_sheet_api_ttl(self, name, ttl):

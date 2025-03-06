@@ -93,14 +93,14 @@ Resources:
       ImageUri: !Ref ImageUri
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 30
-      MemorySize: 512  # mb
+      MemorySize: 1024  # mb
       Environment:
         Variables:
           GOOGLE_CLIENT_ID: !Ref GoogleClientId
           GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
           OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
-          SHEETS_API_TABLE: !Ref DynamoDBTable
+          SHEETS_API_TABLE: !Ref DynamoDBTableOrgs
           ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
           API_BASE_URL: !Ref ApiBaseUrl

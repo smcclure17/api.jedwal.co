@@ -3,6 +3,7 @@ from functools import cached_property
 
 import gspread
 from sheetsapi import auth_utils
+from sheetsapi.models.domain_models import SpreadsheetDataModel, WorksheetDataModel
 
 
 class InaccessibleDocument(Exception):
@@ -24,23 +25,24 @@ class GoogleSheets:
     def gspread_client(self):
         return self.auth_creds.init_gspread_client()
 
-    def get_spreadsheet_data(self, sheet_id: str):
+    def get_spreadsheet_data(self, sheet_id: str) -> SpreadsheetDataModel:
         google_sheet = self._try_open_spreadsheet(sheet_id=sheet_id)
-        return {
-            "id": google_sheet.id,
-            "title": google_sheet.title,
-            "worksheets": [worksheet.title for worksheet in google_sheet.worksheets()],
-        }
+        return SpreadsheetDataModel(
+            id=google_sheet.id,
+            title=google_sheet.title,
+            worksheets=[worksheet.title for worksheet in google_sheet.worksheets()],
+        )
 
     def get_worksheet_from_name(self, sheet_id: str, worksheet_name="Sheet1"):
         google_sheet = self._try_open_spreadsheet(sheet_id=sheet_id)
         return google_sheet.worksheet(worksheet_name)
 
-    def get_worksheet_data(self, worksheet: gspread.worksheet.Worksheet):
-        return {
-            "title": worksheet.title,
-            "data": worksheet.get_all_records(),
-        }
+    def get_worksheet_data(
+        self, worksheet: gspread.worksheet.Worksheet
+    ) -> WorksheetDataModel:
+        return WorksheetDataModel(
+            title=worksheet.title, data=worksheet.get_all_records()
+        )
 
     def get_worksheet_by_name(self, sheet_id, name):
         return self._try_open_spreadsheet(sheet_id).worksheet(name)

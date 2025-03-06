@@ -22,3 +22,6 @@ dist/
 # env file
 .env
 
+
+# Tests
+tests/
