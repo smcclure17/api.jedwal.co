@@ -158,6 +158,23 @@ Resources:
                 uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaApi.Arn}/invocations"
               responses: {}
 
+  # API Gateway Usage Plan for Rate Limiting
+  ApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiGateway
+    Properties:
+      UsagePlanName: !Sub "${AWS::StackName}-usage-plan"
+      Description: "Usage plan to prevent API abuse"
+      ApiStages:
+        - ApiId: !Ref ApiGateway
+          Stage: !Sub "${Environment}"
+      Quota:
+        Limit: 2000
+        Period: DAY
+      Throttle:
+        RateLimit: 50
+        BurstLimit: 100
+
   LambdaApiGatewayInvoke:
     Type: AWS::Lambda::Permission
     Properties:
