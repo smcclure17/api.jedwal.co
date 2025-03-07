@@ -1,8 +1,7 @@
-"""
-User-related routes and operations.
-"""
+"""User-related routes and operations."""
 
 from fastapi import APIRouter
+import fastapi
 
 from sheetsapi import user_helpers
 from sheetsapi.models.api_models import UserDataResponse
@@ -24,7 +23,9 @@ async def get_user_data(user: CurrentUser):
     )
 
     if user_fields is None:
-        raise ValueError(f"No fields found for user {user.email}")
+        raise fastapi.HTTPException(
+            status_code=404, detail=f"No fields found for user {user.email}"
+        )
 
     return UserDataResponse(
         id=user_fields.userId,

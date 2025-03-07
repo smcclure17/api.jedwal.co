@@ -161,26 +161,26 @@ def get_member_role(
     org_id: str, user_id: str, client: Optional[dynamodb_client.DynamoDBClient] = None
 ) -> Optional[OrganizationMembership]:
     """Get a user's membership details in an organization.
-    
+
     Args:
         org_id: The organization ID
         user_id: The user ID
         client: Optional DynamoDB client
-        
+
     Returns:
         The OrganizationMembership object or None if not a member
     """
     if client is None:
         client = dynamodb_client.DynamoDBClient()
-    
+
     membership_data = client.get_item(
         Config.Constants.SHEETS_API_TABLE,
-        {"PK": f"USER#{user_id}", "SK": f"ORG#{org_id}"}
+        {"PK": f"USER#{user_id}", "SK": f"ORG#{org_id}"},
     )
-    
+
     if not membership_data:
         return None
-        
+
     return OrganizationMembership(**membership_data)
 
 
