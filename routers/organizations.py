@@ -1,16 +1,15 @@
-"""
-Organization management routes and operations.
-"""
+"""Organization management routes and operations."""
 
 from typing import List
 import logging
 
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Body, Depends, Form, HTTPException
 from pydantic import EmailStr
 
 from sheetsapi import organization_helpers, sheet_api_manager, user_helpers
 from sheetsapi.models.api_models import (
     CreateOrganizationRequest,
+    OrganizationInviteMembersRequest,
     OrganizationMemberResponse,
     OrganizationMembersResponse,
     OrganizationResponse,
@@ -122,9 +121,11 @@ async def get_organization_details(org_id: str, _: OrgMember):
     )
 
 
-@router.post("/organization/{org_id}/invite")
+# HACK:  we need org_id in the params (not body) in order
+# to use the OrgMember middleware/dependency.
+@router.post("/organization/invite/{org_id}")
 async def invite_user_to_organization(
-    org_id: str, email: EmailStr = Form(...), _: OrgMember = None
+    org_id, data: OrganizationInviteMembersRequest, _: OrgMember
 ):
     """
     Invite a user to an organization.
@@ -136,14 +137,26 @@ async def invite_user_to_organization(
     Returns:
         dict: Confirmation message
     """
-    try:
-        invite_user_id = user_helpers.lookup_user_id_by_email(email)
-        organization_helpers.add_user_to_organization(
-            org_id=org_id, email=email, user_id=invite_user_id, role="member"
-        )
-        return {"message": f"User {email} has been added to the organization."}
-    except user_helpers.UserNotFound:
-        return {"message": f"User not found, skipping"}
+    members = organization_helpers.get_organization_members(org_id=org_id)
+    member_emails = {member.email for member in members}
+
+    successes = []
+    failures = []
+    skipped = []
+    for email in data.emails:
+        if email in member_emails:
+            skipped.append(email)
+            continue
+        try:
+            invite_user_id = user_helpers.lookup_user_id_by_email(email)
+            organization_helpers.add_user_to_organization(
+                org_id=org_id, email=email, user_id=invite_user_id, role="member"
+            )
+            successes.append(email)
+        except user_helpers.UserNotFound:
+            failures.append(email)
+
+    return {"successes": successes, "failures": failures, "skipped": skipped}
 
 
 @router.delete("/organization/{org_id}")

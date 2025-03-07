@@ -92,3 +92,7 @@ class OrganizationMembersResponse(BaseModel):
 
     organization: OrganizationResponse
     members: List[OrganizationMemberResponse]
+
+
+class OrganizationInviteMembersRequest(BaseModel):
+    emails: list[EmailStr]
