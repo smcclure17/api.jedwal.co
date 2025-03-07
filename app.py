@@ -8,14 +8,14 @@ import mangum
 from fastapi import FastAPI
 from sheetsapi import sentry_helpers
 
+from sheetsapi import config
+
+config.Config.init()
+
 # Only start sentry in production
 IS_LAMBDA = os.getenv("LAMBDA_TASK_ROOT")
 if IS_LAMBDA:
     sentry_helpers.init()
-
-from sheetsapi import config
-
-config.Config.init()
 
 from middleware import setup_middleware
 from routers import (

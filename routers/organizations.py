@@ -143,10 +143,10 @@ async def invite_user_to_organization(
     successes = []
     failures = []
     skipped = []
-    for email in data.emails:
+    for email in set(data.emails):
         if email in member_emails:
             skipped.append(email)
-            continue
+            continue   # skip people who are already members
         try:
             invite_user_id = user_helpers.lookup_user_id_by_email(email)
             organization_helpers.add_user_to_organization(
