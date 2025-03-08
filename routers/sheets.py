@@ -29,8 +29,8 @@ api_manager = sheet_api_manager.SheetManager()
 cloudfront = cloudfront_helpers.create_cloudfront_client()
 
 
-@router.get("/api/{name}")
-async def read_sheet(name: str, worksheet: str = "Sheet1"):
+@router.get("/api/{user_or_org}/{api_name_slug}")
+async def read_sheet(user_or_org: str, api_name_slug: str, worksheet: str = "Sheet1"):
     """
     Get data from a sheet API.
 
@@ -41,8 +41,11 @@ async def read_sheet(name: str, worksheet: str = "Sheet1"):
     Returns:
         JSONResponse: The data from the sheet
     """
+    # TODO: solidify naming logic somewhere central.
+    # This needs to match _generate_api_name(...)
+    api_name = f"{user_or_org}_{api_name_slug}"
     try:
-        data = api_manager.get_worksheet_data(name, worksheet)
+        data = api_manager.get_worksheet_data(api_name, worksheet)
         if data.get("frozen"):
             raise HTTPException(401, "API is frozen. Upgrade to premium to unfreeze")
 

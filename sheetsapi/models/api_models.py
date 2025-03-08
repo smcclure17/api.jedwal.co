@@ -26,6 +26,7 @@ class SheetMetadataResponse(BaseModel):
     id: str
     created_at: datetime | str
     api_name: str
+    api_name_formatted: str  # user/api-name instead of user_api-name
     spreadsheet_name: str
     sheet_id: str
     cdn_ttl: int
@@ -39,6 +40,7 @@ class SheetMetadataResponse(BaseModel):
             id=sheet.PK,
             created_at=sheet.createdAt,
             api_name=sheet.apiName,
+            api_name_formatted=sheet.apiName.replace("_", "/"),
             spreadsheet_name=sheet.spreadsheetName,
             sheet_id=sheet.sheetId,
             cdn_ttl=sheet.cdnTtl,

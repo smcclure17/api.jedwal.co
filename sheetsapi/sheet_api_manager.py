@@ -12,7 +12,7 @@ from sheetsapi import (
     user_helpers,
     organization_helpers,
 )
-from sheetsapi.models.db_models import SheetMetadata
+from sheetsapi.models.db_models import SheetMetadata, SheetMetadataWithWorksheets
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,8 @@ class SheetManager:
             return existing_sheets[0].apiName
 
         google_client = google_sheet_client.GoogleSheets(auth_creds=auth_creds)
-        api_name = _generate_api_name(self.repository)
+        user_or_org_id = org_id or user_id
+        api_name = _generate_api_name(user_or_org_id, self.repository)
         sheet_data = google_client.get_spreadsheet_data(sheet_id=sheet_id)
 
         # Determine if this is a user-owned or org-owned sheet
@@ -178,9 +179,7 @@ class SheetManager:
     def get_sheet_api_info(self, name: str):
         return self.repository.get_sheet_api_by_name(name)
 
-    def get_sheet_apis_for_email(
-        self, email: str
-    ) -> list[dynamodb_sheet_repo.SheetMetadataWithWorksheets]:
+    def get_sheet_apis_for_email(self, email: str) -> list[SheetMetadataWithWorksheets]:
         """Get all sheets in the repository that belong to an email address."""
         sheets = self.repository.get_sheet_apis_for_email(email)
         return self._add_worksheets_to_sheets(sheets)
@@ -195,20 +194,20 @@ class SheetManager:
         self.repository.update_sheet_api_ttl(name, ttl)
 
     def _add_worksheets_to_sheets(self, sheets: list[SheetMetadata]):
-        output: list[dynamodb_sheet_repo.SheetMetadataWithWorksheets] = []
+        output: list[SheetMetadataWithWorksheets] = []
         for sheet in sheets:
             auth_creds = self.repository.get_sheet_auth_credentials(sheet.apiName)
             google_client = google_sheet_client.GoogleSheets(auth_creds=auth_creds)
             worksheets = google_client.get_spreadsheet_data(sheet.sheetId).worksheets
             output.append(
-                dynamodb_sheet_repo.SheetMetadataWithWorksheets(
-                    **sheet.model_dump(), worksheets=worksheets
-                )
+                SheetMetadataWithWorksheets(**sheet.model_dump(), worksheets=worksheets)
             )
         return output
 
 
-def _generate_api_name(repo: dynamodb_sheet_repo.DynamoDBSheetRepository) -> str:
+def _generate_api_name(
+    user_or_org: str, repo: dynamodb_sheet_repo.DynamoDBSheetRepository
+) -> str:
     """Generate a random unique name that does not already exist in the repository.
 
     Args:
@@ -217,7 +216,7 @@ def _generate_api_name(repo: dynamodb_sheet_repo.DynamoDBSheetRepository) -> str
     Returns:
         A unique name.
     """
-    name = randomname.get_name()
+    name = f"{user_or_org}_{randomname.get_name()}"
     while repo.sheet_api_exists(name):
         name = randomname.get_name()
     return name

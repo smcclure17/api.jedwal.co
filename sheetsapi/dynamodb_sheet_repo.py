@@ -1,7 +1,7 @@
 import dataclasses
 from sheetsapi import auth_utils, dynamodb_client, user_helpers
 from sheetsapi.config import Config
-from sheetsapi.models.db_models import SheetMetadata, SheetMetadataWithWorksheets
+from sheetsapi.models.db_models import SheetMetadata
 
 
 class SheetNotFound(Exception):
@@ -59,7 +59,7 @@ class DynamoDBSheetRepository:
             ExpressionAttributeValues={":sk": "SHEET#"},
         )
         return [SheetMetadata(**sheet) for sheet in sheets]
-        
+
     def get_sheet_apis_for_org(self, org_id: str) -> list[SheetMetadata]:
         """Get all sheets for a given organization"""
         # Get all sheets for that organization using GSI1
