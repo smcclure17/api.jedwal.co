@@ -2,13 +2,20 @@
 
 import logging
 import gzip
+import os
 
 import boto3
 
-from sheetsapi import dynamodb_client, config
+from sheetsapi import dynamodb_client, config, sentry_helpers
+from sheetsapi.dynamodb_sheet_repo import DynamoDBSheetRepository
 
 logger = logging.getLogger(__name__)
 config.Config.init()
+
+IS_LAMBDA = os.getenv("LAMBDA_TASK_ROOT")
+if IS_LAMBDA:
+    sentry_helpers.init()
+
 db_client = dynamodb_client.DynamoDBClient()
 s3 = boto3.client("s3")
 
@@ -19,6 +26,8 @@ def handler(event, _context):
     Only processes API requests (calls to /api/* paths) since
     these are the APIs we want analytics on.
     """
+    sheet_repo = DynamoDBSheetRepository(repository=db_client)
+
     for record in event["Records"]:
         bucket_name = record["s3"]["bucket"]["name"]
         object_key = record["s3"]["object"]["key"]
@@ -39,11 +48,16 @@ def handler(event, _context):
             if "/api/" not in line["cs-uri-stem"]:
                 continue  # Only care about API requests, not user data
 
-            line["timestamp"] = f"{line['date']}T{line['time']}Z"
+            path: str = line["cs-uri-stem"].split("/api/")[1]
+            api_name = path.replace("/", "_")  # convert path back to api_name internal format
+            sheet_id = sheet_repo.get_sheet_api_by_name(api_name=api_name).uuid
+
+            timestamp = f"{line['date']}T{line['time']}Z"
             line_item = {
-                "path": line["cs-uri-stem"].split("/api/")[1],  # Table primary key
-                "timestamp": line["timestamp"],  # Table range key
+                "PK": sheet_id,  # Table primary key, sheet uuid
+                "timestamp": timestamp,  # Table range key
                 "status_code": int(line["sc-status"]),
+                "path": line["cs-uri-stem"].split("/api/")[1]
             }
             db_client.put_item(config.Config.Constants.ANALYTICS_TABLE, line_item)
             lines_processed += 1

@@ -93,7 +93,7 @@ Resources:
       ImageUri: !Ref ImageUri
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 30
-      MemorySize: 1024  # mb
+      MemorySize: 1024 # mb
       Environment:
         Variables:
           GOOGLE_CLIENT_ID: !Ref GoogleClientId
@@ -264,6 +264,10 @@ Resources:
           AttributeType: S
         - AttributeName: GSI1SK
           AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -278,6 +282,14 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       BillingMode: PAY_PER_REQUEST
       SSESpecification:
         SSEEnabled: true
@@ -286,7 +298,6 @@ Resources:
       Tags:
         - Key: Environment
           Value: prod
-
 
   LambdaStreamFunction:
     Type: AWS::Serverless::Function
@@ -301,7 +312,7 @@ Resources:
           GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
           OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
-          SHEETS_API_TABLE: !Ref DynamoDBTable
+          SHEETS_API_TABLE: !Ref DynamoDBTableOrgs
           ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
           API_BASE_URL: !Ref ApiBaseUrl
@@ -343,6 +354,14 @@ Resources:
                 Action:
                   - dynamodb:PutItem
                 Resource: !GetAtt AnalyticsDynamoDBTable.Arn
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt DynamoDBTableOrgs.Arn
+                  - !Sub "${DynamoDBTableOrgs.Arn}/index/GSI1"
+                  - !Sub "${DynamoDBTableOrgs.Arn}/index/GSI2" # global secondary index perms
 
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
@@ -483,12 +502,12 @@ Resources:
     Properties:
       TableName: prod-sheetsapi-analytics-table
       AttributeDefinitions:
-        - AttributeName: path
+        - AttributeName: PK
           AttributeType: S
         - AttributeName: timestamp
           AttributeType: S
       KeySchema:
-        - AttributeName: path
+        - AttributeName: PK
           KeyType: HASH
         - AttributeName: timestamp
           KeyType: RANGE

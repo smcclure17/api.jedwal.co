@@ -24,11 +24,12 @@ class SheetMetadataResponse(BaseModel):
     """Public-facing API response model for sheet metadata"""
 
     id: str
+    uuid: str
     created_at: datetime | str
     api_name: str
     api_name_formatted: str  # user/api-name instead of user_api-name
     spreadsheet_name: str
-    sheet_id: str
+    sheet_id: str  # google sheet id
     cdn_ttl: int
     frozen: bool = False
     worksheets: List[str] = []
@@ -38,6 +39,7 @@ class SheetMetadataResponse(BaseModel):
         """Create a response model from SheetMetadataWithWorksheets"""
         return cls(
             id=sheet.PK,
+            uuid=sheet.uuid,
             created_at=sheet.createdAt,
             api_name=sheet.apiName,
             api_name_formatted=sheet.apiName.replace("_", "/"),
@@ -98,3 +100,20 @@ class OrganizationMembersResponse(BaseModel):
 
 class OrganizationInviteMembersRequest(BaseModel):
     emails: list[EmailStr]
+
+
+class ApiInvocationResponse(BaseModel):
+    sheet_api_id: str
+    path: str
+    timestamp: str
+    status_code: int
+        
+
+    @classmethod
+    def from_db_dict(cls, item: dict) -> "ApiInvocationResponse":
+        return ApiInvocationResponse(
+            sheet_api_id=item["PK"],
+            path=item["path"],
+            timestamp=item["timestamp"],
+            status_code=item["status_code"]
+        )

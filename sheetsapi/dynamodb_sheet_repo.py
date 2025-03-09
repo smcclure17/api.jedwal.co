@@ -21,23 +21,48 @@ class DynamoDBSheetRepository:
             item=sheet_data.model_dump(),
         )
 
-    def remove_sheet(self, name: str):
-        key = {"PK": f"SHEET#{name}", "SK": "#METADATA"}
+    def remove_sheet(self, sheet_uuid: str):
+        """Remove a sheet by its UUID"""
+        key = {"PK": f"SHEET#{sheet_uuid}", "SK": "#METADATA"}
         self.repository.delete_item(Config.Constants.SHEETS_API_TABLE, key=key)
+    
+    def remove_sheet_by_api_name(self, api_name: str):
+        """Remove a sheet by its API name"""
+        sheet = self.get_sheet_api_by_name(api_name)
+        if sheet:
+            self.remove_sheet(sheet.uuid)
 
-    def get_sheet_api_by_name(self, name: str) -> SheetMetadata:
-        """Retrieve a sheet"""
+    def get_sheet_api_by_uuid(self, sheet_uuid: str) -> SheetMetadata:
+        """Retrieve a sheet by its UUID"""
         sheet = self.repository.get_item(
             Config.Constants.SHEETS_API_TABLE,
-            {"PK": f"SHEET#{name}", "SK": "#METADATA"},
+            {"PK": f"SHEET#{sheet_uuid}", "SK": "#METADATA"},
         )
         if sheet is None:
-            raise SheetNotFound(f"Sheet with name {name} not found in repository.")
+            raise SheetNotFound(f"Sheet with UUID {sheet_uuid} not found in repository.")
         return SheetMetadata(**sheet)
 
-    def sheet_api_exists(self, name: str) -> bool:
+    def get_sheet_api_by_name(self, api_name: str) -> SheetMetadata:
+        """Retrieve a sheet by its API name using GSI2"""
+        sheets = self.repository.query_index(
+            Config.Constants.SHEETS_API_TABLE,
+            "GSI2",
+            "GSI2PK",
+            "API",
+            KeyConditionExpression="GSI2PK = :pk AND GSI2SK = :sk",
+            ExpressionAttributeValues={":pk": "API", ":sk": f"API#{api_name}"},
+        )
+        
+        if not sheets or len(sheets) == 0:
+            raise SheetNotFound(f"Sheet with API name {api_name} not found in repository.")
+        
+        # Should only be one sheet with this API name
+        return SheetMetadata(**sheets[0])
+
+    def sheet_api_exists(self, api_name: str) -> bool:
+        """Check if an API name is already in use"""
         try:
-            self.get_sheet_api_by_name(name)
+            self.get_sheet_api_by_name(api_name)
             return True
         except SheetNotFound:
             return False
@@ -92,13 +117,23 @@ class DynamoDBSheetRepository:
             decrement=decrement,
         )
 
-    def get_sheet_auth_credentials(self, name):
-        creds = self.get_sheet_api_by_name(name).authCreds
+    def get_sheet_auth_credentials(self, api_name):
+        """Get the auth credentials for a sheet by API name"""
+        creds = self.get_sheet_api_by_name(api_name).authCreds
+        return auth_utils.GoogleOauthFields(**creds)
+        
+    def get_sheet_auth_credentials_by_uuid(self, uuid):
+        """Get the auth credentials for a sheet by UUID"""
+        creds = self.get_sheet_api_by_uuid(uuid).authCreds
         return auth_utils.GoogleOauthFields(**creds)
 
-    def update_sheet_api_ttl(self, name, ttl):
+    def update_sheet_api_ttl(self, api_name, ttl):
+        # First get the sheet by API name to get the UUID
+        sheet = self.get_sheet_api_by_name(api_name)
+        
+        # Then update using the UUID as the primary key
         self.repository.update_item(
             table=Config.Constants.SHEETS_API_TABLE,
-            key={"PK": f"SHEET#{name}", "SK": "#METADATA"},
+            key={"PK": f"SHEET#{sheet.uuid}", "SK": "#METADATA"},
             item={"cdnTtl": ttl},
         )

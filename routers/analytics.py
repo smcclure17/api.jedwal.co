@@ -6,6 +6,7 @@ import re
 from fastapi import APIRouter, HTTPException
 
 from sheetsapi import analytics_client
+from sheetsapi.models.api_models import ApiInvocationResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["analytics"])
@@ -13,7 +14,7 @@ analytics_handler = analytics_client.AnalyticsClient()
 
 
 @router.get("/get-api-invocations")
-def get_sheet_invocations(api_name: str, start_time: str):
+def get_sheet_invocations(sheet_api_id: str, start_time: str):
     """
     Get API invocation logs for a specific sheet.
     
@@ -29,19 +30,19 @@ def get_sheet_invocations(api_name: str, start_time: str):
         raise HTTPException(
             status_code=400, detail="Invalid start time format. Use ISO 8601 format."
         )
-
-    return analytics_handler.get_api_logs(api_name, start_time)
+    logs = analytics_handler.get_api_logs(sheet_api_id, start_time)
+    return [ApiInvocationResponse.from_db_dict(log) for log in logs]
 
 
 @router.get("/get-api-invocations-total")
-def get_sheet_invocations_total(api_name: str):
+def get_sheet_invocations_total(sheet_api_id: str):
     """
     Get the total count of API invocations for a specific sheet.
     
     Args:
-        api_name: Name of the API
+        sheet_api_id: ID of the API
         
     Returns:
         Total count of invocations
     """
-    return analytics_handler.get_api_total_invocations(api_name)
+    return analytics_handler.get_api_total_invocations(sheet_api_id)

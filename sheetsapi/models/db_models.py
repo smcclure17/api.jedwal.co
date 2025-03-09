@@ -12,12 +12,15 @@ import uuid
 class SheetMetadata(BaseModel):
     """Database model for sheet metadata"""
 
-    PK: str
+    PK: str  # SHEET#{uuid} - Primary key is now a UUID
     SK: str = "#METADATA"
-    GSI1PK: str
-    GSI1SK: str
-    sheetId: str
-    apiName: str
+    GSI1PK: str  # USER# or ORG# - For user/org ownership queries
+    GSI1SK: str  # SHEET#{uuid}
+    GSI2PK: str = "API"  # Consistent partition key for API name lookups
+    GSI2SK: str  # API#{api_name} - For looking up sheets by API name
+    sheetId: str  # Google's sheet ID
+    uuid: str  # Unique identifier for the sheet (stored separately for convenience)
+    apiName: str  # User-friendly API name (prefixed with owner type and ID)
     spreadsheetName: str
     createdAt: datetime | str
     cdnTtl: int
@@ -36,11 +39,35 @@ class SheetMetadata(BaseModel):
         if not self.is_org_sheet:
             raise ValueError("Personal sheet has no org_id")
         return self.GSI1PK[4:]
-
+            
+    @classmethod
+    def create(cls, sheet_uuid: str, api_name: str, sheet_id: str, spreadsheet_name: str, 
+               owner_id: str, email: str, auth_creds: dict, is_org: bool = False):
+        """Factory method to create a SheetMetadata with proper keys"""
+        owner_type = "ORG" if is_org else "USER"
+        return cls(
+            PK=f"SHEET#{sheet_uuid}",
+            GSI1PK=f"{owner_type}#{owner_id}",
+            GSI1SK=f"SHEET#{sheet_uuid}",
+            GSI2PK="API",
+            GSI2SK=f"API#{api_name}",
+            sheetId=sheet_id,
+            uuid=sheet_uuid,
+            apiName=api_name,
+            spreadsheetName=spreadsheet_name,
+            createdAt=datetime.now().isoformat(),
+            cdnTtl=60,
+            authCreds=auth_creds,
+            ownerId=owner_id,
+            email=email,
+        )
+    
     def __post_model_init__(self):
         assert self.PK.startswith("SHEET#")
-        assert self.GSI1PK.startswith("USER#")
+        assert self.GSI1PK.startswith("USER#") or self.GSI1PK.startswith("ORG#")
         assert self.GSI1SK.startswith("SHEET#")
+        assert self.GSI2PK == "API"
+        assert self.GSI2SK.startswith("API#")
         assert self.SK == "#METADATA"
 
 
