@@ -418,10 +418,12 @@ Resources:
                 Action:
                   - dynamodb:Query
                   - dynamodb:Scan
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:PutItem
                 Resource:
-                  - !GetAtt DynamoDBTableOrgs.Arn
-                  - !Sub "${DynamoDBTableOrgs.Arn}/index/GSI1"
-                  - !Sub "${DynamoDBTableOrgs.Arn}/index/GSI2" # global secondary index perms
+                  - !GetAtt DynamoDBTableV2.Arn
+                  - !Sub "${DynamoDBTableV2.Arn}/index/GSI1"
+                  - !Sub "${DynamoDBTableV2.Arn}/index/GSI2" # global secondary index perms
 
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole

@@ -5,18 +5,22 @@ import gzip
 import os
 
 import boto3
+from sheetsapi import config
 
-from sheetsapi import dynamodb_client, config, sentry_helpers
-from sheetsapi.dynamodb_sheet_repo import DynamoDBSheetRepository
+config.Config.init()
+
+from sheetsapi import sentry_helpers
+from sheetsapi.analytics_client import AnalyticsClient
 
 logger = logging.getLogger(__name__)
-config.Config.init()
 
 IS_LAMBDA = os.getenv("LAMBDA_TASK_ROOT")
 if IS_LAMBDA:
     sentry_helpers.init()
 
-db_client = dynamodb_client.DynamoDBClient()
+analytics_client = AnalyticsClient.from_table_name(
+    config.Config.Constants.SHEETS_API_TABLE
+)
 s3 = boto3.client("s3")
 
 
@@ -26,8 +30,8 @@ def handler(event, _context):
     Only processes API requests (calls to /api/* paths) since
     these are the APIs we want analytics on.
     """
-    sheet_repo = DynamoDBSheetRepository(repository=db_client)
 
+    results = []
     for record in event["Records"]:
         bucket_name = record["s3"]["bucket"]["name"]
         object_key = record["s3"]["object"]["key"]
@@ -43,28 +47,34 @@ def handler(event, _context):
             raise e
 
         log_lines = parse_cloudfront_log_lines(object_content)
-        lines_processed = 0
+        prepped_rows = []
         for line in log_lines:
             if "/api/" not in line["cs-uri-stem"]:
                 continue  # Only care about API requests, not user data
 
-            path: str = line["cs-uri-stem"].split("/api/")[1]
-            api_name = path.replace("/", "_")  # convert path back to api_name internal format
-            sheet_id = sheet_repo.get_sheet_api_by_name(api_name=api_name).uuid
-
+            # api log lines are formatted /api/{account_id}/{sheet_id}
+            parts: list[str] = line["cs-uri-stem"].split("/api/")[1].split("/")
+            owner_id = parts[0]
+            sheet_api_name = parts[1]
+            sheet_analytics_id = f"ANALYTICS#{owner_id}#{sheet_api_name}"
             timestamp = f"{line['date']}T{line['time']}Z"
-            line_item = {
-                "PK": sheet_id,  # Table primary key, sheet uuid
-                "timestamp": timestamp,  # Table range key
-                "status_code": int(line["sc-status"]),
-                "path": line["cs-uri-stem"].split("/api/")[1]
-            }
-            db_client.put_item(config.Config.Constants.ANALYTICS_TABLE, line_item)
-            lines_processed += 1
 
+            prepped_rows.append(
+                {
+                    "PK": sheet_analytics_id,
+                    "SK": timestamp,
+                    "status_code": int(line["sc-status"]),
+                    "account_id": owner_id,
+                    "sheet_api_name": sheet_api_name,
+                    "path": line["cs-uri-stem"].split("/api/")[1],
+                    "timestamp": timestamp,
+                }
+            )
+
+    results.append(analytics_client.batch_write_api_logs(prepped_rows))
     return {
         "statusCode": 200,
-        "body": {"message": f"Successfully processed {lines_processed} records"},
+        "results": results,
     }
 
 

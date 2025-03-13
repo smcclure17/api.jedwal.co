@@ -127,8 +127,8 @@ class ApiInvocationResponse(BaseModel):
     @classmethod
     def from_db_dict(cls, item: dict) -> "ApiInvocationResponse":
         return ApiInvocationResponse(
-            sheet_api_id=item["PK"],
+            sheet_api_id=item["sheet_api_name"],
             path=item["path"],
-            timestamp=item["timestamp"],
+            timestamp=item["request_time"],
             status_code=item["status_code"],
         )
