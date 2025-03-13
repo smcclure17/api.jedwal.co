@@ -240,7 +240,7 @@ class SheetApiRepo:
             "type": "organization",
             "account_id": org_id,
             "display_name": org_name,
-            "account_status": account_status,
+            "account_status": "free",  # TODO: make this account_status once we wire up prem orgs
             "created_at": datetime.now().isoformat(),
             "created_by": created_by,
         }
@@ -657,21 +657,16 @@ class SheetApiRepo:
                         # For batch operations we need to use PutRequest instead of UpdateRequest
                         # This means we need to get the full item and modify it
                         sheet_item = self.get_sheet_api_metadata(
-                            owner_id=owner_id, 
-                            sheet_api_id=sheet_api_name
+                            owner_id=owner_id, sheet_api_id=sheet_api_name
                         )
                         # Update the frozen status
                         sheet_item["frozen"] = True
-                        
-                        update_requests.append(
-                            {
-                                "PutRequest": {
-                                    "Item": sheet_item
-                                }
-                            }
-                        )
+
+                        update_requests.append({"PutRequest": {"Item": sheet_item}})
                     except SheetNotFoundError:
-                        print(f"Warning: Sheet {sheet_api_name} not found during freeze operation")
+                        print(
+                            f"Warning: Sheet {sheet_api_name} not found during freeze operation"
+                        )
 
             self.client.meta.client.batch_write_item(
                 RequestItems={self.table_name: update_requests}
@@ -721,21 +716,16 @@ class SheetApiRepo:
                             # For batch operations we need to use PutRequest instead of UpdateRequest
                             # This means we need to get the full item and modify it
                             sheet_item = self.get_sheet_api_metadata(
-                                owner_id=owner_id, 
-                                sheet_api_id=sheet_api_name
+                                owner_id=owner_id, sheet_api_id=sheet_api_name
                             )
                             # Update the frozen status
                             sheet_item["frozen"] = False
-                            
-                            update_requests.append(
-                                {
-                                    "PutRequest": {
-                                        "Item": sheet_item
-                                    }
-                                }
-                            )
+
+                            update_requests.append({"PutRequest": {"Item": sheet_item}})
                         except SheetNotFoundError:
-                            print(f"Warning: Sheet {sheet_api_name} not found during unfreeze operation")
+                            print(
+                                f"Warning: Sheet {sheet_api_name} not found during unfreeze operation"
+                            )
 
             if update_requests:  # Only make the API call if there are items to update
                 self.client.meta.client.batch_write_item(

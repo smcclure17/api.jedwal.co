@@ -38,7 +38,9 @@ async def get_account_data(user: CurrentUser, account_id: str | None = None):
         )
 
     try:
-        org_memberships = api_v2_manager.get_org_memberships_for_user(user.sub)
+        org_memberships = api_v2_manager.get_org_memberships_for_user(
+            user_item["account_id"]
+        )
     except sheet_api_repo_v2.UserNotFoundError:
         org_memberships = []  # account is an organization
 
@@ -46,8 +48,9 @@ async def get_account_data(user: CurrentUser, account_id: str | None = None):
     return UserDataResponse(
         id=user_item["account_id"],
         email=user.email,
-        display_name=user.name,
+        display_name=user_item["display_name"],
         account_status=user_item["account_status"],
         sheet_apis=api_v2_manager.get_sheet_apis_for_account(user.sub),
         orgs=orgs,
+        type=user_item["type"],
     )
