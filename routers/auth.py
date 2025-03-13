@@ -1,6 +1,7 @@
 """
 Authentication routes and OAuth configuration.
 """
+
 import logging
 from fastapi import APIRouter, HTTPException
 from starlette.requests import Request
@@ -56,9 +57,7 @@ async def auth(request: Request):
     except OAuthError as e:
         request.session.pop("user", None)
         logger.error(f"Error: {e.error}")
-        raise HTTPException(
-            status_code=500, detail=f"Something went wrong {e.error}"
-        )
+        raise HTTPException(status_code=500, detail=f"Something went wrong {e.error}")
     user_token = token.get("userinfo")
     if user_token:
         user = UserSession(

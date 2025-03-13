@@ -100,7 +100,7 @@ Resources:
           GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
           OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
-          SHEETS_API_TABLE: !Ref DynamoDBTableOrgs
+          SHEETS_API_TABLE: !Ref DynamoDBTableV2
           ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
           API_BASE_URL: !Ref ApiBaseUrl
@@ -299,6 +299,66 @@ Resources:
         - Key: Environment
           Value: prod
 
+  DynamoDBTableV2:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: prod-sheetsapi-table-v2
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
+        - AttributeName: GSI3PK
+          AttributeType: S
+        - AttributeName: GSI3SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI3
+          KeySchema:
+            - AttributeName: GSI3PK
+              KeyType: HASH
+            - AttributeName: GSI3SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: prod
+
   LambdaStreamFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -312,7 +372,7 @@ Resources:
           GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
           OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
-          SHEETS_API_TABLE: !Ref DynamoDBTableOrgs
+          SHEETS_API_TABLE: !Ref DynamoDBTableV2
           ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
           API_BASE_URL: !Ref ApiBaseUrl

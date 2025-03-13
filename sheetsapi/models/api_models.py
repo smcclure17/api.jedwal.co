@@ -4,33 +4,33 @@ These models define the request/response structures for API endpoints.
 """
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import List
+from typing import Any, List
 from datetime import datetime
 
 from sheetsapi.models.db_models import SheetMetadataWithWorksheets
+from sheetsapi.models.domain_models import SpreadsheetDataModel
+from sheetsapi.sheet_api_repo_v2 import AccountStatus
 
 
 class UserDataResponse(BaseModel):
     """Public-facing API response model for user data"""
 
-    api_count: int = Field(gt=-1)
     id: str
-    premium: bool
-    name: str
+    account_status: AccountStatus
+    display_name: str
     email: EmailStr
+    orgs: list[Any]
 
 
 class SheetMetadataResponse(BaseModel):
     """Public-facing API response model for sheet metadata"""
 
-    id: str
-    uuid: str
+    sheet_api_name: str
+    owner_id: str
     created_at: datetime | str
-    api_name: str
-    api_name_formatted: str  # user/api-name instead of user_api-name
-    spreadsheet_name: str
-    sheet_id: str  # google sheet id
-    cdn_ttl: int
+    spreadsheet_title: str
+    google_sheet_id: str  # google sheet id
+    cache_duration: int
     frozen: bool = False
     worksheets: List[str] = []
 
@@ -50,12 +50,28 @@ class SheetMetadataResponse(BaseModel):
             worksheets=sheet.worksheets,
         )
 
+    @classmethod
+    def from_temp_dicts(
+        cls, metadata: dict, spreadsheet_data: SpreadsheetDataModel
+    ) -> "SheetMetadataResponse":
+        return SheetMetadataResponse(
+            sheet_api_name=metadata["sheet_api_name"],
+            owner_id=metadata["owner_id"],
+            created_at="placeholder",
+            spreadsheet_title=spreadsheet_data.title,
+            google_sheet_id=metadata["google_sheet_id"],
+            cache_duration=metadata["cache_duration"],
+            frozen=metadata.get("frozen"),
+            worksheets=spreadsheet_data.worksheets,
+        )
+
 
 class UpdateApiTtlRequest(BaseModel):
     """Request model for updating API TTL"""
 
-    name: str
-    cdn_ttl: int = Field(
+    owner_id: str
+    sheet_api_name: str
+    cache_duration: int = Field(
         gt=0, description="Cache duration in seconds, minimum 1 second"
     )
 
@@ -107,7 +123,6 @@ class ApiInvocationResponse(BaseModel):
     path: str
     timestamp: str
     status_code: int
-        
 
     @classmethod
     def from_db_dict(cls, item: dict) -> "ApiInvocationResponse":
@@ -115,5 +130,5 @@ class ApiInvocationResponse(BaseModel):
             sheet_api_id=item["PK"],
             path=item["path"],
             timestamp=item["timestamp"],
-            status_code=item["status_code"]
+            status_code=item["status_code"],
         )

@@ -19,13 +19,13 @@ if IS_LAMBDA:
 
 from middleware import setup_middleware
 from routers import (
+    accounts,
     analytics,
     auth,
     organizations,
     payments,
     sheets,
     ui,
-    users,
 )
 
 
@@ -42,7 +42,7 @@ setup_middleware(app)
 
 # Include all routers
 app.include_router(auth.router)
-app.include_router(users.router)
+app.include_router(accounts.router)
 app.include_router(sheets.router)
 app.include_router(organizations.router)
 app.include_router(analytics.router)

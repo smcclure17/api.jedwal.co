@@ -33,10 +33,6 @@ class GoogleSheets:
             worksheets=[worksheet.title for worksheet in google_sheet.worksheets()],
         )
 
-    def get_worksheet_from_name(self, sheet_id: str, worksheet_name="Sheet1"):
-        google_sheet = self._try_open_spreadsheet(sheet_id=sheet_id)
-        return google_sheet.worksheet(worksheet_name)
-
     def get_worksheet_data(
         self, worksheet: gspread.worksheet.Worksheet
     ) -> WorksheetDataModel:

@@ -33,5 +33,4 @@ class AnalyticsClient:
             "PK",
             sheet_api_id,
         )
-        print(result)
         return len(result)

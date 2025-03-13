@@ -6,11 +6,12 @@ from fastapi import APIRouter
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
-from sheetsapi import sheet_api_manager
-from sheetsapi.models.db_models import SheetMetadataWithWorksheets
+from sheetsapi import config, sheet_api_repo_v2
 
 router = APIRouter(tags=["ui"])
-api_manager = sheet_api_manager.SheetManager()
+manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name(
+    config.Config.Constants.SHEETS_API_TABLE
+)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -18,7 +19,7 @@ async def homepage(request: Request):
     """Render simple homepage"""
     user: dict | None = request.session.get("user")
     if user is not None:
-        sheets = api_manager.get_sheet_apis_for_email(user["email"])
+        sheets = manager_v2.get_sheet_apis_for_account(user["sub"])
         html = f"""
         <style>
             body {{
@@ -28,12 +29,11 @@ async def homepage(request: Request):
         <h1>Google Sheets API</h1>
         <h2>Hello, {user.get("given_name")}!</h2>
         <form action="/create-api" method="post">
-            <input type="text" name="sheet_id" placeholder="Enter Google Sheet ID" style="width: 400px;">
+            <input type="text" name="google_sheet_id" placeholder="Enter Google Sheet ID" style="width: 400px;">
             <button type="submit">Create API</button>
         </form>
         <h3>Your Sheets:</h3>
         <ul class="sheet-list">
-            {_generate_sheet_list_items(sheets)}
         </ul>
         <a href="/logout">logout</a>
         """
@@ -42,21 +42,3 @@ async def homepage(request: Request):
     return HTMLResponse(
         '<a href="/login" style="font-family: sans-serif;">please login</a>'
     )
-
-
-def _generate_sheet_list_items(sheets: list[SheetMetadataWithWorksheets]) -> str:
-    if not sheets:
-        return "<li>No sheets found</li>"
-
-    items = []
-    for sheet in sheets:
-        items.append(
-            f"""
-            <li class="sheet-item">
-                <strong>{sheet.spreadsheetName}</strong><br>
-                Sheet ID: {sheet.sheetId}<br>
-                <a class="sheet-link" href="/api/{sheet.apiName}" target="_blank">View API</a>
-            </li>
-        """
-        )
-    return "\n".join(items)
