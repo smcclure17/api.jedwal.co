@@ -9,16 +9,14 @@ from starlette.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from sheetsapi import config, sheet_api_repo_v2
+from sheetsapi import sheet_api_repo_v2
 
 # Get the directory of the current file and compute the path to the public directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = BASE_DIR / "public"
 
 router = APIRouter(tags=["ui"])
-manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-    config.Config.Constants.SHEETS_API_TABLE
-)
+manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name()
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -54,7 +52,8 @@ async def homepage(request: Request):
         """
 
         return HTMLResponse(html)
-    return HTMLResponse('''
+    return HTMLResponse(
+        """
         <html>
         <head>
             <title>Jedwal.co API - Login</title>
@@ -81,7 +80,8 @@ async def homepage(request: Request):
             <a href="/login">Login with Google</a>
         </body>
         </html>
-    ''')
+    """
+    )
 
 
 @router.get("/favicon.ico", include_in_schema=False)

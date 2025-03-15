@@ -1,5 +1,4 @@
 from collections import defaultdict
-import dataclasses
 import re
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -10,8 +9,8 @@ from botocore.exceptions import ClientError
 import randomname
 
 
-from sheetsapi import auth_utils, google_sheet_client
 from sheetsapi.config import Config
+from sheetsapi.models.domain_models import RefreshTokenInfo
 
 AccountType = Literal["user", "organization"]
 AccountStatus = Literal["free", "premium"]
@@ -57,7 +56,7 @@ class SheetApiRepo:
         self,
         user_id: str,  # Google SUB id
         email: str,
-        refresh_token: str,
+        refresh_token_info: RefreshTokenInfo,
         given_name: str,
         family_name: str,
         account_status: Optional[AccountStatus] = "free",
@@ -70,7 +69,7 @@ class SheetApiRepo:
             "account_id": user_id,
             "display_name": f"{given_name} {family_name}",
             "email": email,
-            "refresh_token": refresh_token,
+            "refresh_token_info": refresh_token_info.to_dict(),
             "given_name": given_name,
             "family_name": family_name,
             "account_status": account_status,
@@ -302,7 +301,14 @@ class SheetApiRepo:
         response = self.table.get_item(
             Key={"PK": f"ACCOUNT#{id}", "SK": f"ACCOUNT#{id}"}
         )
-        return response.get("Item", None)
+        account = response.get("Item", None)
+        if account is None:
+            return None
+        if account["type"] == "user":
+            account["refresh_token_info"] = RefreshTokenInfo(
+                **account["refresh_token_info"]
+            )
+        return account
 
     def get_accounts(self, ids: list[str]) -> list[dict]:
         """Retrieve accounts from a list of account IDs.
@@ -338,6 +344,9 @@ class SheetApiRepo:
             items.extend(response.get("Responses", {}).get(self.table.name, []))
             unprocessed_keys = response.get("UnprocessedKeys", {})
 
+        for item in items:
+            if item["type"] == "user":
+                item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
         return items
 
     def get_users_for_org(self, org_id: str):
@@ -388,7 +397,7 @@ class SheetApiRepo:
         self,
         owner_id,
         google_sheet_id: str,
-        auth_creds: auth_utils.GoogleOauthFields,
+        refresh_token_info: RefreshTokenInfo,
         cache_duration: Optional[int] = 60,  # seconds
     ):
         """Create a new sheet API"""
@@ -398,8 +407,6 @@ class SheetApiRepo:
         if existing_api is not None:
             return existing_api
 
-        google_client = google_sheet_client.GoogleSheets(auth_creds=auth_creds)
-        spreadsheet_data = google_client.get_spreadsheet_data(google_sheet_id)
         sheet_api_key = self._create_unique_sheet_api_key(owner_id)
         sheet_api_name = sheet_api_key.split("#")[2]
 
@@ -409,8 +416,7 @@ class SheetApiRepo:
             "sheet_api_name": sheet_api_name,
             "owner_id": owner_id,
             "google_sheet_id": google_sheet_id,
-            "google_sheet_name": spreadsheet_data.title,
-            "auth_creds": dataclasses.asdict(auth_creds),
+            "refresh_token_info": refresh_token_info.to_dict(),
             "frozen": False,
             "cache_duration": cache_duration,
             "created_at": datetime.now().isoformat(),
@@ -488,6 +494,8 @@ class SheetApiRepo:
         item = result.get("Item")
         if item is None:
             raise SheetNotFoundError(f"Sheet not found with key {key}")
+        
+        item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
         return item
 
     def get_sheet_apis_for_account(self, owner_id: str):
@@ -503,7 +511,10 @@ class SheetApiRepo:
             KeyConditionExpression="GSI2PK = :owner_pk",
             ExpressionAttributeValues={":owner_pk": f"ACCOUNT#{owner_id}"},
         )
-        return response.get("Items", [])
+        items = response.get("Items", [])
+        for item in items:
+            item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
+        return items
 
     def get_sheet_api_by_google_sheet_id(self, owner_id, google_sheet_id):
         """Find a sheet API by Google Sheet ID for a specific owner."""
@@ -519,7 +530,12 @@ class SheetApiRepo:
             },
         )
         items = response.get("Items", [])
-        return items[0] if items else None
+        if not items:
+            return None
+        
+        item = items[0]
+        item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
+        return item
 
     def update_sheet_api(
         self, owner_id: str, sheet_api_name: str, fields: dict[str, Any]
@@ -616,7 +632,9 @@ class SheetApiRepo:
         items = response.get("Items", [])
         if not items:
             raise UserNotFoundError(f"User with email {email} not found.")
-        return items[0]
+        item = items[0]
+        item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
+        return item
 
     def downgrade_account(self, owner_id: str):
         """
@@ -661,6 +679,7 @@ class SheetApiRepo:
                         )
                         # Update the frozen status
                         sheet_item["frozen"] = True
+                        sheet_item["refresh_token_info"] = sheet_item["refresh_token_info"].to_dict()
 
                         update_requests.append({"PutRequest": {"Item": sheet_item}})
                     except SheetNotFoundError:
@@ -720,6 +739,7 @@ class SheetApiRepo:
                             )
                             # Update the frozen status
                             sheet_item["frozen"] = False
+                            sheet_item["refresh_token_info"] = sheet_item["refresh_token_info"].to_dict()
 
                             update_requests.append({"PutRequest": {"Item": sheet_item}})
                         except SheetNotFoundError:

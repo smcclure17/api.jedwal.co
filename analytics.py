@@ -18,9 +18,7 @@ IS_LAMBDA = os.getenv("LAMBDA_TASK_ROOT")
 if IS_LAMBDA:
     sentry_helpers.init()
 
-analytics_client = AnalyticsClient.from_table_name(
-    config.Config.Constants.SHEETS_API_TABLE
-)
+analytics_client = AnalyticsClient.from_table_name()
 s3 = boto3.client("s3")
 
 
@@ -52,6 +50,7 @@ def handler(event, _context):
             if "/api/" not in line["cs-uri-stem"]:
                 continue  # Only care about API requests, not user data
 
+            request_id = line["x-edge-request-id"]
             # api log lines are formatted /api/{account_id}/{sheet_id}
             parts: list[str] = line["cs-uri-stem"].split("/api/")[1].split("/")
             owner_id = parts[0]
@@ -68,6 +67,7 @@ def handler(event, _context):
                     "sheet_api_name": sheet_api_name,
                     "path": line["cs-uri-stem"].split("/api/")[1],
                     "timestamp": timestamp,
+                    "request_id": request_id,
                 }
             )
 

@@ -10,9 +10,7 @@ WEBHOOK_SECRET = Config.Constants.STRIPE_WEBHOOK_SECRET
 def upgrade_user(email: str) -> None:
     """Mark a user as a premium user"""
 
-    repo = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-        table_name=Config.Constants.SHEETS_API_TABLE
-    )
+    repo = sheet_api_repo_v2.SheetApiRepo.from_table_name()
     user = repo.get_user_by_email(email)
     if user is None:
         raise sheet_api_repo_v2.UserNotFoundError(
@@ -30,9 +28,7 @@ def downgrade_user(customer_id: str) -> None:
             f"Cannot cancel subscription with no email. Customer ID: {customer_id}"
         )
 
-    repo = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-        table_name=Config.Constants.SHEETS_API_TABLE
-    )
+    repo = sheet_api_repo_v2.SheetApiRepo.from_table_name()
     user = repo.get_user_by_email(email=email)
     if user is None:
         raise sheet_api_repo_v2.UserNotFoundError(

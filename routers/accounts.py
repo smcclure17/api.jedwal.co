@@ -3,14 +3,12 @@
 from fastapi import APIRouter
 import fastapi
 
-from sheetsapi import config, sheet_api_repo_v2
+from sheetsapi import sheet_api_repo_v2
 from sheetsapi.models.api_models import UserDataResponse
 from dependencies import CurrentUser
 
 router = APIRouter(tags=["users"])
-api_v2_manager = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-    table_name=config.Config.Constants.SHEETS_API_TABLE
-)
+api_v2_manager = sheet_api_repo_v2.SheetApiRepo.from_table_name()
 
 
 @router.get("/get-account-data", response_model=UserDataResponse)
@@ -42,7 +40,7 @@ async def get_account_data(user: CurrentUser, account_id: str | None = None):
             user_item["account_id"]
         )
     except sheet_api_repo_v2.UserNotFoundError:
-        org_memberships = []  # account is an organization
+        org_memberships = []  # account is an organization so it has no orgs
 
     orgs = api_v2_manager.get_accounts([org["org_id"] for org in org_memberships])
     return UserDataResponse(

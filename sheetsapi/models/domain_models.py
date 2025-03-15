@@ -2,8 +2,9 @@
 Core domain models that represent business entities independent of persistence or API concerns.
 """
 
+import json
 from pydantic import BaseModel, EmailStr
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 
 class UserSession(BaseModel):
@@ -24,7 +25,6 @@ class UserSession(BaseModel):
     iat: int
     exp: int
     access_token: str
-    refresh_token: Optional[str] = None
 
 
 class SpreadsheetDataModel(BaseModel):
@@ -39,3 +39,27 @@ class WorksheetDataModel(BaseModel):
 
     title: str
     data: List[Dict[str, Any]]
+
+
+class EncryptionOutput(BaseModel):
+    """Result of an encryption call"""
+
+    encrypted_data: str
+    encrypted_key: str
+    context: Dict[str, Any]
+
+
+class RefreshTokenInfo(BaseModel):
+    """The encrypted refresh token, and the fields needed to decrypt it."""
+
+    encrypted_refresh_token: str
+    data_encryption_key: str
+    context: dict[str, Any]
+
+    def to_dict(self) -> dict:
+        return self.model_dump()
+    
+    @classmethod
+    def from_dict_str(cls, item: str) -> "RefreshTokenInfo":
+        return RefreshTokenInfo(**json.loads(item))  # no validation b/c only used in testing
+    

@@ -5,10 +5,7 @@ import logging
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import EmailStr
 
-from sheetsapi import (
-    config,
-    sheet_api_repo_v2,
-)
+from sheetsapi import sheet_api_repo_v2
 from sheetsapi.models.api_models import (
     CreateOrganizationRequest,
     OrganizationResponse,
@@ -18,9 +15,7 @@ from dependencies import CurrentUser
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["organizations"])
-api_manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-    config.Config.Constants.SHEETS_API_TABLE
-)
+api_manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name()
 
 
 @router.post("/create-organization", response_model=OrganizationResponse)

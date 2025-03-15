@@ -7,7 +7,6 @@ from fastapi import APIRouter, Form, HTTPException
 from fastapi.responses import JSONResponse
 
 from sheetsapi import (
-    auth_utils,
     google_sheet_client,
     sheet_api_repo_v2,
 )
@@ -22,28 +21,30 @@ from dependencies import CurrentUser
 router = APIRouter(tags=["sheets"])
 cloudfront = cloudfront_helpers.create_cloudfront_client()
 
-api_manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-    table_name=config.Config.Constants.SHEETS_API_TABLE
-)
+api_manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name()
 
 
 @router.get("/api/{owner_id}/{sheet_api_name}")
 async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sheet1"):
-    # Get and extract sheet API metadata
     try:
-        sheet_api_metadata = api_manager_v2.get_sheet_api_metadata(owner_id, sheet_api_name)
+        sheet_api_metadata = api_manager_v2.get_sheet_api_metadata(
+            owner_id, sheet_api_name
+        )
     except sheet_api_repo_v2.SheetNotFoundError:
         raise HTTPException(404, detail="Sheet API not found.")
+    
     google_sheet_id = sheet_api_metadata["google_sheet_id"]
-    auth_creds_dict = sheet_api_metadata["auth_creds"]
+    refresh_token_info = sheet_api_metadata["refresh_token_info"]
     cache_duration = sheet_api_metadata["cache_duration"]
     is_frozen = sheet_api_metadata.get("frozen")
 
     if is_frozen:
-        raise HTTPException(401, "API is frozen. Upgrade to premium to unfreeze")
+        raise HTTPException(401, "API is frozen. Re-upgrade to premium to unfreeze")
 
     # Fetch and return Google Sheet data
-    google_client = google_sheet_client.GoogleSheets.from_creds_dict(auth_creds_dict)
+    google_client = google_sheet_client.GoogleSheets.from_token_info(
+        info=refresh_token_info
+    )
     worksheet = google_client.get_worksheet_by_name(google_sheet_id, name=worksheet)
     try:
         return JSONResponse(
@@ -67,19 +68,19 @@ async def get_sheets_metadata_v2(owner_id: str, user: CurrentUser):
         raise HTTPException(403, "Not authorized")
 
     sheet_apis = api_manager_v2.get_sheet_apis_for_account(owner_id)
-    # return sheet_apis
 
     # Add worksheets
     results = []
     for sheet_api in sheet_apis:
-        auth_creds = sheet_api["auth_creds"]
+        refresh_token_info = sheet_api["refresh_token_info"]
         google_sheet_id = sheet_api["google_sheet_id"]
-        google_client = google_sheet_client.GoogleSheets.from_creds_dict(auth_creds)
+        google_client = google_sheet_client.GoogleSheets.from_token_info(
+            info=refresh_token_info
+        )
         google_sheet_data = google_client.get_spreadsheet_data(google_sheet_id)
         results.append(
             SheetMetadataResponse.from_temp_dicts(sheet_api, google_sheet_data)
         )
-        # results.append({"metadata": sheet_api, "spreadsheet_data": google_sheet_data})
     return results
 
 
@@ -100,20 +101,15 @@ async def create_api_v2(
 
     # We use the user auth creds even if it's an organization sheet api
     user_item = api_manager_v2.get_account(user.sub)
-    if user.refresh_token is not None:
-        refresh_token = user.refresh_token
-    else:
-        refresh_token = user_item["refresh_token"]
+    refresh_token_info = user_item["refresh_token_info"]
 
-    item = api_manager_v2.create_sheet_api(
+    sheet_api_res = api_manager_v2.create_sheet_api(
         owner_id=owner_id,
         google_sheet_id=google_sheet_id,
-        auth_creds=auth_utils.GoogleOauthFields.from_tokens(
-            access_token=user.access_token, refresh_token=refresh_token
-        ),
+        refresh_token_info=refresh_token_info,
     )
 
-    sheet_api_name = item["sheet_api_name"]
+    sheet_api_name = sheet_api_res["sheet_api_name"]
     return {
         "url": f"{config.Config.Constants.API_BASE_URL}/api/{owner_id}/{sheet_api_name}",
         "api_name": sheet_api_name,

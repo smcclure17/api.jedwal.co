@@ -1,32 +1,35 @@
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 import logging
 
-from sheetsapi import sheet_api_repo_v2
-from sheetsapi.config import Config
-from sheetsapi.models.domain_models import UserSession
+from sheetsapi import envelope_encryption
+from sheetsapi.sheet_api_repo_v2 import SheetApiRepo
+from sheetsapi.models.domain_models import RefreshTokenInfo, UserSession
 
 logger = logging.getLogger(__name__)
 
 
-def persist_user_if_not_exists(
-    user: UserSession, client: Optional[sheet_api_repo_v2.SheetApiRepo] = None
+def persist_user(
+    user: UserSession, refresh_token: str, sheet_repo: Optional[SheetApiRepo] = None
 ):
-    """Store a user (not organization) in the database if one does not already exist"""
-    if client is None:
-        client = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-            table_name=Config.Constants.SHEETS_API_TABLE
-        )
+    """Store a user in the database if one does not already exist"""
+    if sheet_repo is None:
+        sheet_repo = SheetApiRepo.from_table_name()
 
-    existing_user = client.get_account(user.sub)
-    if existing_user:
-        return existing_user["account_id"]
+    encryption_response = envelope_encryption.EnvelopeEncryption.encrypt(
+        refresh_token, context={"account_id": user.sub}
+    )
 
-    logger.info(f"Creating new user for email: {user.email}")
-    item = client.create_user(
+    token_info = RefreshTokenInfo(
+        encrypted_refresh_token=encryption_response.encrypted_data,
+        data_encryption_key=encryption_response.encrypted_key,
+        context=encryption_response.context,
+    )
+
+    item = sheet_repo.create_user(
         user_id=user.sub,
         email=user.email,
-        refresh_token=user.refresh_token,
         given_name=user.given_name,
         family_name=user.family_name,
+        refresh_token_info=token_info,
     )
     return item["account_id"]

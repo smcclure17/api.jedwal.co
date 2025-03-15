@@ -85,6 +85,47 @@ Parameters:
     Default: ".jedwal.co"
 
 Resources:
+  # KMS Key for Envelope Encryption
+  EncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "KMS key for envelope encryption of sensitive data"
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: key-policy-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: Allow Lambda to use the key
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+            Condition:
+              StringEquals:
+                kms:CallerAccount: !Ref AWS::AccountId
+      EnableKeyRotation: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # KMS Key Alias for easier reference
+  EncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${Environment}-sheetsapi-encryption-key"
+      TargetKeyId: !Ref EncryptionKey
+
   # API Function
   LambdaApi:
     Type: AWS::Serverless::Function
@@ -110,6 +151,7 @@ Resources:
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
+          ENCRYPTION_KEY_ID: !Ref EncryptionKey
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -132,6 +174,18 @@ Resources:
               - Effect: Allow
                 Action: cloudfront:CreateInvalidation
                 Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}
+        - PolicyName: KMSEncryptionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey*
+                  - kms:DescribeKey
+                Resource: !GetAtt EncryptionKey.Arn
 
   # API Gateway
   ApiGateway:
@@ -382,6 +436,7 @@ Resources:
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
+          ENCRYPTION_KEY_ID: !Ref EncryptionKey
 
   LambdaStreamFunctionExecutionRole:
     Type: AWS::IAM::Role
@@ -424,6 +479,18 @@ Resources:
                   - !GetAtt DynamoDBTableV2.Arn
                   - !Sub "${DynamoDBTableV2.Arn}/index/GSI1"
                   - !Sub "${DynamoDBTableV2.Arn}/index/GSI2" # global secondary index perms
+        - PolicyName: KMSEncryptionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey*
+                  - kms:DescribeKey
+                Resource: !GetAtt EncryptionKey.Arn
 
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
@@ -588,3 +655,15 @@ Outputs:
   ApiDomainName:
     Description: "API Domain Name"
     Value: !Ref ApiDomainName
+  
+  EncryptionKeyId:
+    Description: "KMS Key ID for Envelope Encryption"
+    Value: !Ref EncryptionKey
+    
+  EncryptionKeyArn:
+    Description: "KMS Key ARN for Envelope Encryption"
+    Value: !GetAtt EncryptionKey.Arn
+    
+  EncryptionKeyAlias:
+    Description: "KMS Key Alias for Envelope Encryption"
+    Value: !Ref EncryptionKeyAlias

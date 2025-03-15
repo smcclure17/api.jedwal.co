@@ -13,7 +13,4 @@ build-push-analytics.sh
 # cloudformation deploy script contains sensitive parameters
 deploy-stack.sh
 
-# tests have some sensitive info for now (end-to-end live testing)
-tests/
-
 *.egg-info

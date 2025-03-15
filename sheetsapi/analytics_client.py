@@ -41,9 +41,10 @@ class AnalyticsClient:
 
             for log in batch:
                 analytics_id = f"ANALYTICS#{log['account_id']}#{log['sheet_api_name']}"
+                sort_key = f"{log["timestamp"]}#{log["request_id"]}"
                 item = {
                     "PK": analytics_id,
-                    "SK": log["timestamp"],
+                    "SK": sort_key,
                     "status_code": log["status_code"],
                     "account_id": log["account_id"],
                     "sheet_api_name": log["sheet_api_name"],

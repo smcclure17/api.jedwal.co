@@ -41,6 +41,10 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     CLOUDFRONT_DISTRIBUTION_ID: str
 
+    ENCRYPTION_KEY_ID: str
+
+    TEST_DATA_REFRESH_INFO: str = "" # Just for testing, TODO: separate test config?
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

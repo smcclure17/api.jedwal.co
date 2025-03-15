@@ -6,14 +6,12 @@ import logging
 import re
 from fastapi import APIRouter, HTTPException
 
-from sheetsapi import analytics_client, config
+from sheetsapi import analytics_client
 from sheetsapi.models.api_models import ApiInvocationResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["analytics"])
-analytics_handler = analytics_client.AnalyticsClient.from_table_name(
-    table_name=config.Config.Constants.SHEETS_API_TABLE
-)
+analytics_handler = analytics_client.AnalyticsClient.from_table_name()
 
 
 @router.get("/get-api-invocations")

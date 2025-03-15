@@ -3,12 +3,17 @@ from functools import cached_property
 
 import gspread
 from sheetsapi import auth_utils
-from sheetsapi.models.domain_models import SpreadsheetDataModel, WorksheetDataModel
+from sheetsapi.models.domain_models import (
+    RefreshTokenInfo,
+    SpreadsheetDataModel,
+    WorksheetDataModel,
+)
 
 
 class InaccessibleDocument(Exception):
     "Raised when a Google Sheet cannot be opened, e.g., if it's actually an XLSX"
 
+EMPTY_ACCESS_TOKEN = "Some Placeholder Value"  # empty strs fail the refresh
 
 @dataclasses.dataclass
 class GoogleSheets:
@@ -17,8 +22,16 @@ class GoogleSheets:
     auth_creds: auth_utils.GoogleOauthFields
 
     @classmethod
-    def from_creds_dict(cls, creds_dict: dict):
-        auth_creds = auth_utils.GoogleOauthFields(**creds_dict)
+    def from_token_info(cls, info: RefreshTokenInfo):
+        """Create an instance using encrypted refresh token data, and optionally an access token
+        
+        We immediately just refresh/create a new one. This costs us a ~100ms, so not ideal but
+        not worth the effort right now to optimize (by storing and juggling access keys.)
+        """
+
+        auth_creds = auth_utils.GoogleOauthFields.from_tokens(
+            access_token=EMPTY_ACCESS_TOKEN, refresh_token_info=info
+        )
         return GoogleSheets(auth_creds=auth_creds)
 
     @cached_property
