@@ -59,6 +59,8 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
         )
     except sheet_api_repo_v2.SheetNotFoundError:
         raise HTTPException(status_code=404, detail="Sheet API not found.")
+    except google_sheet_client.NonUniqueColumnsError:
+        raise HTTPException(400, detail="Worksheet columns are not unique. Please check your column names.")
 
 
 @router.get("/get-all-sheets/{owner_id}")

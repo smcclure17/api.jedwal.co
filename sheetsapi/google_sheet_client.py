@@ -9,9 +9,11 @@ from sheetsapi.models.domain_models import (
     WorksheetDataModel,
 )
 
-
 class InaccessibleDocument(Exception):
     "Raised when a Google Sheet cannot be opened, e.g., if it's actually an XLSX"
+
+class NonUniqueColumnsError(Exception):
+    """Raised when e.g. a Google sheet has non-unique column names."""
 
 EMPTY_ACCESS_TOKEN = "Some Placeholder Value"  # empty strs fail the refresh
 
@@ -50,7 +52,7 @@ class GoogleSheets:
         self, worksheet: gspread.worksheet.Worksheet
     ) -> WorksheetDataModel:
         return WorksheetDataModel(
-            title=worksheet.title, data=worksheet.get_all_records()
+            title=worksheet.title, data=self._try_get_worksheet_records(worksheet)
         )
 
     def get_worksheet_by_name(self, sheet_id, name):
@@ -62,11 +64,20 @@ class GoogleSheets:
         except gspread.exceptions.APIError as e:
             # can't use get_file_drive_metadata b/c we'd need to add more auth scopes
             # parse the error to find out if it's a non-supported file.
-            if (
-                e.error["message"]
-                == "This operation is not supported for this document"
-            ):
+            message = e.error["message"]
+            print(f"MESSAGE {message}")
+            if message == "This operation is not supported for this document":
                 raise InaccessibleDocument("Filetype is unsupported")
-            else:
-                raise e
+            if message.startswith("the header row in the worksheet is not unique"):
+                raise NonUniqueColumnsError("Spreadsheet columns are not unique")
+            raise e
+        return google_sheet
+    
+    def _try_get_worksheet_records(self, worksheet: gspread.worksheet.Worksheet):
+        try:
+            return worksheet.get_all_records()
+        except gspread.exceptions.GSpreadException as error:
+            if str(error).startswith("the header row in the worksheet is not unique"):
+                raise NonUniqueColumnsError("Spreadsheet columns are not unique")
+            raise error
         return google_sheet
