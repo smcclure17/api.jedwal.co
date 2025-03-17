@@ -9,13 +9,17 @@ from sheetsapi.models.domain_models import (
     WorksheetDataModel,
 )
 
+
 class InaccessibleDocument(Exception):
     "Raised when a Google Sheet cannot be opened, e.g., if it's actually an XLSX"
+
 
 class NonUniqueColumnsError(Exception):
     """Raised when e.g. a Google sheet has non-unique column names."""
 
+
 EMPTY_ACCESS_TOKEN = "Some Placeholder Value"  # empty strs fail the refresh
+
 
 @dataclasses.dataclass
 class GoogleSheets:
@@ -26,7 +30,7 @@ class GoogleSheets:
     @classmethod
     def from_token_info(cls, info: RefreshTokenInfo):
         """Create an instance using encrypted refresh token data, and optionally an access token
-        
+
         We immediately just refresh/create a new one. This costs us a ~100ms, so not ideal but
         not worth the effort right now to optimize (by storing and juggling access keys.)
         """
@@ -65,14 +69,11 @@ class GoogleSheets:
             # can't use get_file_drive_metadata b/c we'd need to add more auth scopes
             # parse the error to find out if it's a non-supported file.
             message = e.error["message"]
-            print(f"MESSAGE {message}")
             if message == "This operation is not supported for this document":
                 raise InaccessibleDocument("Filetype is unsupported")
-            if message.startswith("the header row in the worksheet is not unique"):
-                raise NonUniqueColumnsError("Spreadsheet columns are not unique")
             raise e
         return google_sheet
-    
+
     def _try_get_worksheet_records(self, worksheet: gspread.worksheet.Worksheet):
         try:
             return worksheet.get_all_records()

@@ -1,10 +1,13 @@
 """User-related routes and operations."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Response
 import fastapi
+from typing import Optional
+from fastapi.responses import RedirectResponse
 
 from sheetsapi import sheet_api_repo_v2
 from sheetsapi.models.api_models import UserDataResponse
+from sheetsapi.config import Config
 from dependencies import CurrentUser
 
 router = APIRouter(tags=["users"])
@@ -52,3 +55,42 @@ async def get_account_data(user: CurrentUser, account_id: str | None = None):
         orgs=orgs,
         type=user_item["type"],
     )
+
+
+@router.get("/unsubscribe")
+async def unsubscribe(user_id: str = Query(...), redirect: bool = Query(True)):
+    """
+    Unsubscribe a user from emails.
+
+    Args:
+        user_id: The ID of the user to unsubscribe
+        email: The email address to unsubscribe (used if user_id is not provided)
+        redirect: If True, redirect to a confirmation page; otherwise return JSON
+
+    Returns:
+        JSON response or redirect to confirmation page
+    """
+
+    success = False
+    user_item = api_v2_manager.get_account(user_id)
+    if user_item:
+        # Set unsubscribed flag to True
+        api_v2_manager.update_account(user_id, {"unsubscribed": True})
+        success = True
+
+    if not success:
+        if redirect:
+            # Redirect to error page
+            return RedirectResponse(
+                url=f"{Config.Constants.CLIENT_BASE_URL}/unsubscribe-error"
+            )
+        else:
+            return {"success": False, "message": "User not found"}
+
+    if redirect:
+        # Redirect to success page
+        return RedirectResponse(
+            url=f"{Config.Constants.CLIENT_BASE_URL}/unsubscribe-success"
+        )
+    else:
+        return {"success": True, "message": "Successfully unsubscribed"}

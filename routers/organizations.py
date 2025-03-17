@@ -46,11 +46,9 @@ async def create_organization(data: CreateOrganizationRequest, user: CurrentUser
 async def invite_users(
     org_id: str = Body(...), user_emails: list[EmailStr] = Body(...)
 ):
-
     # This sucks but whatever
     members = api_manager_v2.get_users_for_org(org_id)
     member_ids = {m["user_id"] for m in members}
-    print(member_ids)
 
     success = []
     failed = []
@@ -59,7 +57,6 @@ async def invite_users(
     for email in set(user_emails):
         try:
             user = api_manager_v2.get_user_by_email(email)
-            print(user["account_id"])
             if user["account_id"] in member_ids:
                 skipped.append(email)
                 continue

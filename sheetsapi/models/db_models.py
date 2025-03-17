@@ -39,10 +39,19 @@ class SheetMetadata(BaseModel):
         if not self.is_org_sheet:
             raise ValueError("Personal sheet has no org_id")
         return self.GSI1PK[4:]
-            
+
     @classmethod
-    def create(cls, sheet_uuid: str, api_name: str, sheet_id: str, spreadsheet_name: str, 
-               owner_id: str, email: str, auth_creds: dict, is_org: bool = False):
+    def create(
+        cls,
+        sheet_uuid: str,
+        api_name: str,
+        sheet_id: str,
+        spreadsheet_name: str,
+        owner_id: str,
+        email: str,
+        auth_creds: dict,
+        is_org: bool = False,
+    ):
         """Factory method to create a SheetMetadata with proper keys"""
         owner_type = "ORG" if is_org else "USER"
         return cls(
@@ -61,7 +70,7 @@ class SheetMetadata(BaseModel):
             ownerId=owner_id,
             email=email,
         )
-    
+
     def __post_model_init__(self):
         assert self.PK.startswith("SHEET#")
         assert self.GSI1PK.startswith("USER#") or self.GSI1PK.startswith("ORG#")
@@ -92,6 +101,7 @@ class UserModel(BaseModel):
     familyName: Optional[str] = None
     picture: Optional[str] = None
     emailVerified: Optional[bool] = None
+    unsubscribed: Optional[bool] = False
 
     def __post_model_init__(self):
         assert self.PK.startswith("USER#")

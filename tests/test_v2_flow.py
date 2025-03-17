@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
-from sheetsapi import config
+from sheetsapi import config, email_client, user_helpers
 
 config.Config.init()
 
@@ -22,6 +22,7 @@ REFRESH_TOKEN_INFO = RefreshTokenInfo.from_dict_str(
 api_repo = sheet_api_repo_v2.SheetApiRepo.from_table_name(
     table_name=config.Config.Constants.SHEETS_API_TABLE
 )
+
 
 def test_end_to_end_api_flow_v2():
     """Test the complete API flow with the v2 repo and endpoints."""
@@ -208,25 +209,29 @@ def test_account_status_v2():
     result = api_repo.downgrade_account(USER_ID)
     assert result["new_status"] == "free"
     assert result["sheets_frozen"] == 1  # One API should be frozen
-    
+
     # Get the sheets to see which ones are actually frozen
     sheets = api_repo.get_sheet_apis_for_account(USER_ID)
-    sheet_status = {sheet["sheet_api_name"]: sheet.get("frozen", False) for sheet in sheets}
-    
+    sheet_status = {
+        sheet["sheet_api_name"]: sheet.get("frozen", False) for sheet in sheets
+    }
+
     print(f"Sheet freeze status: {sheet_status}")
-    
+
     # Verify two sheets are active and one is frozen
     active_sheets = [name for name, frozen in sheet_status.items() if not frozen]
     frozen_sheets = [name for name, frozen in sheet_status.items() if frozen]
-    
-    assert len(active_sheets) == 2, f"Expected 2 active sheets, got {len(active_sheets)}"
+
+    assert (
+        len(active_sheets) == 2
+    ), f"Expected 2 active sheets, got {len(active_sheets)}"
     assert len(frozen_sheets) == 1, f"Expected 1 frozen sheet, got {len(frozen_sheets)}"
-    
+
     # Check active APIs work
     for name in active_sheets:
         response = client.get(f"/api/{USER_ID}/{name}")
         assert response.status_code == 200, f"Active API {name} should return 200"
-    
+
     # Check frozen API is restricted
     for name in frozen_sheets:
         response = client.get(f"/api/{USER_ID}/{name}")

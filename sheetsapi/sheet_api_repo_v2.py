@@ -7,6 +7,7 @@ import boto3
 from boto3.resources.base import ServiceResource
 from botocore.exceptions import ClientError
 import randomname
+import sentry_sdk
 
 
 from sheetsapi.config import Config
@@ -38,7 +39,6 @@ class SheetNotFoundError(Exception):
 
 
 class SheetApiRepo:
-
     def __init__(self, client, table_name: str):
         self.client = client
         self.table_name = table_name
@@ -346,7 +346,9 @@ class SheetApiRepo:
 
         for item in items:
             if item["type"] == "user":
-                item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
+                item["refresh_token_info"] = RefreshTokenInfo(
+                    **item["refresh_token_info"]
+                )
         return items
 
     def get_users_for_org(self, org_id: str):
@@ -494,7 +496,7 @@ class SheetApiRepo:
         item = result.get("Item")
         if item is None:
             raise SheetNotFoundError(f"Sheet not found with key {key}")
-        
+
         item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
         return item
 
@@ -532,7 +534,7 @@ class SheetApiRepo:
         items = response.get("Items", [])
         if not items:
             return None
-        
+
         item = items[0]
         item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
         return item
@@ -679,13 +681,13 @@ class SheetApiRepo:
                         )
                         # Update the frozen status
                         sheet_item["frozen"] = True
-                        sheet_item["refresh_token_info"] = sheet_item["refresh_token_info"].to_dict()
+                        sheet_item["refresh_token_info"] = sheet_item[
+                            "refresh_token_info"
+                        ].to_dict()
 
                         update_requests.append({"PutRequest": {"Item": sheet_item}})
-                    except SheetNotFoundError:
-                        print(
-                            f"Warning: Sheet {sheet_api_name} not found during freeze operation"
-                        )
+                    except SheetNotFoundError as error:
+                        sentry_sdk.capture_exception(error)
 
             self.client.meta.client.batch_write_item(
                 RequestItems={self.table_name: update_requests}
@@ -739,13 +741,13 @@ class SheetApiRepo:
                             )
                             # Update the frozen status
                             sheet_item["frozen"] = False
-                            sheet_item["refresh_token_info"] = sheet_item["refresh_token_info"].to_dict()
+                            sheet_item["refresh_token_info"] = sheet_item[
+                                "refresh_token_info"
+                            ].to_dict()
 
                             update_requests.append({"PutRequest": {"Item": sheet_item}})
-                        except SheetNotFoundError:
-                            print(
-                                f"Warning: Sheet {sheet_api_name} not found during unfreeze operation"
-                            )
+                        except SheetNotFoundError as error:
+                            sentry_sdk.capture_exception(error)
 
             if update_requests:  # Only make the API call if there are items to update
                 self.client.meta.client.batch_write_item(

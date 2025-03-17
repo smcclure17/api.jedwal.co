@@ -91,7 +91,7 @@ Resources:
     Properties:
       Description: "KMS key for envelope encryption of sensitive data"
       KeyPolicy:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Id: key-policy-1
         Statement:
           - Sid: Enable IAM User Permissions
@@ -126,6 +126,19 @@ Resources:
       AliasName: !Sub "alias/${Environment}-sheetsapi-encryption-key"
       TargetKeyId: !Ref EncryptionKey
 
+  # SES Configuration Set for Email Tracking
+  # After first deploy, need to set up Email sending in the console.
+  SESConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: !Sub "${Environment}-sheetsapi-emails"
+
+  # SES Email Identity for sending emails
+  SESEmailIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: "hello@jedwal.co"
+
   # API Function
   LambdaApi:
     Type: AWS::Serverless::Function
@@ -142,7 +155,6 @@ Resources:
           OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
           SHEETS_API_TABLE: !Ref DynamoDBTableV2
-          ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
           API_BASE_URL: !Ref ApiBaseUrl
           CLIENT_BASE_URL: !Ref ClientBaseUrl
@@ -152,6 +164,9 @@ Resources:
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
           ENCRYPTION_KEY_ID: !Ref EncryptionKey
+          EMAILS_ENABLED: "true"
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -186,6 +201,15 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:DescribeKey
                 Resource: !GetAtt EncryptionKey.Arn
+        - PolicyName: SESPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
 
   # API Gateway
   ApiGateway:
@@ -272,87 +296,6 @@ Resources:
         DNSName: !GetAtt CloudFrontDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2 # CloudFront Hosted Zone ID
 
-  # DynamoDB Table
-  DynamoDBTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: prod-sheetsapi-table
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-        - AttributeName: sheet_id
-          AttributeType: S
-        - AttributeName: email
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-      SSESpecification:
-        SSEEnabled: true
-      # Add secondary indexes sheet_id-index and email-index
-      GlobalSecondaryIndexes:
-        - IndexName: sheet_id-index
-          KeySchema:
-            - AttributeName: sheet_id
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-        - IndexName: email-index
-          KeySchema:
-            - AttributeName: email
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-
-  DynamoDBTableOrgs:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: prod-sheetsapi-table-orgs
-      AttributeDefinitions:
-        - AttributeName: PK
-          AttributeType: S
-        - AttributeName: SK
-          AttributeType: S
-        - AttributeName: GSI1PK
-          AttributeType: S
-        - AttributeName: GSI1SK
-          AttributeType: S
-        - AttributeName: GSI2PK
-          AttributeType: S
-        - AttributeName: GSI2SK
-          AttributeType: S
-      KeySchema:
-        - AttributeName: PK
-          KeyType: HASH
-        - AttributeName: SK
-          KeyType: RANGE
-      GlobalSecondaryIndexes:
-        - IndexName: GSI1
-          KeySchema:
-            - AttributeName: GSI1PK
-              KeyType: HASH
-            - AttributeName: GSI1SK
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-        - IndexName: GSI2
-          KeySchema:
-            - AttributeName: GSI2PK
-              KeyType: HASH
-            - AttributeName: GSI2SK
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-      BillingMode: PAY_PER_REQUEST
-      SSESpecification:
-        SSEEnabled: true
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: Environment
-          Value: prod
-
   DynamoDBTableV2:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -427,7 +370,6 @@ Resources:
           OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
           ENVIRONMENT: !Ref Environment
           SHEETS_API_TABLE: !Ref DynamoDBTableV2
-          ANALYTICS_TABLE: !Ref AnalyticsDynamoDBTable
           SENTRY_DSN: !Ref SentryDSN
           API_BASE_URL: !Ref ApiBaseUrl
           CLIENT_BASE_URL: !Ref ClientBaseUrl
@@ -437,6 +379,9 @@ Resources:
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
           ENCRYPTION_KEY_ID: !Ref EncryptionKey
+          EMAILS_ENABLED: "true"
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
 
   LambdaStreamFunctionExecutionRole:
     Type: AWS::IAM::Role
@@ -467,10 +412,6 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:PutItem
-                Resource: !GetAtt AnalyticsDynamoDBTable.Arn
-              - Effect: Allow
-                Action:
                   - dynamodb:Query
                   - dynamodb:Scan
                   - dynamodb:BatchWriteItem
@@ -491,6 +432,15 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:DescribeKey
                 Resource: !GetAtt EncryptionKey.Arn
+        - PolicyName: SESPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
 
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
@@ -626,44 +576,27 @@ Resources:
           Prefix: !Sub "${Environment}/"
           IncludeCookies: false
 
-  AnalyticsDynamoDBTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: prod-sheetsapi-analytics-table
-      AttributeDefinitions:
-        - AttributeName: PK
-          AttributeType: S
-        - AttributeName: timestamp
-          AttributeType: S
-      KeySchema:
-        - AttributeName: PK
-          KeyType: HASH
-        - AttributeName: timestamp
-          KeyType: RANGE
-      BillingMode: PAY_PER_REQUEST
-      SSESpecification:
-        SSEEnabled: true
-      GlobalSecondaryIndexes:
-        - IndexName: timestamp-index
-          KeySchema:
-            - AttributeName: timestamp
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-
 Outputs:
   ApiDomainName:
     Description: "API Domain Name"
     Value: !Ref ApiDomainName
-  
+
   EncryptionKeyId:
     Description: "KMS Key ID for Envelope Encryption"
     Value: !Ref EncryptionKey
-    
+
   EncryptionKeyArn:
     Description: "KMS Key ARN for Envelope Encryption"
     Value: !GetAtt EncryptionKey.Arn
-    
+
   EncryptionKeyAlias:
     Description: "KMS Key Alias for Envelope Encryption"
     Value: !Ref EncryptionKeyAlias
+
+  SESConfigurationSetName:
+    Description: "SES Configuration Set Name"
+    Value: !Ref SESConfigurationSet
+
+  SESEmailIdentity:
+    Description: "SES Email Identity"
+    Value: !Ref SESEmailIdentity

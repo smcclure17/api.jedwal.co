@@ -58,8 +58,9 @@ class RefreshTokenInfo(BaseModel):
 
     def to_dict(self) -> dict:
         return self.model_dump()
-    
+
     @classmethod
     def from_dict_str(cls, item: str) -> "RefreshTokenInfo":
-        return RefreshTokenInfo(**json.loads(item))  # no validation b/c only used in testing
-    
+        return RefreshTokenInfo(
+            **json.loads(item)
+        )  # no validation b/c only used in testing

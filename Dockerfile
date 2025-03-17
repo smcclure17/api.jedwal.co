@@ -8,6 +8,8 @@ RUN pip install -r requirements.txt
 # size of the final image + reduce cold start time
 COPY . ${LAMBDA_TASK_ROOT}
 
+RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
+
 RUN ls -la ${LAMBDA_TASK_ROOT}
 
 CMD [ "app.handler" ]

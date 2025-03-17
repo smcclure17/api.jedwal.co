@@ -4,6 +4,7 @@ import time
 import boto3
 from boto3.resources.base import ServiceResource
 from botocore.exceptions import ClientError
+import sentry_sdk
 
 from sheetsapi import config
 
@@ -41,7 +42,7 @@ class AnalyticsClient:
 
             for log in batch:
                 analytics_id = f"ANALYTICS#{log['account_id']}#{log['sheet_api_name']}"
-                sort_key = f"{log["timestamp"]}#{log["request_id"]}"
+                sort_key = f"{log['timestamp']}#{log['request_id']}"
                 item = {
                     "PK": analytics_id,
                     "SK": sort_key,
@@ -60,8 +61,8 @@ class AnalyticsClient:
                         RequestItems={self.table_name: write_requests}
                     )
                     results["success"] += len(write_requests)
-                except ClientError as e:
-                    print(f"Batch write error: {e}")
+                except ClientError as error:
+                    sentry_sdk.capture_exception(error)
                     results["failures"] += len(write_requests)
 
                 # Slight delay to avoid hitting rate limits

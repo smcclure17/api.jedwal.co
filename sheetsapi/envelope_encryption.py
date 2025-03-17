@@ -123,14 +123,16 @@ class EnvelopeEncryption:
             The decrypted plaintext
         """
         cache_key = f"{encrypted_key_b64}:{hash(str(context))}"
-        
+
         # Check in-memory cache
         with _key_cache_lock:
             plaintext_key = _key_cache.get(cache_key)
-        
+
         # If not in cache, decrypt and cache it
         if plaintext_key is None:
-            plaintext_key = EnvelopeEncryption.decrypt_data_key(encrypted_key_b64, context)
+            plaintext_key = EnvelopeEncryption.decrypt_data_key(
+                encrypted_key_b64, context
+            )
             with _key_cache_lock:
                 _key_cache[cache_key] = plaintext_key
 

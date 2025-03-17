@@ -14,3 +14,7 @@ build-push-analytics.sh
 deploy-stack.sh
 
 *.egg-info
+
+.DS_Store
+
+migrate.py

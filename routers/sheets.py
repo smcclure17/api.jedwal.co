@@ -32,7 +32,7 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
         )
     except sheet_api_repo_v2.SheetNotFoundError:
         raise HTTPException(404, detail="Sheet API not found.")
-    
+
     google_sheet_id = sheet_api_metadata["google_sheet_id"]
     refresh_token_info = sheet_api_metadata["refresh_token_info"]
     cache_duration = sheet_api_metadata["cache_duration"]
@@ -60,7 +60,10 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
     except sheet_api_repo_v2.SheetNotFoundError:
         raise HTTPException(status_code=404, detail="Sheet API not found.")
     except google_sheet_client.NonUniqueColumnsError:
-        raise HTTPException(400, detail="Worksheet columns are not unique. Please check your column names.")
+        raise HTTPException(
+            400,
+            detail="Worksheet columns are not unique. Please check your column names.",
+        )
 
 
 @router.get("/get-all-sheets/{owner_id}")
@@ -94,7 +97,6 @@ async def create_api_v2(
         owner_id = user.sub  # fallback to use the user_id if no owner given
     else:
         if not api_manager_v2.check_user_access_for_owner(user.sub, owner_id=owner_id):
-            print(user.sub, owner_id)
             raise HTTPException(403, detail="Not authorized for organization.")
 
     # Hack: parse the sheet ID from the URL if it's a Google Sheets URL

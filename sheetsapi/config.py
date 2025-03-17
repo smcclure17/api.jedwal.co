@@ -13,8 +13,6 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     SHEETS_API_TABLE: str
 
-    ANALYTICS_TABLE: str
-
     AWS_REGION: str = "us-east-1"
 
     GOOGLE_CLIENT_ID: str
@@ -43,7 +41,9 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     ENCRYPTION_KEY_ID: str
 
-    TEST_DATA_REFRESH_INFO: str = "" # Just for testing, TODO: separate test config?
+    EMAILS_ENABLED: bool = True
+
+    TEST_DATA_REFRESH_INFO: str = ""  # Just for testing, TODO: separate test config?
 
     class Config:
         env_file = ".env"

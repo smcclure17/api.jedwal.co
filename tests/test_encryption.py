@@ -11,7 +11,7 @@ def test_encryption_end_to_end():
     dec = envelope_encryption.EnvelopeEncryption.decrypt(
         encrypted_data_b64=enc.encrypted_data,
         encrypted_key_b64=enc.encrypted_key,
-        context=enc.context
+        context=enc.context,
     )
     assert my_token == dec
 
@@ -19,6 +19,6 @@ def test_encryption_end_to_end():
     dec = envelope_encryption.EnvelopeEncryption.decrypt(
         encrypted_data_b64=enc.encrypted_data,
         encrypted_key_b64=enc.encrypted_key,
-        context=enc.context
+        context=enc.context,
     )
     assert my_token == dec
