@@ -24,56 +24,36 @@ lru_worksheet_cache = lru_cache.LRUCache(capacity=100)
 
 @router.get("/api/{owner_id}/{sheet_api_name}")
 async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sheet1"):
-    # Look for worksheet in the cache
-    ws_cache_key = f"{owner_id}-{sheet_api_name}-{worksheet}"
-    ws_cache_item = lru_worksheet_cache.get(ws_cache_key)
-    if ws_cache_item:
-        try:
-            records = google_sheet_client._try_get_worksheet_records(
-                worksheet=ws_cache_item["worksheet"]
-            )
-            return JSONResponse(
-                content=records,
-                headers={
-                    "Cache-Control": f"max-age={ws_cache_item['cache_duration']}, public"
-                },
-                status_code=200,
-            )
-        except google_sheet_client.NonUniqueColumnsError:
-            raise HTTPException(
-                400,
-                detail="Worksheet columns are not unique. Please check your column names.",
-            )
-
-    # If not in cache, fetch from DB
     try:
-        sheet_api_metadata = api_manager_v2.get_sheet_api_metadata(
-            owner_id, sheet_api_name
-        )
-    except sheet_api_repo_v2.SheetNotFoundError:
+        sheet_api = api_manager_v2.get_sheet_api_metadata(owner_id, sheet_api_name)
+    except sheet_api_repo_v2.SheetApiNotFoundError:
         raise HTTPException(404, detail="Sheet API not found.")
 
-    google_sheet_id = sheet_api_metadata["google_sheet_id"]
-    refresh_token_info = sheet_api_metadata["refresh_token_info"]
-    cache_duration = sheet_api_metadata["cache_duration"]
-    is_frozen = sheet_api_metadata.get("frozen")
+    google_sheet_id = sheet_api["google_sheet_id"]
+    refresh_token_info = sheet_api["refresh_token_info"]
+    cache_duration = sheet_api["cache_duration"]
 
-    if is_frozen:
+    if sheet_api.get("frozen"):
         raise HTTPException(401, "API is frozen. Re-upgrade to premium to unfreeze")
 
-    # Fetch and return Google Sheet data
-    google_client = google_sheet_client.GoogleSheets.from_token_info(
-        info=refresh_token_info
-    )
-    worksheet = google_client.get_worksheet_by_name(google_sheet_id, name=worksheet)
     try:
-        # Add to cache
-        lru_worksheet_cache.put(
-            ws_cache_key,
-            value={"worksheet": worksheet, "cache_duration": cache_duration},
-        )
+        # Check cache for worksheet
+        ws_cache_key = f"{owner_id}-{sheet_api_name}-{worksheet}"
+        cached_worksheet = lru_worksheet_cache.get(ws_cache_key)
+        if cached_worksheet is not None:
+            worksheet = cached_worksheet
+        else:
+            google_client = google_sheet_client.GoogleSheets.from_token_info(
+                info=refresh_token_info
+            )
+            worksheet = google_client.get_worksheet_by_name(
+                google_sheet_id, name=worksheet
+            )
+
+        # Add worksheet to cache
+        lru_worksheet_cache.put(ws_cache_key, value=worksheet)
         return JSONResponse(
-            content=google_client.get_worksheet_data(worksheet).data,
+            content=google_sheet_client.GoogleSheets.get_worksheet_data(worksheet).data,
             headers={"Cache-Control": f"max-age={cache_duration}, public"},
             status_code=200,
         )
@@ -82,7 +62,7 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
             status_code=404,
             detail=f"Worksheet {worksheet} not found. To specify a worksheet, use, e.g., ?worksheet=your_sheet_name.",
         )
-    except sheet_api_repo_v2.SheetNotFoundError:
+    except sheet_api_repo_v2.SheetApiNotFoundError:
         raise HTTPException(status_code=404, detail="Sheet API not found.")
     except google_sheet_client.NonUniqueColumnsError:
         raise HTTPException(
@@ -177,5 +157,5 @@ async def update_cache_duration_v2(data: UpdateApiTtlRequest, user: CurrentUser)
             fields={"cache_duration": data.cache_duration},
         )
         return UpdateApiTtlResponse(message="Success!")
-    except sheet_api_repo_v2.SheetNotFoundError:
+    except sheet_api_repo_v2.SheetApiNotFoundError:
         raise HTTPException(404, "Sheet API Not Found. Cannot modify cache duration")

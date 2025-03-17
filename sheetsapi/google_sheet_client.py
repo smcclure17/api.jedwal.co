@@ -52,8 +52,9 @@ class GoogleSheets:
             worksheets=[worksheet.title for worksheet in google_sheet.worksheets()],
         )
 
+    @staticmethod
     def get_worksheet_data(
-        self, worksheet: gspread.worksheet.Worksheet
+        worksheet: gspread.worksheet.Worksheet,
     ) -> WorksheetDataModel:
         return WorksheetDataModel(
             title=worksheet.title, data=_try_get_worksheet_records(worksheet)

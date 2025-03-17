@@ -34,7 +34,7 @@ class SheetNameTakenError(Exception):
     """"""
 
 
-class SheetNotFoundError(Exception):
+class SheetApiNotFoundError(Exception):
     """Sheet for key not found"""
 
 
@@ -495,7 +495,7 @@ class SheetApiRepo:
         result = self.table.get_item(Key={"PK": key, "SK": key})
         item = result.get("Item")
         if item is None:
-            raise SheetNotFoundError(f"Sheet not found with key {key}")
+            raise SheetApiNotFoundError(f"Sheet not found with key {key}")
 
         item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
         return item
@@ -578,7 +578,7 @@ class SheetApiRepo:
             return response.get("Attributes")
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                raise SheetNotFoundError(f"Sheet API not found: {sheet_api_key}")
+                raise SheetApiNotFoundError(f"Sheet API not found: {sheet_api_key}")
             raise
 
     def update_account(self, account_id: str, fields: dict[str, Any]):
@@ -617,7 +617,7 @@ class SheetApiRepo:
             return response.get("Attributes")
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                raise SheetNotFoundError(f"Account not found: {account_key}")
+                raise SheetApiNotFoundError(f"Account not found: {account_key}")
             raise
 
     def get_user_by_email(self, email: str) -> dict | None:
@@ -686,7 +686,7 @@ class SheetApiRepo:
                         ].to_dict()
 
                         update_requests.append({"PutRequest": {"Item": sheet_item}})
-                    except SheetNotFoundError as error:
+                    except SheetApiNotFoundError as error:
                         sentry_sdk.capture_exception(error)
 
             self.client.meta.client.batch_write_item(
@@ -746,7 +746,7 @@ class SheetApiRepo:
                             ].to_dict()
 
                             update_requests.append({"PutRequest": {"Item": sheet_item}})
-                        except SheetNotFoundError as error:
+                        except SheetApiNotFoundError as error:
                             sentry_sdk.capture_exception(error)
 
             if update_requests:  # Only make the API call if there are items to update
