@@ -56,7 +56,7 @@ class GoogleSheets:
         self, worksheet: gspread.worksheet.Worksheet
     ) -> WorksheetDataModel:
         return WorksheetDataModel(
-            title=worksheet.title, data=self._try_get_worksheet_records(worksheet)
+            title=worksheet.title, data=_try_get_worksheet_records(worksheet)
         )
 
     def get_worksheet_by_name(self, sheet_id, name):
@@ -74,11 +74,11 @@ class GoogleSheets:
             raise e
         return google_sheet
 
-    def _try_get_worksheet_records(self, worksheet: gspread.worksheet.Worksheet):
-        try:
-            return worksheet.get_all_records()
-        except gspread.exceptions.GSpreadException as error:
-            if str(error).startswith("the header row in the worksheet is not unique"):
-                raise NonUniqueColumnsError("Spreadsheet columns are not unique")
-            raise error
-        return google_sheet
+
+def _try_get_worksheet_records(worksheet: gspread.worksheet.Worksheet):
+    try:
+        return worksheet.get_all_records()
+    except gspread.exceptions.GSpreadException as error:
+        if str(error).startswith("the header row in the worksheet is not unique"):
+            raise NonUniqueColumnsError("Spreadsheet columns are not unique")
+        raise error

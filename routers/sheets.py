@@ -6,10 +6,7 @@ import gspread
 from fastapi import APIRouter, Form, HTTPException
 from fastapi.responses import JSONResponse
 
-from sheetsapi import (
-    google_sheet_client,
-    sheet_api_repo_v2,
-)
+from sheetsapi import google_sheet_client, sheet_api_repo_v2, lru_cache
 from sheetsapi import config, cloudfront_helpers
 from sheetsapi.models.api_models import (
     SheetMetadataResponse,
@@ -22,10 +19,33 @@ router = APIRouter(tags=["sheets"])
 cloudfront = cloudfront_helpers.create_cloudfront_client()
 
 api_manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+lru_worksheet_cache = lru_cache.LRUCache(capacity=100)
 
 
 @router.get("/api/{owner_id}/{sheet_api_name}")
 async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sheet1"):
+    # Look for worksheet in the cache
+    ws_cache_key = f"{owner_id}-{sheet_api_name}-{worksheet}"
+    ws_cache_item = lru_worksheet_cache.get(ws_cache_key)
+    if ws_cache_item:
+        try:
+            records = google_sheet_client._try_get_worksheet_records(
+                worksheet=ws_cache_item["worksheet"]
+            )
+            return JSONResponse(
+                content=records,
+                headers={
+                    "Cache-Control": f"max-age={ws_cache_item['cache_duration']}, public"
+                },
+                status_code=200,
+            )
+        except google_sheet_client.NonUniqueColumnsError:
+            raise HTTPException(
+                400,
+                detail="Worksheet columns are not unique. Please check your column names.",
+            )
+
+    # If not in cache, fetch from DB
     try:
         sheet_api_metadata = api_manager_v2.get_sheet_api_metadata(
             owner_id, sheet_api_name
@@ -47,6 +67,11 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
     )
     worksheet = google_client.get_worksheet_by_name(google_sheet_id, name=worksheet)
     try:
+        # Add to cache
+        lru_worksheet_cache.put(
+            ws_cache_key,
+            value={"worksheet": worksheet, "cache_duration": cache_duration},
+        )
         return JSONResponse(
             content=google_client.get_worksheet_data(worksheet).data,
             headers={"Cache-Control": f"max-age={cache_duration}, public"},
