@@ -139,6 +139,35 @@ Resources:
     Properties:
       EmailIdentity: "hello@jedwal.co"
 
+# SNS Topic for SES Bounce and Complaint Notifications
+  SESSNSTopicForEmailComplaints:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "${Environment}-sheetsapi-ses-notifications"
+      TopicName: !Sub "${Environment}-sheetsapi-ses-notifications"
+
+  # Email Subscription to the SNS Topic
+  SESEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      Endpoint: "hello@jedwal.co"
+      TopicArn: !Ref SESSNSTopicForEmailComplaints
+
+  # SES Configuration Set Event Destination for Bounces and Complaints
+  SESEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SESConfigurationSet
+      EventDestination:
+        Name: !Sub "${Environment}-bounce-complaint-destination"
+        Enabled: true
+        MatchingEventTypes:
+          - bounce
+          - complaint
+        SnsDestination:
+          TopicARN: !Ref SESSNSTopicForEmailComplaints
+
   # API Function
   LambdaApi:
     Type: AWS::Serverless::Function
