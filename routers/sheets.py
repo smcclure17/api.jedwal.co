@@ -44,11 +44,9 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
             worksheet = cached_worksheet
         else:
             google_client = google_sheet_client.GoogleSheets.from_token_info(
-                info=refresh_token_info
+                refresh_token_info
             )
-            worksheet = google_client.get_worksheet_by_name(
-                google_sheet_id, name=worksheet
-            )
+            worksheet = google_client.get_worksheet_by_name(google_sheet_id, worksheet)
 
         # Add worksheet to cache
         lru_worksheet_cache.put(ws_cache_key, value=worksheet)

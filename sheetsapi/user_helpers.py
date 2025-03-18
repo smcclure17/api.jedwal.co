@@ -44,9 +44,10 @@ def persist_user(
     )
 
     try:
-        email_client.SESClient.send_email(
-            _build_welcome_email(user.email, user.given_name, user.sub)
-        )
+        # Send a welcome email to the user, and an alert to ourselves internally
+        welcome_email_data = _build_welcome_email(user.email, user.given_name, user.sub)
+        email_client.SESClient.send_email(welcome_email_data)
+        email_client.SESClient.send_email(_build_owner_alert_email(user))
     except Exception as err:
         sentry_sdk.capture_exception(err)
         logger.warning(
@@ -77,4 +78,16 @@ def _build_welcome_email(to_email: str, account_first_name: str, user_id) -> Ema
         html=welcome_email_html,
         configuration_set="prod-sheetsapi-emails",  # hard-coded from CloudFormation template
         user_id=user_id,
+    )
+
+
+def _build_owner_alert_email(user: UserSession):
+    return EmailData(
+        subject=f"Alert: New sign-up from {user.email}",
+        configuration_set="prod-sheetsapi-emails",
+        reply_to="hello@jedwal.co",
+        to_email="hello@jedwal.co",
+        from_email="hello@jedwal.co",
+        user_id=user.sub,
+        html=f"<h1>New sign-up! 🎉</h1><br/><span>User {user.given_name} ({user.email}) signed up.</span>",
     )
