@@ -131,6 +131,14 @@ async def delete_api_v2(owner_id: str, sheet_api_name: str, user: CurrentUser):
     # TODO: need to be either the user or an org admin to delete
 
     deleted_items = api_manager_v2.delete_sheet_api(owner_id, sheet_api_name)
+
+    cloudfront = cloudfront_helpers.create_cloudfront_client()
+    if cloudfront is not None:
+        cloudfront_helpers.invalidate_cache(
+            cloudfront=cloudfront,
+            distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
+            path=f"/api/{owner_id}/{sheet_api_name}",
+        )
     return deleted_items
 
 
@@ -154,6 +162,17 @@ async def update_cache_duration_v2(data: UpdateApiTtlRequest, user: CurrentUser)
             sheet_api_name=data.sheet_api_name,
             fields={"cache_duration": data.cache_duration},
         )
+
+        # Invalidate anything in the cache to ensure the TTL is updated right away.
+        # Otherwise the TTL would not update until the old entry expires (could be days)
+        cloudfront = cloudfront_helpers.create_cloudfront_client()
+        if cloudfront is not None:
+            cloudfront_helpers.invalidate_cache(
+                cloudfront=cloudfront,
+                distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
+                path=f"/api/{data.owner_id}/{data.sheet_api_name}",
+            )
+
         return UpdateApiTtlResponse(message="Success!")
     except sheet_api_repo_v2.SheetApiNotFoundError:
         raise HTTPException(404, "Sheet API Not Found. Cannot modify cache duration")
