@@ -18,6 +18,10 @@ class NonUniqueColumnsError(Exception):
     """Raised when e.g. a Google sheet has non-unique column names."""
 
 
+class InsufficientPermissions(Exception):
+    """Raised when the user does not have access to the sheet"""
+
+
 EMPTY_ACCESS_TOKEN = "Some Placeholder Value"  # empty strs fail the refresh
 
 
@@ -72,7 +76,11 @@ class GoogleSheets:
             message = e.error["message"]
             if message == "This operation is not supported for this document":
                 raise InaccessibleDocument("Filetype is unsupported")
+            if message == "The caller does not have permission":
+                raise InsufficientPermissions("User does not have access to file")
             raise e
+        except PermissionError:
+            raise InsufficientPermissions("User does not have access to file")
         return google_sheet
 
 

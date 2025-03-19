@@ -52,7 +52,7 @@ def test_end_to_end_api_flow_v2():
     # Test get all sheets
     response = client.get(f"/get-all-sheets/{USER_ID}")
     assert response.status_code == 200, f"Getting user sheets failed: {response.json()}"
-    assert len([s for s in response.json() if s["sheet_api_name"] == api_name]) == 1
+    assert len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name]) == 1
 
     # Test API access with new URL pattern
     response = client.get(f"/api/{USER_ID}/{api_name}")
@@ -66,7 +66,7 @@ def test_end_to_end_api_flow_v2():
     assert response.status_code == 200, "Update cache duration failed."
 
     # Verify cache duration was updated
-    sheets = client.get(f"/get-all-sheets/{USER_ID}").json()
+    sheets = client.get(f"/get-all-sheets/{USER_ID}").json()["results"]
     assert [s for s in sheets if s["sheet_api_name"] == api_name][0][
         "cache_duration"
     ] == 101
@@ -138,12 +138,12 @@ def test_end_to_end_orgs_v2():
     # Test org API does not show up in personal sheets
     response = client.get(f"/get-all-sheets/{USER_ID}")
     assert response.status_code == 200
-    assert len([s for s in response.json() if s["sheet_api_name"] == api_name]) == 0
+    assert len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name]) == 0
 
     # Test org sheets are visible in org sheets endpoint
     response = client.get(f"/get-all-sheets/{org_id}")
     assert response.status_code == 200
-    assert len([s for s in response.json() if s["sheet_api_name"] == api_name]) == 1
+    assert len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name]) == 1
 
     # Test API access for org-owned sheet
     response = client.get(f"/api/{org_id}/{api_name}")

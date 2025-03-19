@@ -4,7 +4,7 @@ These models define the request/response structures for API endpoints.
 """
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import Any, List
+from typing import Annotated, Any, List
 from datetime import datetime
 
 from sheetsapi.models.db_models import SheetMetadataWithWorksheets
@@ -23,7 +23,7 @@ class UserDataResponse(BaseModel):
     type: AccountType
 
 
-class SheetMetadataResponse(BaseModel):
+class SheetMetadata(BaseModel):
     """Public-facing API response model for sheet metadata"""
 
     sheet_api_name: str
@@ -36,26 +36,10 @@ class SheetMetadataResponse(BaseModel):
     worksheets: List[str] = []
 
     @classmethod
-    def from_sheet_metadata(cls, sheet: SheetMetadataWithWorksheets):
-        """Create a response model from SheetMetadataWithWorksheets"""
-        return cls(
-            id=sheet.PK,
-            uuid=sheet.uuid,
-            created_at=sheet.createdAt,
-            api_name=sheet.apiName,
-            api_name_formatted=sheet.apiName.replace("_", "/"),
-            spreadsheet_name=sheet.spreadsheetName,
-            sheet_id=sheet.sheetId,
-            cdn_ttl=sheet.cdnTtl,
-            frozen=sheet.frozen,
-            worksheets=sheet.worksheets,
-        )
-
-    @classmethod
     def from_temp_dicts(
         cls, metadata: dict, spreadsheet_data: SpreadsheetDataModel
-    ) -> "SheetMetadataResponse":
-        return SheetMetadataResponse(
+    ) -> "SheetMetadata":
+        return SheetMetadata(
             sheet_api_name=metadata["sheet_api_name"],
             owner_id=metadata["owner_id"],
             created_at="placeholder",
@@ -65,6 +49,17 @@ class SheetMetadataResponse(BaseModel):
             frozen=metadata.get("frozen"),
             worksheets=spreadsheet_data.worksheets,
         )
+
+
+class SheetMetadataFailure(BaseModel):
+    sheet_api_name: str
+    google_sheet_id: str
+    hint: Annotated[str, "A hint as to why the sheet failed to fetch"]
+
+
+class GetAllSheetsResponse(BaseModel):
+    results: list[SheetMetadata]
+    failures: list[SheetMetadataFailure]
 
 
 class UpdateApiTtlRequest(BaseModel):

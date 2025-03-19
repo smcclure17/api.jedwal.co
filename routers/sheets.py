@@ -9,7 +9,9 @@ from fastapi.responses import JSONResponse
 from sheetsapi import google_sheet_client, sheet_api_repo_v2, lru_cache
 from sheetsapi import config, cloudfront_helpers
 from sheetsapi.models.api_models import (
-    SheetMetadataResponse,
+    GetAllSheetsResponse,
+    SheetMetadata,
+    SheetMetadataFailure,
     UpdateApiTtlRequest,
     UpdateApiTtlResponse,
 )
@@ -69,7 +71,7 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
         )
 
 
-@router.get("/get-all-sheets/{owner_id}")
+@router.get("/get-all-sheets/{owner_id}", response_model=GetAllSheetsResponse)
 async def get_sheets_metadata_v2(owner_id: str, user: CurrentUser):
     """Get all sheets owned by the current user (personal sheets only)."""
     if not api_manager_v2.check_user_access_for_owner(user.sub, owner_id):
@@ -79,17 +81,25 @@ async def get_sheets_metadata_v2(owner_id: str, user: CurrentUser):
 
     # Add worksheets
     results = []
+    failures = []
     for sheet_api in sheet_apis:
         refresh_token_info = sheet_api["refresh_token_info"]
         google_sheet_id = sheet_api["google_sheet_id"]
         google_client = google_sheet_client.GoogleSheets.from_token_info(
             info=refresh_token_info
         )
-        google_sheet_data = google_client.get_spreadsheet_data(google_sheet_id)
-        results.append(
-            SheetMetadataResponse.from_temp_dicts(sheet_api, google_sheet_data)
-        )
-    return results
+        try:
+            google_sheet_data = google_client.get_spreadsheet_data(google_sheet_id)
+            results.append(SheetMetadata.from_temp_dicts(sheet_api, google_sheet_data))
+        except google_sheet_client.InsufficientPermissions:
+            failures.append(
+                SheetMetadataFailure(
+                    google_sheet_id=google_sheet_id,
+                    hint="You don't have access to this Google Sheet, please check your permissions in Google.",
+                    sheet_api_name=sheet_api["sheet_api_name"],
+                )
+            )
+    return GetAllSheetsResponse(results=results, failures=failures)
 
 
 @router.post("/create-api")
@@ -109,6 +119,15 @@ async def create_api_v2(
     # We use the user auth creds even if it's an organization sheet api
     user_item = api_manager_v2.get_account(user.sub)
     refresh_token_info = user_item["refresh_token_info"]
+
+    # Check the user has access to the Google Sheet
+    google_client = google_sheet_client.GoogleSheets.from_token_info(refresh_token_info)
+    try:
+        google_client.get_spreadsheet_data(google_sheet_id)
+    except google_sheet_client.InaccessibleDocument:
+        raise HTTPException(415, detail="Invalid document type. Only Google Sheets are supported.")
+    except google_sheet_client.InsufficientPermissions:
+        raise HTTPException(415, detail="You don't have access to this Google Sheet, please check your permissions in Google.")
 
     sheet_api_res = api_manager_v2.create_sheet_api(
         owner_id=owner_id,
@@ -132,12 +151,11 @@ async def delete_api_v2(owner_id: str, sheet_api_name: str, user: CurrentUser):
 
     deleted_items = api_manager_v2.delete_sheet_api(owner_id, sheet_api_name)
 
-    cloudfront = cloudfront_helpers.create_cloudfront_client()
     if cloudfront is not None:
         cloudfront_helpers.invalidate_cache(
             cloudfront=cloudfront,
             distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
-            path=f"/api/{owner_id}/{sheet_api_name}",
+            path=f"/api/{owner_id}/{sheet_api_name}*",
         )
     return deleted_items
 
@@ -165,12 +183,11 @@ async def update_cache_duration_v2(data: UpdateApiTtlRequest, user: CurrentUser)
 
         # Invalidate anything in the cache to ensure the TTL is updated right away.
         # Otherwise the TTL would not update until the old entry expires (could be days)
-        cloudfront = cloudfront_helpers.create_cloudfront_client()
         if cloudfront is not None:
             cloudfront_helpers.invalidate_cache(
                 cloudfront=cloudfront,
                 distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
-                path=f"/api/{data.owner_id}/{data.sheet_api_name}",
+                path=f"/api/{data.owner_id}/{data.sheet_api_name}*",
             )
 
         return UpdateApiTtlResponse(message="Success!")
