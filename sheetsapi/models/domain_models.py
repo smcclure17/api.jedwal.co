@@ -4,7 +4,7 @@ Core domain models that represent business entities independent of persistence o
 
 import json
 from pydantic import BaseModel, EmailStr
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class UserSession(BaseModel):
@@ -15,15 +15,15 @@ class UserSession(BaseModel):
     aud: str
     sub: str
     email: EmailStr
-    email_verified: bool
-    at_hash: str
-    nonce: str
+    email_verified: bool = True
+    at_hash: Optional[str] = None
+    nonce: Optional[str] = None
     name: str
-    picture: str
+    picture: Optional[str] = None
     given_name: str
     family_name: str
-    iat: int
-    exp: int
+    iat: Optional[int] = None
+    exp: Optional[int] = None
     access_token: str
 
 

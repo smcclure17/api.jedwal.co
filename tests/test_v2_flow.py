@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import time
+from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from sheetsapi import config, email_client, user_helpers
 
@@ -6,6 +8,7 @@ config.Config.init()
 
 from sheetsapi.models.domain_models import RefreshTokenInfo, UserSession
 from sheetsapi import sheet_api_repo_v2
+from sheetsapi.sheet_api_repo_v2 import RateLimitExceededError
 
 from app import app
 from dependencies import get_current_user
@@ -52,7 +55,10 @@ def test_end_to_end_api_flow_v2():
     # Test get all sheets
     response = client.get(f"/get-all-sheets/{USER_ID}")
     assert response.status_code == 200, f"Getting user sheets failed: {response.json()}"
-    assert len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name]) == 1
+    assert (
+        len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name])
+        == 1
+    )
 
     # Test API access with new URL pattern
     response = client.get(f"/api/{USER_ID}/{api_name}")
@@ -138,12 +144,18 @@ def test_end_to_end_orgs_v2():
     # Test org API does not show up in personal sheets
     response = client.get(f"/get-all-sheets/{USER_ID}")
     assert response.status_code == 200
-    assert len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name]) == 0
+    assert (
+        len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name])
+        == 0
+    )
 
     # Test org sheets are visible in org sheets endpoint
     response = client.get(f"/get-all-sheets/{org_id}")
     assert response.status_code == 200
-    assert len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name]) == 1
+    assert (
+        len([s for s in response.json()["results"] if s["sheet_api_name"] == api_name])
+        == 1
+    )
 
     # Test API access for org-owned sheet
     response = client.get(f"/api/{org_id}/{api_name}")
@@ -273,3 +285,59 @@ def _skip_auth_and_mock_user():
         exp=int((datetime.now() + timedelta(hours=1)).timestamp()),
         access_token="test-access-token",
     )
+
+
+def test_rate_limit_functionality():
+    """Test the rate limiting functionality using the live DynamoDB."""
+    # Use a unique identifier for this test run to avoid conflicts
+    test_id = f"test-{int(time.time())}"
+    resource_type = "TEST"
+    resource_id = f"{test_id}-resource"
+
+    # Use low limits for testing
+    test_limit = 3
+
+    # Create repo instance
+    repo = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+
+    # Get current timestamp for verification later
+    now = datetime.now(timezone.utc)
+    timestamp_minute = now.strftime("%Y-%m-%dT%H:%M")
+
+    print(f"Testing rate limit at time: {timestamp_minute} for resource: {resource_id}")
+
+    # Test incrementing under the limit
+    for i in range(1, test_limit + 1):
+        is_exceeded, count = repo.check_rate_limit(
+            resource_type=resource_type, resource_id=resource_id, limit=test_limit
+        )
+        assert is_exceeded is False, f"Should not exceed limit at count {i}"
+        assert count <= i, f"Count should be at most {i}, got {count}"
+
+    # One more request should exceed the limit
+    try:
+        repo.check_rate_limit(
+            resource_type=resource_type, resource_id=resource_id, limit=test_limit
+        )
+        # If we get here, the rate limit wasn't enforced
+        assert False, "Should have raised RateLimitExceededError"
+    except RateLimitExceededError as e:
+        # Verify error details
+        assert e.resource_type == resource_type
+        assert e.resource_id == resource_id
+        assert e.limit == test_limit
+        assert e.reset_time is not None, "Reset time should be provided"
+
+    # Verify we can retrieve the rate limit counts
+    counts = repo.get_rate_limit_counts(
+        resource_type=resource_type, resource_id=resource_id, minutes=5
+    )
+
+    # We should have at least one record
+    assert len(counts) >= 1, "Should have at least one rate limit record"
+
+    # The current timestamp should have the count we expect
+    current_count = counts.get(timestamp_minute, 0)
+    assert (
+        current_count >= test_limit
+    ), f"Count for {timestamp_minute} should be at least {test_limit}"

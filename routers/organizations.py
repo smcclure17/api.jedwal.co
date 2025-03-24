@@ -30,8 +30,17 @@ async def create_organization(data: CreateOrganizationRequest, user: CurrentUser
     Returns:
         OrganizationResponse: The newly created organization
     """
+
+    member_ids = []
+    for email in data.invitees:
+        try:
+            user_item = api_manager_v2.get_user_by_email(email)
+            member_ids.append(user_item["account_id"])
+        except sheet_api_repo_v2.UserNotFoundError:
+            continue  # just do nothing if email is not tied to an account
+
     result = api_manager_v2.create_organization(
-        org_name=data.name, created_by=user.sub, members=data.invitees
+        org_name=data.name, created_by=user.sub, members=member_ids
     )
     org_id = result["account_id"]
     created_at = result["created_at"]

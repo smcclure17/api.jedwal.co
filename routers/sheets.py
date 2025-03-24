@@ -125,9 +125,14 @@ async def create_api_v2(
     try:
         google_client.get_spreadsheet_data(google_sheet_id)
     except google_sheet_client.InaccessibleDocument:
-        raise HTTPException(415, detail="Invalid document type. Only Google Sheets are supported.")
+        raise HTTPException(
+            415, detail="Invalid document type. Only Google Sheets are supported."
+        )
     except google_sheet_client.InsufficientPermissions:
-        raise HTTPException(415, detail="You don't have access to this Google Sheet, please check your permissions in Google.")
+        raise HTTPException(
+            415,
+            detail="You don't have access to this Google Sheet, please check your permissions in Google.",
+        )
 
     sheet_api_res = api_manager_v2.create_sheet_api(
         owner_id=owner_id,

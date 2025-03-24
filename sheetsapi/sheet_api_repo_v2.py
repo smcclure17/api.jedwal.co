@@ -1,7 +1,10 @@
 from collections import defaultdict
 import re
-from datetime import datetime
-from typing import Any, Literal, Optional
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from datetime import timedelta
+
 
 import boto3
 from boto3.resources.base import ServiceResource
@@ -12,6 +15,7 @@ import sentry_sdk
 
 from sheetsapi.config import Config
 from sheetsapi.models.domain_models import RefreshTokenInfo
+from sheetsapi.models.db_models import RateLimitRecord
 
 AccountType = Literal["user", "organization"]
 AccountStatus = Literal["free", "premium"]
@@ -38,6 +42,22 @@ class SheetApiNotFoundError(Exception):
     """Sheet for key not found"""
 
 
+class RateLimitExceededError(Exception):
+    """Rate limit exceeded"""
+
+    def __init__(
+        self, resource_type: str, resource_id: str, limit: int, reset_time: str
+    ):
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+        self.limit = limit
+        self.reset_time = reset_time
+        super().__init__(
+            f"Rate limit exceeded for {resource_type}:{resource_id}. "
+            f"Limit: {limit}, resets at {reset_time}"
+        )
+
+
 class SheetApiRepo:
     def __init__(self, client, table_name: str):
         self.client = client
@@ -51,6 +71,114 @@ class SheetApiRepo:
     def from_table_name(cls, table_name: str = Config.Constants.SHEETS_API_TABLE):
         client = boto3.resource("dynamodb", region_name=Config.Constants.AWS_REGION)
         return SheetApiRepo(client, table_name)
+
+    def check_rate_limit(
+        self,
+        resource_type: str,
+        resource_id: str,
+        limit: int = 60,
+        window_seconds: int = 60,
+    ) -> Tuple[bool, int]:
+        """Check if a resource has exceeded its rate limit
+
+        Args:
+            resource_type: Type of resource (IP, API, USER, etc.)
+            resource_id: ID of the resource (IP address, API ID, user ID)
+            limit: Maximum number of requests allowed in the window
+            window_seconds: Time window in seconds (default: 60 seconds = 1 minute)
+
+        Returns:
+            Tuple[bool, int]: (has_exceeded_limit, current_count)
+
+        Raises:
+            RateLimitExceededError: If rate limit is exceeded
+        """
+        now = datetime.now(timezone.utc)
+        # Create a timestamp rounded to the minute: YYYY-MM-DDTHH:MM
+        timestamp_minute = now.strftime("%Y-%m-%dT%H:%M")
+
+        # Format for finding our rate limit record
+        pk = f"RATE#{resource_type}#{resource_id}"
+        sk = timestamp_minute
+
+        try:
+            # Try to update an existing count, or create if not exists
+            response = self.table.update_item(
+                Key={"PK": pk, "SK": sk},
+                UpdateExpression="ADD #count :increment SET expiresAt = :expires_at",
+                ExpressionAttributeNames={"#count": "count"},
+                ExpressionAttributeValues={
+                    ":increment": 1,
+                    ":expires_at": int(time.time()) + window_seconds + 60,  # Add buffer
+                },
+                ReturnValues="UPDATED_NEW",
+            )
+
+            # Get the updated count
+            current_count = response.get("Attributes", {}).get("count", 1)
+
+            # Check if over limit
+            if current_count > limit:
+                # Calculate when the rate limit resets
+                reset_time = (
+                    now.replace(second=0, microsecond=0) + timedelta(minutes=1)
+                ).isoformat()
+                raise RateLimitExceededError(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    limit=limit,
+                    reset_time=reset_time,
+                )
+
+            return False, current_count
+
+        except Exception as e:
+            # Handle other errors (like throttling, connection issues, etc.)
+            if not isinstance(e, RateLimitExceededError):
+                sentry_sdk.capture_exception(e)
+                # If we fail, default to allowing the request
+                return False, 0
+            else:
+                raise
+
+    def get_rate_limit_counts(
+        self, resource_type: str, resource_id: str, minutes: int = 5
+    ) -> Dict[str, int]:
+        """Get rate limit counts for a resource over multiple minutes
+
+        Args:
+            resource_type: Type of resource (IP, API, USER, etc.)
+            resource_id: ID of the resource (IP address, API ID, user ID)
+            minutes: Number of minutes to retrieve (default: 5)
+
+        Returns:
+            Dict[str, int]: Dictionary mapping minute timestamps to request counts
+        """
+        now = datetime.now(timezone.utc)
+        counts = {}
+
+        # Query for the last 'minutes' worth of rate limit records
+        try:
+            response = self.table.query(
+                KeyConditionExpression="#pk = :pk AND #sk > :min_time",
+                ExpressionAttributeNames={"#pk": "PK", "#sk": "SK"},
+                ExpressionAttributeValues={
+                    ":pk": f"RATE#{resource_type}#{resource_id}",
+                    ":min_time": (now - timedelta(minutes=minutes)).strftime(
+                        "%Y-%m-%dT%H:%M"
+                    ),
+                },
+            )
+
+            items = response.get("Items", [])
+            for item in items:
+                counts[item["SK"]] = item.get("count", 0)
+
+            return counts
+
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            return {}
 
     def create_user(
         self,
@@ -387,6 +515,7 @@ class SheetApiRepo:
             "PK": f"ACCOUNT#{org_id}",
             "SK": f"MEMBERSHIP#{user_id}",
             "user_id": user_id,
+            "org_id": org_id,
             "member_type": member_type,
             "joined_at": datetime.now().isoformat(),
             # Add GSI1 attributes for reverse lookup (user → orgs)

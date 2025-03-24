@@ -381,9 +381,12 @@ Resources:
         SSEEnabled: true
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
       Tags:
         - Key: Environment
-          Value: prod
+          Value: !Ref Environment
 
   LambdaStreamFunction:
     Type: AWS::Serverless::Function

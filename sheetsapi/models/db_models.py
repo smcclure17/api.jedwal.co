@@ -174,3 +174,43 @@ class OrganizationMembership(BaseModel):
         assert self.SK.startswith("ORG#")
         assert self.GSI1PK.startswith("ORG#")
         assert self.GSI1SK.startswith("USER#")
+
+
+class RateLimitRecord(BaseModel):
+    """Database model for rate limiting records"""
+
+    PK: str  # RATE#<resource_type>#<resource_id>
+    SK: str  # <timestamp_minute>
+    count: int = 0
+    expiresAt: int  # TTL attribute for automatic deletion
+
+    @classmethod
+    def create(
+        cls,
+        resource_type: str,
+        resource_id: str,
+        timestamp_minute: str,
+        ttl_seconds: int = 120,
+    ):
+        """Create a rate limit record for a specific minute window
+
+        Args:
+            resource_type: Type of resource (IP, API, USER, etc.)
+            resource_id: ID of the resource (IP address, API ID, user ID)
+            timestamp_minute: ISO timestamp rounded to the minute (YYYY-MM-DDTHH:MM)
+            ttl_seconds: Time to live in seconds (default: 120s = 2 minutes)
+
+        Returns:
+            RateLimitRecord: New rate limit record
+        """
+        import time
+
+        current_time = int(time.time())
+        expires_at = current_time + ttl_seconds
+
+        return cls(
+            PK=f"RATE#{resource_type}#{resource_id}",
+            SK=timestamp_minute,
+            count=1,
+            expiresAt=expires_at,
+        )
