@@ -53,7 +53,7 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
         # Add worksheet to cache
         lru_worksheet_cache.put(ws_cache_key, value=worksheet)
         return JSONResponse(
-            content=google_sheet_client.GoogleSheets.get_worksheet_data(worksheet).data,
+            content=google_sheet_client.GoogleSheets.get_worksheet_data(worksheet),
             headers={"Cache-Control": f"max-age={cache_duration}, public"},
             status_code=200,
         )

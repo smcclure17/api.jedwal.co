@@ -57,12 +57,14 @@ class GoogleSheets:
         )
 
     @staticmethod
-    def get_worksheet_data(
-        worksheet: gspread.worksheet.Worksheet,
-    ) -> WorksheetDataModel:
-        return WorksheetDataModel(
-            title=worksheet.title, data=_try_get_worksheet_records(worksheet)
-        )
+    def get_worksheet_data(worksheet: gspread.worksheet.Worksheet):
+        try:
+            return worksheet.get_all_records()
+        except gspread.exceptions.GSpreadException as error:
+            if str(error).startswith("the header row in the worksheet is not unique"):
+                raise NonUniqueColumnsError("Spreadsheet columns are not unique")
+            raise error
+
 
     def get_worksheet_by_name(self, sheet_id, name):
         return self._try_open_spreadsheet(sheet_id).worksheet(name)
@@ -82,12 +84,3 @@ class GoogleSheets:
         except PermissionError:
             raise InsufficientPermissions("User does not have access to file")
         return google_sheet
-
-
-def _try_get_worksheet_records(worksheet: gspread.worksheet.Worksheet):
-    try:
-        return worksheet.get_all_records()
-    except gspread.exceptions.GSpreadException as error:
-        if str(error).startswith("the header row in the worksheet is not unique"):
-            raise NonUniqueColumnsError("Spreadsheet columns are not unique")
-        raise error
