@@ -70,26 +70,32 @@ class AnalyticsClient:
         return results
 
     def get_api_logs(
-        self, owner_id: str, sheet_api_name: str, start_time: Optional[str] = None
+        self, owner_id: str, sheet_api_name: str, start_time: Optional[str] = None, 
+        end_time: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get API request logs for a specific sheet API."""
         analytics_id = f"ANALYTICS#{owner_id}#{sheet_api_name}"
 
-        if start_time:
-            # Query with time filter
-            response = self.table.query(
-                KeyConditionExpression="PK = :pk AND SK >= :start_time",
-                ExpressionAttributeValues={
-                    ":pk": analytics_id,
-                    ":start_time": start_time,
-                },
-            )
-        else:
-            # Query all logs for this sheet API
-            response = self.table.query(
-                KeyConditionExpression="PK = :pk",
-                ExpressionAttributeValues={":pk": analytics_id},
-            )
+        # Base expression and values
+        key_condition = "PK = :pk"
+        expr_values = {":pk": analytics_id}
+
+        if start_time and end_time:
+            key_condition += " AND SK BETWEEN :start_time AND :end_time"
+            expr_values[":start_time"] = start_time
+            expr_values[":end_time"] = end_time
+        elif start_time:
+            key_condition += " AND SK >= :start_time"
+            expr_values[":start_time"] = start_time
+        elif end_time:
+            key_condition += " AND SK <= :end_time"
+            expr_values[":end_time"] = end_time
+
+        # Execute the query with the appropriate conditions
+        response = self.table.query(
+            KeyConditionExpression=key_condition,
+            ExpressionAttributeValues=expr_values,
+        )
 
         return response.get("Items", [])
 

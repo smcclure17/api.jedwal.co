@@ -354,7 +354,6 @@ class SheetApiRepo:
         org_name: str,
         created_by: str,  # owner user_id,
         members: Optional[list[str]] = None,  # user_ids of members
-        account_status: Optional[AccountStatus] = "free",
     ):
         """Create an organization with it's members."""
         if members is None:
@@ -367,9 +366,10 @@ class SheetApiRepo:
             "type": "organization",
             "account_id": org_id,
             "display_name": org_name,
-            "account_status": "free",  # TODO: make this account_status once we wire up prem orgs
+            "account_status": "premium",
             "created_at": datetime.now().isoformat(),
             "created_by": created_by,
+            "billing_account_id": created_by,
         }
 
         # Prepare transaction items

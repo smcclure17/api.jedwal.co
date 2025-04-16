@@ -1,4 +1,5 @@
 import dataclasses
+from functools import cached_property
 import logging
 import gspread
 from sheetsapi import envelope_encryption
@@ -29,6 +30,22 @@ class GoogleOauthFields:
     client_id: str
     client_secret: str
 
+    @cached_property
+    def google_oauth_creds(self):
+        refresh_token = envelope_encryption.EnvelopeEncryption.decrypt(
+            encrypted_data_b64=self.refresh_token_info.encrypted_refresh_token,
+            encrypted_key_b64=self.refresh_token_info.data_encryption_key,
+            context=self.refresh_token_info.context,
+        )
+
+        return Credentials(
+            token=self.access_token,
+            refresh_token=refresh_token,
+            token_uri=self.token_uri,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+        )
+
     @classmethod
     def from_tokens(
         cls, access_token: str, refresh_token_info: RefreshTokenInfo
@@ -57,19 +74,4 @@ class GoogleOauthFields:
         Returns:
             gspread.Client: The gspread client.
         """
-
-        # Decrypt refresh_token right before sending off to Google
-        refresh_token = envelope_encryption.EnvelopeEncryption.decrypt(
-            encrypted_data_b64=self.refresh_token_info.encrypted_refresh_token,
-            encrypted_key_b64=self.refresh_token_info.data_encryption_key,
-            context=self.refresh_token_info.context,
-        )
-
-        creds = Credentials(
-            token=self.access_token,
-            refresh_token=refresh_token,
-            token_uri=self.token_uri,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-        )
-        return gspread.authorize(creds)
+        return gspread.authorize(self.google_oauth_creds)

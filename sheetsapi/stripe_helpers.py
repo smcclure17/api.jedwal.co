@@ -16,7 +16,7 @@ def upgrade_user(email: str) -> None:
         raise sheet_api_repo_v2.UserNotFoundError(
             f"Cannot find user for email Stripe email {email}"
         )
-    repo.upgrade_account(owner_id=user["user_id"])
+    repo.upgrade_account(owner_id=user["account_id"])
 
 
 def downgrade_user(customer_id: str) -> None:
@@ -34,8 +34,12 @@ def downgrade_user(customer_id: str) -> None:
         raise sheet_api_repo_v2.UserNotFoundError(
             f"Cannot find user for email {email} from Stripe ID: {customer_id}"
         )
-    repo.downgrade_account(owner_id=user["user_id"])
+    repo.downgrade_account(owner_id=user["account_id"])
 
 
 def get_event(payload, header):
     return stripe.Webhook.construct_event(payload, header, WEBHOOK_SECRET)
+
+
+def send_past_due_warning_email(user_id: str):
+    pass # TODO: implement

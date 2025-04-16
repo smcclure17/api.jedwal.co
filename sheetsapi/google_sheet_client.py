@@ -3,11 +3,7 @@ from functools import cached_property
 
 import gspread
 from sheetsapi import auth_utils
-from sheetsapi.models.domain_models import (
-    RefreshTokenInfo,
-    SpreadsheetDataModel,
-    WorksheetDataModel,
-)
+from sheetsapi.models.domain_models import RefreshTokenInfo, SpreadsheetDataModel
 
 
 class InaccessibleDocument(Exception):

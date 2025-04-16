@@ -27,6 +27,8 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     STRIPE_WEBHOOK_SECRET: str
 
+    STRIPE_SUBSCRIPTION_PRICE_ID: str
+
     STRIPE_SECRET_KEY: str
 
     API_BASE_URL: str

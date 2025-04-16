@@ -84,6 +84,11 @@ Parameters:
     Type: String
     Default: ".jedwal.co"
 
+  StripeSubscriptionPriceId:
+    Description: "Stripe Product Price ID to use"
+    Type: String
+    NoEcho: true
+
 Resources:
   # KMS Key for Envelope Encryption
   EncryptionKey:
@@ -190,6 +195,7 @@ Resources:
           CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
           STRIPE_SECRET_KEY: !Ref StripeSecretKey
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          STRIPE_SUBSCRIPTION_PRICE_ID: !Ref StripeSubscriptionPriceId
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
           ENCRYPTION_KEY_ID: !Ref EncryptionKey
@@ -408,6 +414,7 @@ Resources:
           CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
           STRIPE_SECRET_KEY: !Ref StripeSecretKey
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          STRIPE_SUBSCRIPTION_PRICE_ID: !Ref StripeSubscriptionPriceId
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
           ENCRYPTION_KEY_ID: !Ref EncryptionKey
