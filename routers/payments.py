@@ -2,13 +2,14 @@
 Payment processing routes and webhook handlers.
 """
 
+from datetime import datetime
 import logging
 import stripe
 from fastapi import APIRouter, Header, HTTPException
 from starlette.requests import Request
 
 from dependencies import CurrentUser
-from sheetsapi import config, sheet_api_repo_v2, stripe_helpers
+from sheetsapi import config, stripe_helpers
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["payments"])
@@ -31,29 +32,42 @@ async def webhook_received(request: Request, stripe_signature: str = Header(None
         dict: Status response
     """
     data = await request.body()
+    stripe_handler = stripe_helpers.StripeHandler()
     try:
-        event = stripe_helpers.get_event(payload=data, header=stripe_signature)
+        event = stripe_handler.get_event(payload=data, header=stripe_signature)
     except stripe.SignatureVerificationError as error:
         raise HTTPException(400, detail=str(error))
 
     event_type = event["type"]
     if event_type == "checkout.session.completed":
         user_email = event.data.object["customer_details"]["email"]
-        stripe_helpers.upgrade_user(user_email)
-    elif event_type == "customer.subscription.deleted":
         customer_id = event.data.object["customer"]
-        stripe_helpers.downgrade_user(customer_id)
-    elif event_type == "customer.subscription.updated":
-        subscription = event.data.object
-        status = subscription.get("status")
+        subscription_id = event.data.object["subscription"]
+        subscription = stripe.Subscription.retrieve(subscription_id)
+        current_period_start = datetime.fromtimestamp(subscription.current_period_start)
+        current_period_end = datetime.fromtimestamp(subscription.current_period_end)
+
+        stripe_handler.upgrade_user(user_email)
+        stripe_handler.update_billing_period(
+            user_email, current_period_start, current_period_end
+        )
+    elif event_type == "invoice.paid":
+        subscription_id = event.data.object.get("subscription")
+        if not subscription_id:
+            return  # Invoice isn't for a subscription
+        subscription = stripe.Subscription.retrieve(subscription_id)
+        next_period_start = datetime.fromtimestamp(subscription.current_period_start)
+        next_period_end = datetime.fromtimestamp(subscription.current_period_end)
         customer_id = subscription.get("customer")
         customer = stripe.Customer.retrieve(customer_id)
-        customer_email = customer.email
+        user_email = customer.email
 
-        if status == "past_due":
-            stripe_helpers.send_past_due_warning_email(customer_id)
-        elif status == "active":
-            stripe_helpers.upgrade_user(customer_email)
+        stripe_handler.update_billing_period(
+            user_email, next_period_start, next_period_end
+        )
+    elif event_type == "customer.subscription.deleted":
+        customer_id = event.data.object["customer"]
+        stripe_handler.downgrade_user(customer_id)
     else:
         logger.info(f"unhandled event: {event_type}")
 
@@ -77,6 +91,9 @@ async def create_checkout_session(user: CurrentUser):
                     "price": config.Config.Constants.STRIPE_SUBSCRIPTION_PRICE_ID,
                     "quantity": 1,
                 },
+                {
+                    "price": config.Config.Constants.STRIPE_USAGE_BASED_PRICE_ID,
+                },
             ],
             mode="subscription",
             customer=customer.id,
@@ -86,21 +103,4 @@ async def create_checkout_session(user: CurrentUser):
         return {"url": checkout_session.url}
     except Exception as e:
         print(e)
-        raise HTTPException(400, detail=str(e))
-
-
-@router.get("/success")
-async def checkout_success(session_id: str):
-    try:
-        # Retrieve the session to verify it was successful
-        session = stripe.checkout.Session.retrieve(session_id)
-
-        customer_id = session.customer
-        subscription_id = session.subscription
-
-        email = session.customer_details.email
-        stripe_helpers.upgrade_user(email, customer_id, subscription_id)
-
-        return {"status": "success", "message": "Subscription activated!"}
-    except Exception as e:
         raise HTTPException(400, detail=str(e))

@@ -29,6 +29,8 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     STRIPE_SUBSCRIPTION_PRICE_ID: str
 
+    STRIPE_USAGE_BASED_PRICE_ID: str
+
     STRIPE_SECRET_KEY: str
 
     API_BASE_URL: str
@@ -44,6 +46,8 @@ class EnvConstants(pydantic_settings.BaseSettings):
     ENCRYPTION_KEY_ID: str
 
     EMAILS_ENABLED: bool = True
+
+    FREE_TIER_REQUEST_LIMIT: int = 5_000
 
     TEST_DATA_REFRESH_INFO: str = ""  # Just for testing, TODO: separate test config?
 

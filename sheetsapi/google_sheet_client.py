@@ -61,7 +61,6 @@ class GoogleSheets:
                 raise NonUniqueColumnsError("Spreadsheet columns are not unique")
             raise error
 
-
     def get_worksheet_by_name(self, sheet_id, name):
         return self._try_open_spreadsheet(sheet_id).worksheet(name)
 

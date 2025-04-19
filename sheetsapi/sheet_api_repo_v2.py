@@ -2,7 +2,7 @@ from collections import defaultdict
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 from datetime import timedelta
 
 
@@ -891,6 +891,21 @@ class SheetApiRepo:
             "sheets_unfrozen": unfrozen_count,
             "total_sheets": len(sheets),
         }
+
+    def get_accounts_by_billing_date(self, billing_end_date: str):
+        """Get all accounts who's billing is due on the specified date
+
+        Args:
+            billing_end_date: must be YYYY-MM-DD
+        """
+        gsi4_pk = f"ACCOUNT#BILLING_END#{billing_end_date}"
+        response = self.table.query(
+            IndexName="GSI4",
+            KeyConditionExpression="GSI4PK = :billing_pk",
+            ExpressionAttributeValues={":billing_pk": gsi4_pk},
+        )
+
+        return response.get("Items", [])
 
     def _check_org_exists(self, org_id: str):
         user_or_org = self.get_account(org_id)

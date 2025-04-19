@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import Iterator, List, Dict, Any, Optional
 import time
 
 import boto3
@@ -51,6 +51,7 @@ class AnalyticsClient:
                     "sheet_api_name": log["sheet_api_name"],
                     "path": log["path"],
                     "request_time": log["timestamp"],
+                    "cache_result": log["cache_result"],
                 }
 
                 write_requests.append({"PutRequest": {"Item": item}})
@@ -70,8 +71,11 @@ class AnalyticsClient:
         return results
 
     def get_api_logs(
-        self, owner_id: str, sheet_api_name: str, start_time: Optional[str] = None, 
-        end_time: Optional[str] = None
+        self,
+        owner_id: str,
+        sheet_api_name: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Get API request logs for a specific sheet API."""
         analytics_id = f"ANALYTICS#{owner_id}#{sheet_api_name}"
@@ -119,3 +123,59 @@ class AnalyticsClient:
         )
 
         return response.get("Count", 0)
+
+    def get_api_logs_for_account_streaming(
+        self,
+        owner_id: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Stream API request logs for an account using a generator.
+
+        Args:
+            owner_id: The account/user ID
+            start_time: Optional start timestamp (ISO 8601)
+            end_time: Optional end timestamp (ISO 8601)
+
+        Yields:
+            Individual analytics records one at a time
+        """
+        gsi_pk = f"ANALYTICS#{owner_id}"
+        key_condition = "GSI1PK = :gsi_pk"
+        expr_values = {":gsi_pk": gsi_pk}
+
+        if start_time and end_time:
+            key_condition += " AND GSI1SK BETWEEN :start AND :end"
+            expr_values[":start"] = start_time
+            expr_values[":end"] = end_time
+        elif start_time:
+            key_condition += " AND GSI1SK >= :start"
+            expr_values[":start"] = start_time
+        elif end_time:
+            key_condition += " AND GSI1SK <= :end"
+            expr_values[":end"] = end_time
+
+        # Start with no LastEvaluatedKey
+        last_evaluated_key = None
+
+        # Continue querying until we've processed all matching items
+        while True:
+            # Configure query parameters
+            query_params = {
+                "IndexName": "GSI1",
+                "KeyConditionExpression": key_condition,
+                "ExpressionAttributeValues": expr_values,
+            }
+
+            # Add LastEvaluatedKey if we have one from a previous query
+            if last_evaluated_key:
+                query_params["ExclusiveStartKey"] = last_evaluated_key
+
+            response = self.table.query(**query_params)
+            for item in response.get("Items", []):
+                yield item
+
+            last_evaluated_key = response.get("LastEvaluatedKey")
+            if not last_evaluated_key:
+                break

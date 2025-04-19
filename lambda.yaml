@@ -85,7 +85,12 @@ Parameters:
     Default: ".jedwal.co"
 
   StripeSubscriptionPriceId:
-    Description: "Stripe Product Price ID to use"
+    Description: "Stripe price ID for flat-rate portion"
+    Type: String
+    NoEcho: true
+
+  StripeUsageBasedPriceId:
+    Description: "Stripe price ID for usage based portion"
     Type: String
     NoEcho: true
 
@@ -196,6 +201,7 @@ Resources:
           STRIPE_SECRET_KEY: !Ref StripeSecretKey
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
           STRIPE_SUBSCRIPTION_PRICE_ID: !Ref StripeSubscriptionPriceId
+          STRIPE_USAGE_BASED_PRICE_ID: !Ref StripeUsageBasedPriceId
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
           ENCRYPTION_KEY_ID: !Ref EncryptionKey
@@ -352,6 +358,9 @@ Resources:
           AttributeType: S
         - AttributeName: GSI3SK
           AttributeType: S
+        # Lookup accounts by billing date
+        - AttributeName: GSI4PK
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -380,6 +389,14 @@ Resources:
               KeyType: HASH
             - AttributeName: GSI3SK
               KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        # lookup accounts by billing date
+        # skipping 4 b/c i messed that one up
+        - IndexName: GSI4
+          KeySchema:
+            - AttributeName: GSI4PK
+              KeyType: HASH
           Projection:
             ProjectionType: ALL
       BillingMode: PAY_PER_REQUEST
@@ -415,6 +432,7 @@ Resources:
           STRIPE_SECRET_KEY: !Ref StripeSecretKey
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
           STRIPE_SUBSCRIPTION_PRICE_ID: !Ref StripeSubscriptionPriceId
+          STRIPE_USAGE_BASED_PRICE_ID: !Ref StripeUsageBasedPriceId
           CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
           COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
           ENCRYPTION_KEY_ID: !Ref EncryptionKey

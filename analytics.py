@@ -68,7 +68,7 @@ def handler(event, _context):
                     "path": line["cs-uri-stem"].split("/api/")[1],
                     "timestamp": timestamp,
                     "request_id": request_id,
-                    "cache_result": line["x-edge-result-type"]
+                    "cache_result": line["x-edge-result-type"],
                 }
             )
 
