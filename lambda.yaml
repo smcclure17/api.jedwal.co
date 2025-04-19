@@ -22,6 +22,11 @@ Parameters:
     Description: ECR Image URI for the analytics function
     NoEcho: true
 
+  BillingImageUri:
+    Type: String
+    Description: ECR Image URI for the billing usage function
+    NoEcho: true
+
   Environment:
     Type: String
     Description: Environment
@@ -411,6 +416,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+  # Cloudfront CDN and analytic log tracking
   LambdaStreamFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -632,6 +638,72 @@ Resources:
           Bucket: !GetAtt CloudFrontLogsBucket.RegionalDomainName
           Prefix: !Sub "${Environment}/"
           IncludeCookies: false
+
+  # Billing Usage Lambda 
+  LambdaBillingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref BillingImageUri
+      Role: !GetAtt LambdaBillingFunctionExecutionRole.Arn
+      FunctionName: !Sub "${Environment}-sheetsapi-billing-lambda"
+      Timeout: 30
+      Environment:
+        Variables:
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
+          OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
+          ENVIRONMENT: !Ref Environment
+          SHEETS_API_TABLE: !Ref DynamoDBTableV2
+          SENTRY_DSN: !Ref SentryDSN
+          API_BASE_URL: !Ref ApiBaseUrl
+          CLIENT_BASE_URL: !Ref ClientBaseUrl
+          CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          STRIPE_SUBSCRIPTION_PRICE_ID: !Ref StripeSubscriptionPriceId
+          STRIPE_USAGE_BASED_PRICE_ID: !Ref StripeUsageBasedPriceId
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
+          COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
+          ENCRYPTION_KEY_ID: !Ref EncryptionKey
+          EMAILS_ENABLED: "true"
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
+
+  LambdaBillingFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+
+  BillingLambdaDailyRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${Environment}-daily-billing-lambda-trigger"
+      Description: "Triggers billing Lambda function daily"
+      ScheduleExpression: "cron(0 0 * * ? *)"  # Run at midnight UTC every day
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt LambdaBillingFunction.Arn
+          Id: "BillingLambdaTarget"
+
+  LambdaBillingPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaBillingFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt BillingLambdaDailyRule.Arn
+
 
 Outputs:
   ApiDomainName:

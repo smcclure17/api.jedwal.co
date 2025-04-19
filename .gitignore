@@ -9,6 +9,7 @@ dist/
 # docker build script contains sensitive information
 build-and-push-image.sh
 build-push-analytics.sh
+build-push-billing.sh
 
 # cloudformation deploy script contains sensitive parameters
 deploy-stack.sh
