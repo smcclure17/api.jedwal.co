@@ -9,7 +9,10 @@ from sheetsapi import sheet_api_repo_v2
 
 # TODO: find a better, more centralized location for this
 # Rate limit levels for each account type
-API_RATE_LIMIT_VALUES = {"free": 20, "premium": 60}
+# 167 requests per day enforces the 5k free refreshes per month (167 * 30 = ~5k)
+# Premium rate limit is just a high number to make sure we're not getting hit hard.
+API_RATE_LIMIT_VALUES = {"free": 167, "premium": 1_000_000}
+RATE_LIMIT_WINDOW_SECONDS = 86400  # one day
 
 
 class ApiRateLimitMiddleware(BaseHTTPMiddleware):
@@ -38,18 +41,26 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
 
             try:
                 self.api_repo.check_rate_limit(
-                    resource_type="API", resource_id=owner_id, limit=api_rate_limit
+                    resource_type="API",
+                    resource_id=owner_id,
+                    limit=api_rate_limit,
+                    window_seconds=RATE_LIMIT_WINDOW_SECONDS,
                 )
             except sheet_api_repo_v2.RateLimitExceededError as e:
+                message = {
+                    "free": "Try increasing the Update Cadence of your APIs, or upgrade to Pro.",
+                    "premium": "This is a soft/hidden rate limit. Reach out to hello@jedwal.co to have this lifted",
+                }
                 return JSONResponse(
                     content=(
                         f"API rate limit exceeded. "
-                        f"Limit of {api_rate_limit} calls per minute on {account_status} plan. "
-                        f"Try again after {e.reset_time}Z"
+                        f"Limit of {api_rate_limit} refreshes per day on {account_status} plan. "
+                        f"Try again after {e.reset_time}Z. "
+                        f"{message[account_status]}"
                     ),
                     status_code=429,
                     headers={
-                        "Retry-After": "60",
+                        "Retry-After": f"{RATE_LIMIT_WINDOW_SECONDS}",
                         "X-RateLimit-Limit": str(e.limit),
                         "X-RateLimit-Reset": e.reset_time,
                     },

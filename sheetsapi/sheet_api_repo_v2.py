@@ -76,8 +76,8 @@ class SheetApiRepo:
         self,
         resource_type: str,
         resource_id: str,
-        limit: int = 60,
-        window_seconds: int = 60,
+        limit: int = 167,  # 167 * 30 = ~5k monthly requests 
+        window_seconds: int = 86400, # one day
     ) -> Tuple[bool, int]:
         """Check if a resource has exceeded its rate limit
 
@@ -94,12 +94,12 @@ class SheetApiRepo:
             RateLimitExceededError: If rate limit is exceeded
         """
         now = datetime.now(timezone.utc)
-        # Create a timestamp rounded to the minute: YYYY-MM-DDTHH:MM
-        timestamp_minute = now.strftime("%Y-%m-%dT%H:%M")
+        # Create a timestamp rounded to the minute: YYYY-MM-DD
+        timestamp_day = now.strftime("%Y-%m-%d")
 
         # Format for finding our rate limit record
         pk = f"RATE#{resource_type}#{resource_id}"
-        sk = timestamp_minute
+        sk = timestamp_day
 
         try:
             # Try to update an existing count, or create if not exists
@@ -109,7 +109,7 @@ class SheetApiRepo:
                 ExpressionAttributeNames={"#count": "count"},
                 ExpressionAttributeValues={
                     ":increment": 1,
-                    ":expires_at": int(time.time()) + window_seconds + 60,  # Add buffer
+                    ":expires_at": int(time.time()) + window_seconds + 300,  # Add buffer
                 },
                 ReturnValues="UPDATED_NEW",
             )
