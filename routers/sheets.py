@@ -170,15 +170,6 @@ async def update_cache_duration_v2(data: UpdateApiTtlRequest, user: CurrentUser)
     if not api_manager_v2.check_user_access_for_owner(user.sub, data.owner_id):
         raise HTTPException(403, "Not authorized")
 
-    # We care that the sheet owner (account or org) is premium, not the user
-    # making the request, b/c free users can be in premium organizations.
-    sheet_owner_account = api_manager_v2.get_account(data.owner_id)
-    if sheet_owner_account["account_status"] == "free" and data.cache_duration < 60:
-        raise HTTPException(
-            status_code=422,
-            detail="Invalid refresh duration. Non-premium users must set a value of 60 seconds or greater.",
-        )
-
     try:
         api_manager_v2.update_sheet_api(
             owner_id=data.owner_id,
