@@ -112,13 +112,19 @@ async def create_api_v2(
         if not api_manager_v2.check_user_access_for_owner(user.sub, owner_id=owner_id):
             raise HTTPException(403, detail="Not authorized for organization.")
 
-    # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
-    if "docs.google.com/spreadsheets/d/" in google_sheet_id:
-        google_sheet_id = google_sheet_id.split("/d/")[1].split("/")[0]
-
     # We use the user auth creds even if it's an organization sheet api
     user_item = api_manager_v2.get_account(user.sub)
     refresh_token_info = user_item["refresh_token_info"]
+    free_account = user_item["account_status"] == "free"
+    number_of_apis = len(api_manager_v2.get_sheet_apis_for_account(owner_id=owner_id))
+
+    # check that user is premium or has less than 2 APIs
+    if free_account and number_of_apis >= 2:
+        raise HTTPException(401, detail="Free accounts can only have 2 sheet APIs.")
+
+    # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
+    if "docs.google.com/spreadsheets/d/" in google_sheet_id:
+        google_sheet_id = google_sheet_id.split("/d/")[1].split("/")[0]
 
     # Check the user has access to the Google Sheet
     google_client = google_sheet_client.GoogleSheets.from_token_info(refresh_token_info)
