@@ -6,17 +6,14 @@ import os
 from fastapi import APIRouter
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from sheetsapi import sheet_api_repo_v2
 
 # Get the directory of the current file and compute the path to the public directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = BASE_DIR / "public"
 
 router = APIRouter(tags=["ui"])
-manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name()
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -24,7 +21,6 @@ async def homepage(request: Request):
     """Render simple homepage"""
     user: dict | None = request.session.get("user")
     if user is not None:
-        sheets = manager_v2.get_sheet_apis_for_account(user["sub"])
         html = f"""
         <html>
         <head>
@@ -43,10 +39,6 @@ async def homepage(request: Request):
                 <input type="text" name="google_sheet_id" placeholder="Enter Google Sheet ID" style="width: 400px;">
                 <button type="submit">Create API</button>
             </form>
-            <h3>Your Sheets:</h3>
-            <ul class="sheet-list">
-            </ul>
-            <a href="/logout">logout</a>
         </body>
         </html>
         """

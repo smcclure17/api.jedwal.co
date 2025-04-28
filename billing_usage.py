@@ -2,6 +2,7 @@
 
 import uuid
 from sheetsapi import config
+from sheetsapi.account_repo import AccountRepo
 
 config.Config.init()
 
@@ -12,7 +13,6 @@ from typing import Optional
 
 import boto3
 import stripe
-from sheetsapi.sheet_api_repo_v2 import SheetApiRepo
 
 from sheetsapi import sentry_helpers
 from sheetsapi.analytics_client import AnalyticsClient
@@ -26,13 +26,13 @@ if IS_LAMBDA:
     sentry_helpers.init()
 
 analytics_client = AnalyticsClient.from_table_name()
-user_client = SheetApiRepo.from_table_name()
+account_repo = AccountRepo.from_table_name()
 s3 = boto3.client("s3")
 
 
 def handler(event, _context):
     billing_cycle_end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    users_to_report = user_client.get_accounts_by_billing_date(billing_cycle_end_date)
+    users_to_report = account_repo.get_accounts_by_billing_date(billing_cycle_end_date)
 
     for user in users_to_report:
         account_id = user["account_id"]
@@ -45,7 +45,7 @@ def handler(event, _context):
             account_id, start_date, end_date, client=analytics_client
         )
         report_usage_to_stripe(customer.id, usage["billable_requests"])
-        print(f"Reported {usage["billable_requests"]} requests for email {email}")
+        print(f"Reported {usage['billable_requests']} requests for email {email}")
 
 
 def calculate_usage_cost(
@@ -97,5 +97,5 @@ def _get_billing_account_email(user: dict):
     if user["type"] == "user":
         return user["email"]
     elif user["type"] == "organization":
-        billing_owner = user_client.get_account(user["billing_account_id"])
+        billing_owner = account_repo.get_account(user["billing_account_id"])
         return billing_owner["email"]

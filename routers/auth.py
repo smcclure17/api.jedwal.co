@@ -8,12 +8,13 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth, OAuthError
 
-from sheetsapi import config, envelope_encryption, user_helpers, sheet_api_repo_v2
+from sheetsapi import config, user_helpers
+from sheetsapi.account_repo import AccountRepo
 from sheetsapi.models.domain_models import UserSession
 
 logger = logging.getLogger(__name__)
 
-sheet_api_repo = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+account_repo = AccountRepo.from_table_name()
 
 router = APIRouter(tags=["auth"])
 
@@ -22,6 +23,7 @@ oauth = OAuth(config.Config.to_starlette_config())
 
 OAUTH_SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/documents",
     "openid",
     "profile",
     "email",
@@ -72,7 +74,7 @@ async def auth(request: Request):
     request.session["user"] = user.model_dump()
 
     refresh_token = token.get("refresh_token")
-    existing_account = sheet_api_repo.get_account(user.sub)
+    existing_account = account_repo.get_account(user.sub)
 
     if existing_account is None:
         if refresh_token is None:

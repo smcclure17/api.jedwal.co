@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import EmailStr
 
-from sheetsapi import sheet_api_repo_v2
+from sheetsapi.account_repo import AccountRepo, UserNotFoundError
 from sheetsapi.models.api_models import (
     CreateOrganizationRequest,
     OrganizationResponse,
@@ -15,7 +15,7 @@ from dependencies import CurrentUser
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["organizations"])
-api_manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+account_repo = AccountRepo.from_table_name()
 
 
 @router.post("/create-organization", response_model=OrganizationResponse)
@@ -34,12 +34,12 @@ async def create_organization(data: CreateOrganizationRequest, user: CurrentUser
     member_ids = []
     for email in data.invitees:
         try:
-            user_item = api_manager_v2.get_user_by_email(email)
+            user_item = account_repo.get_user_by_email(email)
             member_ids.append(user_item["account_id"])
-        except sheet_api_repo_v2.UserNotFoundError:
+        except UserNotFoundError:
             continue  # just do nothing if email is not tied to an account
 
-    result = api_manager_v2.create_organization(
+    result = account_repo.create_organization(
         org_name=data.name, created_by=user.sub, members=member_ids
     )
     org_id = result["account_id"]
@@ -56,7 +56,7 @@ async def invite_users(
     org_id: str = Body(...), user_emails: list[EmailStr] = Body(...)
 ):
     # This sucks but whatever
-    members = api_manager_v2.get_users_for_org(org_id)
+    members = account_repo.get_users_for_org(org_id)
     member_ids = {m["user_id"] for m in members}
 
     success = []
@@ -65,16 +65,16 @@ async def invite_users(
 
     for email in set(user_emails):
         try:
-            user = api_manager_v2.get_user_by_email(email)
+            user = account_repo.get_user_by_email(email)
             if user["account_id"] in member_ids:
                 skipped.append(email)
                 continue
 
-            api_manager_v2.add_user_to_org(
+            account_repo.add_user_to_org(
                 user_id=user["account_id"], org_id=org_id, member_type="member"
             )
             success.append(email)
-        except sheet_api_repo_v2.UserNotFoundError:
+        except UserNotFoundError:
             failed.append(email)
 
     return {"success": success, "failed": failed, "skipped": skipped}
@@ -93,10 +93,10 @@ async def delete_organization(org_id: str, user: CurrentUser):
     Returns:
         dict: Confirmation message
     """
-    if not api_manager_v2.check_user_access_for_owner(
+    if not account_repo.check_user_access_for_owner(
         user.sub, org_id
     ):  # TODO should be admin
         raise HTTPException("Not authorized to delete account.")
 
-    deleted_items = api_manager_v2.delete_organization(org_id)
+    deleted_items = account_repo.delete_organization(org_id)
     return {"message": f"Delete success", "items": deleted_items}

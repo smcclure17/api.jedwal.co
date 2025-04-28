@@ -18,6 +18,10 @@ class InsufficientPermissions(Exception):
     """Raised when the user does not have access to the sheet"""
 
 
+class GoogleRateLimitExceeded(Exception):
+    """Raised when user exceeds their Google Sheets quota"""
+
+
 EMPTY_ACCESS_TOKEN = "Some Placeholder Value"  # empty strs fail the refresh
 
 
@@ -78,4 +82,9 @@ class GoogleSheets:
             raise e
         except PermissionError:
             raise InsufficientPermissions("User does not have access to file")
+        except gspread.exceptions.APIError as e:
+            if e.code == 429:
+                raise GoogleRateLimitExceeded(
+                    "Google Sheets Rate Limit exceeded (error 429)."
+                )
         return google_sheet

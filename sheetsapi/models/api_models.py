@@ -9,7 +9,7 @@ from datetime import datetime
 
 from sheetsapi.models.db_models import SheetMetadataWithWorksheets
 from sheetsapi.models.domain_models import SpreadsheetDataModel
-from sheetsapi.sheet_api_repo_v2 import AccountStatus, AccountType
+from sheetsapi.account_repo import AccountStatus, AccountType
 
 
 class UserDataResponse(BaseModel):
