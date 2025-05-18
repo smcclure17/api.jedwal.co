@@ -48,3 +48,6 @@ class GoogleDocs:
         if response.status_code != 200:
             raise DocAccessException(f"{response.status_code}: {response.text}")
         return response.json()
+
+    def get_document_title(self, doc_id) -> str:
+        return self.get_document(doc_id)["title"]

@@ -27,7 +27,7 @@ def setup_middleware(app: FastAPI) -> None:
         secret_key=config.Config.Constants.OAUTH_SECRET_TOKEN,
         same_site="none",
         https_only=True,
-        # domain="jedwal.co",
+        domain="jedwal.co",
     )
 
     # CORS middleware for cross-origin requests

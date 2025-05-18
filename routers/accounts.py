@@ -23,7 +23,6 @@ async def get_account_data(user: CurrentUser, account_id: str | None = None):
     Returns:
         UserDataResponse: User profile and account information
     """
-
     if account_id and not account_repo.check_user_access_for_owner(
         user.sub, account_id
     ):
@@ -31,6 +30,7 @@ async def get_account_data(user: CurrentUser, account_id: str | None = None):
 
     if not account_id:
         account_id = user.sub
+    print(account_id)
 
     user_item = account_repo.get_account(account_id)
     if user_item is None:

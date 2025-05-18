@@ -1,362 +1,149 @@
-from enum import StrEnum, auto
-import json
-from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass
-from functools import reduce
+import re
+from typing import List
+from sheetsapi.parsers.doc_ast import DocumentNode, ElementType, Node
 
 
-class ElementType(StrEnum):
-    """Document element types enumeration, similar to DocumentApp.ElementType in Apps Script"""
-
-    PARAGRAPH = auto()
-    LIST_ITEM = auto()
-    TEXT = auto()
-    TABLE = auto()
-    TABLE_CELL = auto()
-    TABLE_ROW = auto()
-    TABLE_OF_CONTENTS = auto()
-    FOOTNOTE = auto()
-    FOOTNOTE_SECTION = auto()
-    FOOTER_SECTION = auto()
-    HEADER_SECTION = auto()
-    PAGE_BREAK = auto()
-    HORIZONTAL_RULE = auto()
-    INLINE_DRAWING = auto()
-    INLINE_IMAGE = auto()
-    UNSUPPORTED = auto()
-    EQUATION = auto()
+INDENTATION = "  "
 
 
-class NamedStyles(StrEnum):
-    NORMAL = "NORMAL_TEXT"
-    HEADING1 = "HEADING_1"
-    HEADING2 = "HEADING_2"
-    HEADING3 = "HEADING_3"
-    HEADING4 = "HEADING_4"
-    HEADING5 = "HEADING_5"
-    HEADING6 = "HEADING_6"
-    TITLE = "TITLE"
-    SUBTITLE = "SUBTITLE"
+class MarkdownRenderer:
+    """Renders an AST to Markdown format with consistent, opinionated spacing"""
 
+    def render(self, ast: DocumentNode) -> str:
+        """Convert AST to Markdown with standardized spacing"""
+        result = []
+        self._render_node(ast, result)
+        content = "".join(result)
 
-@dataclass(frozen=True)
-class ListContext:
-    """Immutable context for list processing"""
+        # Normalize multiple consecutive newlines down to at most two (one blank line)
+        return re.sub(r"\n{3,}", "\n\n", content)
 
-    list_counters: Dict[str, int]
-    current_list_id: Optional[str] = None
-    current_list_nesting: int = 0
-    in_list: bool = False
+    def _render_node(self, node: Node, result: List[str]) -> None:
+        """Render a node to Markdown"""
+        if node.node_type == ElementType.DOCUMENT:
+            for i, child in enumerate(node.children):
+                # No need for spacing before the first element
+                if i > 0 and self._is_block_element(child):
+                    # Make sure there's exactly one blank line before each block element
+                    self._ensure_blank_line(result)
 
+                self._render_node(child, result)
 
-class GoogleDocsToMarkdown:
-    def __init__(self, docs_json: Dict[str, Any]):
-        """Initialize converter with Google Docs API JSON response"""
-        self.docs_json = docs_json
-        # Cache inline objects for quick lookup
-        self.inline_objects = self.docs_json.get("inlineObjects", {})
+        elif node.node_type == ElementType.PARAGRAPH:
+            # Render paragraph content
+            for child in node.children:
+                self._render_node(child, result)
 
-    def convert(self) -> str:
-        """Convert Google Docs JSON to Markdown"""
-        if not self.docs_json or "body" not in self.docs_json:
-            return ""
+            # Ensure paragraph ends with a newline
+            self._ensure_single_newline(result)
 
-        content = self.docs_json.get("body", {}).get("content", [])
-        result = ""
-        list_context = ListContext(list_counters={})
+        elif node.node_type == ElementType.HEADING:
+            heading = node
+            result.append("#" * heading.level + " ")
+            for child in node.children:
+                self._render_node(child, result)
 
-        for element in content:
-            result, list_context = self._process_element(element, result, list_context)
+            # Ensure heading ends with a newline
+            self._ensure_single_newline(result)
 
-        return result
+        elif node.node_type == ElementType.TEXT:
+            text = node.text
+            # Remove all trailing newlines for consistency
+            text_content = text.rstrip("\n")
 
-    def _process_element(
-        self, element: Dict[str, Any], markdown: str, list_context: ListContext
-    ) -> Tuple[str, ListContext]:
-        """Process a document element and convert it to Markdown"""
-        if "paragraph" in element:
-            return self._process_paragraph(element["paragraph"], markdown, list_context)
-        elif "table" in element:
-            return self._process_table(element["table"], markdown), list_context
-        elif "sectionBreak" in element:
-            # Handle section breaks if needed
-            return markdown, list_context
-        # Add more element types as needed
-        return markdown, list_context
+            if node.strikethrough:
+                text_content = f"~~{text_content}~~"
+            if node.bold:
+                text_content = f"**{text_content}**"
+            if node.italic:
+                text_content = f"*{text_content}*"
 
-    def _process_paragraph(
-        self, paragraph: Dict[str, Any], markdown: str, list_context: ListContext
-    ) -> Tuple[str, ListContext]:
-        """Process a paragraph element"""
-        paragraph_style = paragraph.get("paragraphStyle", {})
-        named_style = paragraph_style.get("namedStyleType", NamedStyles.NORMAL)
+            result.append(text_content)
 
-        # Check if this is a list item
-        if "bullet" in paragraph:
-            return self._process_list_item(paragraph, markdown, list_context)
+        elif node.node_type == ElementType.LINK:
+            link_text = []
+            for child in node.children:
+                if child.node_type == ElementType.TEXT:
+                    # Remove trailing newlines from link text
+                    link_text.append(child.text.rstrip("\n"))
 
-        # Check if paragraph contains an inline image
-        if self._contains_inline_object(paragraph):
-            return self._process_inline_image(paragraph, markdown), list_context
+            link_str = f"[{''.join(link_text)}]({node.url})"
+            result.append(link_str)
 
-        # Process text content
-        text_content = self._process_text_run_elements(paragraph.get("elements", []))
+        elif node.node_type == ElementType.IMAGE:
+            result.append(f"![{node.alt}]({node.src})")
+            self._ensure_single_newline(result)
 
-        # Apply heading formatting
-        if named_style == NamedStyles.HEADING1:
-            return markdown + f"# {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING2:
-            return markdown + f"## {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING3:
-            return markdown + f"### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING4:
-            return markdown + f"#### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING5:
-            return markdown + f"##### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING6:
-            return markdown + f"###### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.TITLE:
-            return markdown + f"# {text_content}\n\n", list_context
-        elif named_style == NamedStyles.SUBTITLE:
-            return markdown + f"## {text_content}\n\n", list_context
-        else:
-            # Regular paragraph
-            if text_content.strip():  # Only add non-empty paragraphs
-                return markdown + f"{text_content}\n\n", list_context
-            return markdown, list_context
-
-    def _process_text_run_elements(self, elements: List[Dict[str, Any]]) -> str:
-        """Process a list of text elements and return combined content"""
-        return "".join(
-            self._process_text_run(element["textRun"])
-            for element in elements
-            if "textRun" in element
-        )
-
-    def _process_text_run(self, text_run: Dict[str, Any]) -> str:
-        """Process a text run and apply formatting"""
-        content = text_run.get("content", "")
-        text_style = text_run.get("textStyle", {})
-
-        # Apply text formatting by wrapping content with appropriate markers
-        if text_style.get("link"):
-            url = text_style["link"].get("url", "")
-            content = f"[{content}]({url})"
-
-        if text_style.get("strikethrough"):
-            content = f"~~{content}~~"
-
-        if text_style.get("italic"):
-            content = f"*{content}*"
-
-        if text_style.get("bold"):
-            content = f"**{content}**"
-
-        return content
-
-    def _contains_inline_object(self, paragraph: Dict[str, Any]) -> bool:
-        """Check if paragraph contains an inline object (like an image)"""
-        for element in paragraph.get("elements", []):
-            if "inlineObjectElement" in element:
-                return True
-        return False
-
-    def _process_inline_image(self, paragraph: Dict[str, Any], markdown: str) -> str:
-        """Process a paragraph containing an inline image and convert to Markdown"""
-        for element in paragraph.get("elements", []):
-            if "inlineObjectElement" in element:
-                inline_obj_id = element["inlineObjectElement"].get("inlineObjectId")
-                if inline_obj_id and inline_obj_id in self.inline_objects:
-                    # Extract image properties
-                    inline_obj = self.inline_objects[inline_obj_id]
-                    embedded_obj = inline_obj.get("inlineObjectProperties", {}).get(
-                        "embeddedObject", {}
-                    )
-                    image_props = embedded_obj.get("imageProperties", {})
-
-                    # Get image URL
-                    url = image_props.get("contentUri")
-                    if not url:
-                        continue
-
-                    title = embedded_obj.get("title", f"Image {inline_obj_id}")
-                    return markdown + f"![{title}]({url})\n\n"
-
-        return markdown
-
-    def _process_paragraph(
-        self, paragraph: Dict[str, Any], markdown: str, list_context: ListContext
-    ) -> Tuple[str, ListContext]:
-        """Process a paragraph element"""
-        paragraph_style = paragraph.get("paragraphStyle", {})
-        named_style = paragraph_style.get("namedStyleType", NamedStyles.NORMAL)
-
-        # Check if this is a list item
-        if "bullet" in paragraph:
-            return self._process_list_item(paragraph, markdown, list_context)
-
-        # Check if paragraph contains an inline image
-        if self._contains_inline_object(paragraph):
-            return self._process_inline_image(paragraph, markdown), list_context
-
-        # Process text content
-        text_content = self._process_text_elements(paragraph.get("elements", []))
-
-        # Skip empty paragraphs
-        if not text_content.strip():
-            return markdown, list_context
-
-        # Apply heading formatting
-        if named_style == NamedStyles.HEADING1:
-            return markdown + f"# {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING2:
-            return markdown + f"## {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING3:
-            return markdown + f"### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING4:
-            return markdown + f"#### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING5:
-            return markdown + f"##### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.HEADING6:
-            return markdown + f"###### {text_content}\n\n", list_context
-        elif named_style == NamedStyles.TITLE:
-            return markdown + f"# {text_content}\n\n", list_context
-        elif named_style == NamedStyles.SUBTITLE:
-            return markdown + f"## {text_content}\n\n", list_context
-        else:
-            # Regular paragraph
-            if text_content.strip():  # Only add non-empty paragraphs
-                return markdown + f"{text_content}\n\n", list_context
-            return markdown, list_context
-
-    def _contains_inline_object(self, paragraph: Dict[str, Any]) -> bool:
-        """Check if paragraph contains an inline object (like an image)"""
-        for element in paragraph.get("elements", []):
-            if "inlineObjectElement" in element:
-                return True
-        return False
-
-    def _process_text_elements(self, elements: List[Dict[str, Any]]) -> str:
-        """Process a list of text elements and return combined content"""
-        return "".join(
-            self._process_text_run(element["textRun"])
-            for element in elements
-            if "textRun" in element
-        )
-
-    def _process_text_run(self, text_run: Dict[str, Any]) -> str:
-        """Process a text run and apply formatting"""
-        content = text_run.get("content", "")
-        text_style = text_run.get("textStyle", {})
-
-        # Apply text formatting by wrapping content with appropriate markers
-        if text_style.get("link"):
-            url = text_style["link"].get("url", "")
-            content = f"[{content}]({url})"
-
-        if text_style.get("strikethrough"):
-            content = f"~~{content}~~"
-
-        if text_style.get("italic"):
-            content = f"*{content}*"
-
-        if text_style.get("bold"):
-            content = f"**{content}**"
-
-        return content
-
-    def _process_list_item(
-        self, paragraph: Dict[str, Any], markdown: str, list_context: ListContext
-    ) -> Tuple[str, ListContext]:
-        """Process a list item paragraph"""
-        bullet = paragraph.get("bullet", {})
-        list_id = bullet.get("listId", "")
-        nesting_level = bullet.get("nestingLevel", 0)
-
-        # Process text content
-        text_content = self._process_text_elements(paragraph.get("elements", []))
-
-        # Determine list marker
-        glyph_type = self._get_list_glyph_type(list_id, nesting_level)
-
-        # Create a copy of list counters for modification
-        updated_counters = dict(list_context.list_counters)
-
-        # For ordered lists
-        if glyph_type in ("DECIMAL", "UPPER_ALPHA", "LOWER_ALPHA"):
-            counter_key = f"{list_id}_{nesting_level}"
-
-            if (
-                list_context.current_list_id != list_id
-                or list_context.current_list_nesting != nesting_level
-            ):
-                updated_counters[counter_key] = 1
+        elif node.node_type == ElementType.LIST_ITEM:
+            indent = INDENTATION * node.nesting_level
+            if node.ordered and node.number is not None:
+                result.append(f"{indent}{node.number}. ")
             else:
-                updated_counters[counter_key] = updated_counters.get(counter_key, 0) + 1
+                result.append(f"{indent}- ")
 
-            # Add indentation based on nesting level
-            indent = "  " * nesting_level
-            new_markdown = (
-                markdown + f"{indent}{updated_counters[counter_key]}. {text_content}"
-            )
-        else:
-            # Unordered list
-            indent = "  " * nesting_level
-            new_markdown = markdown + f"{indent}- {text_content}"
+            for child in node.children:
+                self._render_node(child, result)
 
-        # Create new list context
-        new_list_context = ListContext(
-            list_counters=updated_counters,
-            current_list_id=list_id,
-            current_list_nesting=nesting_level,
-            in_list=True,
+            # Ensure list items end with a single newline
+            self._ensure_single_newline(result)
+
+        elif node.node_type == ElementType.TABLE:
+            if not node.rows:
+                return
+
+            for row_idx, row in enumerate(node.rows):
+                cell_contents = []
+
+                for cell in row.cells:
+                    cell_md = []
+                    for child in cell.children:
+                        temp_result = []
+                        self._render_node(child, temp_result)
+                        # Remove trailing newlines in table cells
+                        cell_content = "".join(temp_result).rstrip("\n")
+                        if cell_content:
+                            cell_md.append(cell_content)
+
+                    # Join all content in the cell
+                    cell_contents.append(" ".join(cell_md) if cell_md else " ")
+
+                # Add table row with a newline
+                result.append("| " + " | ".join(cell_contents) + " |\n")
+
+                # Add separator row after header
+                if row_idx == 0:
+                    result.append("| " + " | ".join(["---"] * len(row.cells)) + " |\n")
+
+    def _is_block_element(self, node: Node) -> bool:
+        """Check if a node is a block element that should have spacing around it"""
+        return node.node_type in (
+            ElementType.PARAGRAPH,
+            ElementType.HEADING,
+            ElementType.TABLE,
+            ElementType.IMAGE,
         )
 
-        return new_markdown, new_list_context
+    def _ensure_single_newline(self, result: List[str]) -> None:
+        """Ensure the output ends with exactly one newline"""
+        if not result:
+            return
 
-    def _get_list_glyph_type(self, list_id: str, nesting_level: int) -> str:
-        """Get the glyph type for a list item"""
-        lists = self.docs_json.get("data", {}).get("lists", {})
-        if list_id in lists:
-            list_def = lists[list_id]
-            nesting_levels = list_def.get("listProperties", {}).get("nestingLevels", [])
-            if nesting_level < len(nesting_levels):
-                return nesting_levels[nesting_level].get("glyphType", "BULLET")
-        return "BULLET"
+        last_str = result[-1]
+        if not last_str.endswith("\n"):
+            result.append("\n")
+        elif last_str.endswith("\n\n"):
+            # Remove extra newlines
+            result[-1] = last_str.rstrip("\n") + "\n"
 
-    def _process_table(self, table: Dict[str, Any], markdown: str) -> str:
-        """Process a table element"""
-        rows = table.get("tableRows", [])
-        if not rows:
-            return markdown
+    def _ensure_blank_line(self, result: List[str]) -> None:
+        """Ensure there's a blank line (two consecutive newlines) at the end"""
+        if not result:
+            return
 
-        result = markdown
+        # First ensure there's at least one newline
+        self._ensure_single_newline(result)
 
-        # Generate markdown table
-        for row_idx, row in enumerate(rows):
-            cells = row.get("tableCells", [])
-
-            # Process each cell in the row
-            cell_contents = []
-            for cell in cells:
-                cell_paragraphs = []
-                for content_item in cell.get("content", []):
-                    if "paragraph" in content_item:
-                        text = self._process_text_elements(
-                            content_item["paragraph"].get("elements", [])
-                        ).strip()
-                        if text:
-                            cell_paragraphs.append(text)
-
-                cell_contents.append(" ".join(cell_paragraphs))
-
-            # Build the row markdown
-            row_md = "| " + " | ".join(cell_contents) + " |"
-            result += row_md + "\n"
-
-            # Add separator row after header
-            if row_idx == 0:
-                separator = "| " + " | ".join(["---"] * len(cells)) + " |"
-                result += separator + "\n"
-
-        return result
+        # Then add another newline to create a blank line
+        last_str = result[-1]
+        if not last_str.endswith("\n\n"):
+            result.append("\n")

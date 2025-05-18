@@ -23,7 +23,8 @@ oauth = OAuth(config.Config.to_starlette_config())
 
 OAUTH_SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets.readonly",
-    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/documents.readonly",
+    "https://www.googleapis.com/auth/drive.file",
     "openid",
     "profile",
     "email",
@@ -93,5 +94,4 @@ async def logout(request: Request):
     Log out the user by clearing their session.
     """
     request.session.pop("user", None)
-    request.session.pop("refresh_token", None)
     return RedirectResponse(url=config.Config.Constants.CLIENT_BASE_URL)

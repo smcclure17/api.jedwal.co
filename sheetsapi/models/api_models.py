@@ -7,7 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Annotated, Any, List
 from datetime import datetime
 
-from sheetsapi.models.db_models import SheetMetadataWithWorksheets
+from sheetsapi.models.db_models import DocApi
 from sheetsapi.models.domain_models import SpreadsheetDataModel
 from sheetsapi.account_repo import AccountStatus, AccountType
 
@@ -66,10 +66,15 @@ class UpdateApiTtlRequest(BaseModel):
     """Request model for updating API TTL"""
 
     owner_id: str
-    sheet_api_name: str
+    api_name: str
     cache_duration: int = Field(
         gt=0, description="Cache duration in seconds, minimum 1 second"
     )
+
+class PublishDocApiRequest(BaseModel):
+    """Update Doc API content to match Google Doc"""
+    owner_id: str
+    api_name: str
 
 
 class UpdateApiTtlResponse(BaseModel):
@@ -128,3 +133,28 @@ class ApiInvocationResponse(BaseModel):
             timestamp=item["request_time"],
             status_code=item["status_code"],
         )
+
+
+class DocApiResponse(BaseModel):
+    doc_api_name: str
+    owner_id: str
+    google_doc_id: str
+    frozen: bool = False
+    cache_duration: int
+    created_at: str
+    title: str
+
+    @classmethod
+    def from_doc_api(cls, api: DocApi, title: str = None):
+        return DocApiResponse(
+            doc_api_name=api.doc_api_name,
+            owner_id=api.owner_id,
+            google_doc_id=api.google_doc_id,
+            frozen=api.frozen,
+            cache_duration=api.cache_duration,
+            created_at=api.created_at,
+            title=title or "Untitled Post"
+        )
+    
+    def to_dict(self):
+        return self.model_dump()

@@ -16,7 +16,7 @@ import sentry_sdk
 from sheetsapi.account_repo import AccountRepo
 from sheetsapi.config import Config
 from sheetsapi.models.domain_models import RefreshTokenInfo
-from sheetsapi.models.db_models import RateLimitRecord
+from sheetsapi.models.db_models import DocApi, RateLimitRecord
 
 AccountType = Literal["user", "organization"]
 AccountStatus = Literal["free", "premium"]
@@ -31,7 +31,7 @@ class SheetNameTakenError(Exception):
     """"""
 
 
-class SheetApiNotFoundError(Exception):
+class DocApiNotFoundError(Exception):
     """Sheet for key not found"""
 
 
@@ -53,21 +53,21 @@ class DocApiRepo:
         )
         return DocApiRepo(client, table_name, account_repo)
 
-    def delete_api(self, owner_id: str, sheet_api_name: str):
+    def delete_api(self, owner_id: str, api_name: str):
         """Delete a sheet API and all its analytics records."""
-        sheet_api_key = f"DOC#{owner_id}#{sheet_api_name}"
+        sheet_api_key = f"DOC#{owner_id}#{api_name}"
 
         deleted_items = defaultdict(int)
 
         # Check sheet API exists. This will throw if doesn't exist
-        self.get_api_metadata(owner_id, sheet_api_name)
+        self.get_api_metadata(owner_id, api_name)
         deleted_items["apis"] += 1
         self.table.delete_item(Key={"PK": sheet_api_key, "SK": sheet_api_key})
 
         # Batch delete all analytics records
         analytics_results = self.table.query(
             KeyConditionExpression="PK = :pk",
-            ExpressionAttributeValues={":pk": f"ANALYTICS#{owner_id}#{sheet_api_name}"},
+            ExpressionAttributeValues={":pk": f"ANALYTICS#{owner_id}#{api_name}"},
         )
         analytics_items = analytics_results.get("Item", [])
         deleted_items["analytics_records"] = len(analytics_items)
@@ -86,17 +86,16 @@ class DocApiRepo:
 
         return dict(deleted_items)
 
-    def get_api_metadata(self, owner_id: str, sheet_api_id: str) -> dict:
+    def get_api_metadata(self, owner_id: str, sheet_api_id: str) -> DocApi:
         """Get metadata for a specific sheet API"""
 
         key = f"DOC#{owner_id}#{sheet_api_id}"
         result = self.table.get_item(Key={"PK": key, "SK": key})
         item = result.get("Item")
         if item is None:
-            raise SheetApiNotFoundError(f"Sheet not found with key {key}")
+            raise DocApiNotFoundError(f"Sheet not found with key {key}")
 
-        item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
-        return item
+        return DocApi.from_dict(item)
 
     def get_apis_for_account(self, owner_id: str):
         """Get all sheet APIs owned by a specific account (user or organization)."""
@@ -118,9 +117,8 @@ class DocApiRepo:
             },
         )
         items = response.get("Items", [])
-        for item in items:
-            item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
-        return items
+        apis = [DocApi.from_dict(item) for item in items]
+        return apis
 
     def get_api_by_google_doc_id(self, owner_id, google_sheet_id):
         """Find a doc API by Google Sheet ID for a specific owner."""
@@ -139,18 +137,16 @@ class DocApiRepo:
         if not items:
             return None
 
-        item = items[0]
-        item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
-        return item
+        return DocApi.from_dict(items[0])
 
     def update_api(
         self,
         owner_id: str,
-        sheet_api_name: str,
+        api_name: str,
         fields: dict[str, Any],
     ):
         """Update a sheet API with the provided fields."""
-        api_key = f"DOC#{owner_id}#{sheet_api_name}"
+        api_key = f"DOC#{owner_id}#{api_name}"
 
         # Build update expression
         update_expression_parts = []
@@ -168,7 +164,7 @@ class DocApiRepo:
 
         if not update_expression_parts:
             # No valid fields to update
-            return self.get_api_metadata(owner_id, sheet_api_name)
+            return self.get_api_metadata(owner_id, api_name)
 
         update_expression = "SET " + ", ".join(update_expression_parts)
 
@@ -182,10 +178,11 @@ class DocApiRepo:
                 ReturnValues="ALL_NEW",
             )
 
-            return response.get("Attributes")
+            item = response.get("Attributes")
+            return DocApi.from_dict(item)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                raise SheetApiNotFoundError(f"Sheet API not found: {api_key}")
+                raise DocApiNotFoundError(f"Sheet API not found: {api_key}")
             raise
 
     def create_api(
@@ -193,36 +190,37 @@ class DocApiRepo:
         owner_id,
         google_doc_id: str,
         refresh_token_info: RefreshTokenInfo,
+        payload: dict,
         cache_duration: Optional[int] = 60,  # seconds
-    ):
+    ) -> DocApi:
         """Create a new sheet API"""
         if self.account_repo.get_account(owner_id) is None:
             raise UserNotFoundError("User or org does not exist to create sheet API")
-        existing_api = self.get_doc_by_google_doc_id(owner_id, google_doc_id)
+        existing_api = self.get_api_by_google_doc_id(owner_id, google_doc_id)
         if existing_api is not None:
             return existing_api
 
         doc_api_key = self._create_unique_doc_pk(owner_id)
-        doc_api_name = doc_api_key.split("#")[2]
+        api_name = doc_api_key.split("#")[2]
 
-        item = {
-            "PK": doc_api_key,
-            "SK": doc_api_key,
-            "doc_api_name": doc_api_name,
-            "owner_id": owner_id,
-            "google_doc_id": google_doc_id,
-            "refresh_token_info": refresh_token_info.to_dict(),
-            "frozen": False,
-            "cache_duration": cache_duration,
-            "created_at": datetime.now().isoformat(),
-            # Add GSI2 attributes for finding sheets by owner
-            "GSI2PK": f"ACCOUNT#{owner_id}",
-            "GSI2SK": doc_api_key,
-        }
+        item = DocApi(
+            PK=doc_api_key,
+            SK=doc_api_key,
+            doc_api_name=api_name,
+            owner_id=owner_id,
+            google_doc_id=google_doc_id,
+            google_doc_payload=payload,
+            refresh_token_info=refresh_token_info,
+            frozen=False,
+            cache_duration=cache_duration,
+            created_at=datetime.now().isoformat(),
+            GSI2PK=f"ACCOUNT#{owner_id}",
+            GSI2SK=doc_api_key,
+        )
 
         try:
             self.table.put_item(
-                Item=item,
+                Item=item.model_dump(),
                 ConditionExpression="attribute_not_exists(PK)",
             )
             return item
