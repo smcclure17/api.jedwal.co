@@ -191,7 +191,7 @@ Resources:
       ImageUri: !Ref ImageUri
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 30
-      MemorySize: 1024 # mb
+      MemorySize: 2048 # mb
       Environment:
         Variables:
           GOOGLE_CLIENT_ID: !Ref GoogleClientId

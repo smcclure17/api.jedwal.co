@@ -52,7 +52,7 @@ async def get_doc(owner_id: str, api_name: str, format: str = "markdown"):
 
     return JSONResponse(
         content={"content": output},
-        headers={"Cache-Control": f"max-age={api.cache_duration}, public"},
+        headers={"Cache-Control": f"max-age=86400, public"},  # Re-pull from DB daily
         status_code=200,
     )
 

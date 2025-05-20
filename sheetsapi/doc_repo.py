@@ -1,16 +1,12 @@
 from collections import defaultdict
-import re
-import time
-from datetime import datetime, timezone
-from typing import Any, Dict, Literal, Optional, Tuple, Union
-from datetime import timedelta
+from datetime import datetime
+from typing import Any, Literal
 
 
 import boto3
 from boto3.resources.base import ServiceResource
 from botocore.exceptions import ClientError
 import randomname
-import sentry_sdk
 
 
 from sheetsapi.account_repo import AccountRepo
@@ -191,7 +187,6 @@ class DocApiRepo:
         google_doc_id: str,
         refresh_token_info: RefreshTokenInfo,
         payload: dict,
-        cache_duration: Optional[int] = 60,  # seconds
     ) -> DocApi:
         """Create a new sheet API"""
         if self.account_repo.get_account(owner_id) is None:
@@ -212,7 +207,6 @@ class DocApiRepo:
             google_doc_payload=payload,
             refresh_token_info=refresh_token_info,
             frozen=False,
-            cache_duration=cache_duration,
             created_at=datetime.now().isoformat(),
             GSI2PK=f"ACCOUNT#{owner_id}",
             GSI2SK=doc_api_key,

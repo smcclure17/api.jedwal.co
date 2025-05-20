@@ -140,9 +140,9 @@ class DocApiResponse(BaseModel):
     owner_id: str
     google_doc_id: str
     frozen: bool = False
-    cache_duration: int
     created_at: str
     title: str
+    last_modified: str
 
     @classmethod
     def from_doc_api(cls, api: DocApi, title: str = None):
@@ -151,9 +151,9 @@ class DocApiResponse(BaseModel):
             owner_id=api.owner_id,
             google_doc_id=api.google_doc_id,
             frozen=api.frozen,
-            cache_duration=api.cache_duration,
             created_at=api.created_at,
-            title=title or "Untitled Post"
+            title=title or "Untitled Post",
+            last_modified=api.last_modified,
         )
     
     def to_dict(self):

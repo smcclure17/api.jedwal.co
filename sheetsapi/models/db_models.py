@@ -98,7 +98,6 @@ class DocApi(BaseModel):
     google_doc_payload: dict | str
     refresh_token_info: RefreshTokenInfo
     frozen: bool = False
-    cache_duration: int
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     last_modified: str = Field(default_factory=lambda: datetime.now().isoformat())
     GSI2PK: str
