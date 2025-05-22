@@ -2,8 +2,9 @@
 Sheet management routes and operations.
 """
 
+from typing import Annotated
 import gspread
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Body, Form, HTTPException
 from fastapi.responses import JSONResponse
 
 from sheetsapi import google_sheet_client, lru_cache
@@ -105,9 +106,11 @@ async def get_sheets_metadata_v2(owner_id: str, user: CurrentUser):
     return GetAllSheetsResponse(results=results, failures=failures)
 
 
-@router.post("/create-api")
+@router.post("/api")
 async def create_api_v2(
-    user: CurrentUser, google_sheet_id: str = Form(...), owner_id: str = Form(...)
+    google_id: Annotated[str, Body(...)],
+    user: CurrentUser,
+    owner_id: Annotated[str | None, Body(...)] = None,
 ):
     if owner_id is None:
         owner_id = user.sub  # fallback to use the user_id if no owner given
@@ -126,13 +129,13 @@ async def create_api_v2(
         raise HTTPException(401, detail="Free accounts can only have 2 sheet APIs.")
 
     # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
-    if "docs.google.com/spreadsheets/d/" in google_sheet_id:
-        google_sheet_id = google_sheet_id.split("/d/")[1].split("/")[0]
+    if "docs.google.com/spreadsheets/d/" in google_id:
+        google_id = google_id.split("/d/")[1].split("/")[0]
 
     # Check the user has access to the Google Sheet
     google_client = google_sheet_client.GoogleSheets.from_token_info(refresh_token_info)
     try:
-        google_client.get_spreadsheet_data(google_sheet_id)
+        google_client.get_spreadsheet_data(google_id)
     except google_sheet_client.InaccessibleDocument:
         raise HTTPException(
             415, detail="Invalid document type. Only Google Sheets are supported."
@@ -145,7 +148,7 @@ async def create_api_v2(
 
     sheet_api_res = sheet_repo.create_api(
         owner_id=owner_id,
-        google_sheet_id=google_sheet_id,
+        google_sheet_id=google_id,
         refresh_token_info=refresh_token_info,
     )
 

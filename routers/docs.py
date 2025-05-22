@@ -59,7 +59,7 @@ async def get_doc(owner_id: str, api_name: str, format: str = "markdown"):
 
 @router.post("/doc")
 async def create_doc(
-    doc_id: Annotated[str, Body(...)],
+    google_id: Annotated[str, Body(...)],
     user: CurrentUser,
     owner_id: Annotated[str | None, Body(...)] = None,
 ):
@@ -74,12 +74,12 @@ async def create_doc(
     refresh_token_info = user_item["refresh_token_info"]
 
     # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
-    if "docs.google.com/document/d/" in doc_id:
-        doc_id = doc_id.split("/d/")[1].split("/")[0]
+    if "docs.google.com/document/d/" in google_id:
+        google_id = google_id.split("/d/")[1].split("/")[0]
 
     try:
         google_docs = google_docs_client.GoogleDocs.from_token_info(refresh_token_info)
-        google_doc_payload = google_docs.get_document(doc_id)
+        google_doc_payload = google_docs.get_document(google_id)
     except google_docs_client.DocAccessException:
         raise HTTPException(
             415, detail="Cannot access Document. Please check your permissions."
@@ -87,7 +87,7 @@ async def create_doc(
 
     sheet_api_res = doc_repo.create_api(
         owner_id=owner_id,
-        google_doc_id=doc_id,
+        google_doc_id=google_id,
         refresh_token_info=refresh_token_info,
         payload=json.dumps(google_doc_payload),
     )

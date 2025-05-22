@@ -25,7 +25,9 @@ class UserSession(BaseModel):
     iat: Optional[int] = None
     exp: Optional[int] = None
     access_token: str
-
+    # google picker api generated tokens
+    picker_token: Optional[str] = None
+    picker_expires_at: Optional[int] = None
 
 class SpreadsheetDataModel(BaseModel):
     """Data model for Google Spreadsheet"""
