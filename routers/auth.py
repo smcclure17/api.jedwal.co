@@ -99,9 +99,12 @@ async def logout(request: Request):
 
 @router.get("/google-picker-token")
 async def get_token(user: CurrentUser):
+    if not user.picker_expires_at:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
     now = int(time.time())
     expired_token = user.picker_expires_at <= now
-    if not user or not user.picker_token or not user.picker_expires_at or expired_token:
+    if not user or not user.picker_token or expired_token:
         raise HTTPException(status_code=401, detail="Authentication required")
     return {"token": user.picker_token}
 

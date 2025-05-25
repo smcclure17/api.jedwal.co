@@ -35,7 +35,13 @@ class GoogleDocs:
         auth = auth.refresh_access_token()  # eventually we should fix/skip this
         return GoogleDocs(creds=auth.google_oauth_creds, session=requests.Session())
 
-    def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
+    @classmethod
+    def from_auth(cls, auth: auth_utils.GoogleOauthFields):
+        return GoogleDocs(creds=auth.google_oauth_creds, session=requests.Session())
+
+    def get_document(
+        self, doc_id: str, token: str | None = None
+    ) -> Optional[Dict[str, Any]]:
         url = f"https://docs.googleapis.com/v1/documents/{doc_id}"
         response = self.session.get(
             url,

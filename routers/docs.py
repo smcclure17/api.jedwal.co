@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from dependencies import CurrentUser
 from sheetsapi import (
+    auth_utils,
     config,
     google_docs_client,
     lru_cache,
@@ -77,13 +78,17 @@ async def create_doc(
     if "docs.google.com/document/d/" in google_id:
         google_id = google_id.split("/d/")[1].split("/")[0]
 
+    auth = auth_utils.GoogleOauthFields.from_tokens(
+        access_token=google_docs_client.EMPTY_ACCESS_TOKEN,
+        refresh_token_info=refresh_token_info,
+    )
+    auth = auth.refresh_access_token()
+
     try:
         google_docs = google_docs_client.GoogleDocs.from_token_info(refresh_token_info)
         google_doc_payload = google_docs.get_document(google_id)
-    except google_docs_client.DocAccessException:
-        raise HTTPException(
-            415, detail="Cannot access Document. Please check your permissions."
-        )
+    except google_docs_client.DocAccessException as error:
+        raise HTTPException(415, detail="Could not access Doc. Check your permissions.")
 
     sheet_api_res = doc_repo.create_api(
         owner_id=owner_id,
