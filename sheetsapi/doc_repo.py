@@ -12,7 +12,7 @@ import randomname
 from sheetsapi.account_repo import AccountRepo
 from sheetsapi.config import Config
 from sheetsapi.models.domain_models import RefreshTokenInfo
-from sheetsapi.models.db_models import DocApi, RateLimitRecord
+from sheetsapi.models.db_models import DocApi
 
 AccountType = Literal["user", "organization"]
 AccountStatus = Literal["free", "premium"]
@@ -187,6 +187,7 @@ class DocApiRepo:
         google_doc_id: str,
         refresh_token_info: RefreshTokenInfo,
         payload: dict,
+        title: str,
     ) -> DocApi:
         """Create a new sheet API"""
         if self.account_repo.get_account(owner_id) is None:
@@ -210,6 +211,7 @@ class DocApiRepo:
             created_at=datetime.now().isoformat(),
             GSI2PK=f"ACCOUNT#{owner_id}",
             GSI2SK=doc_api_key,
+            title=title,
         )
 
         try:

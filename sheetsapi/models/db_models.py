@@ -3,7 +3,7 @@ Database models that represent the persistence layer.
 These models include DynamoDB-specific fields like PK, SK, GSI1PK, etc.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 
@@ -96,6 +96,7 @@ class DocApi(BaseModel):
     owner_id: str
     google_doc_id: str
     google_doc_payload: dict | str
+    title: Optional[str] = None
     refresh_token_info: RefreshTokenInfo
     frozen: bool = False
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())

@@ -21,7 +21,7 @@ class UserSession(BaseModel):
     name: str
     picture: Optional[str] = None
     given_name: str
-    family_name: str
+    family_name: Optional[str] = None
     iat: Optional[int] = None
     exp: Optional[int] = None
     access_token: str

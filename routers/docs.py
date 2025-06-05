@@ -52,7 +52,7 @@ async def get_doc(owner_id: str, api_name: str, format: str = "markdown"):
     output = renderer.render(ast.parse())
 
     return JSONResponse(
-        content={"content": output},
+        content={"content": output, "title": api.title},
         headers={"Cache-Control": f"max-age=86400, public"},  # Re-pull from DB daily
         status_code=200,
     )
@@ -95,6 +95,7 @@ async def create_doc(
         google_doc_id=google_id,
         refresh_token_info=refresh_token_info,
         payload=json.dumps(google_doc_payload),
+        title=google_doc_payload["title"],
     )
 
     doc_api_name = sheet_api_res.doc_api_name
