@@ -35,11 +35,8 @@ lru_worksheet_cache = lru_cache.LRUCache(capacity=100)
 
 
 @router.get("/doc/{owner_id}/{api_name}")
-async def get_doc(owner_id: str, api_name: str, format: str = "markdown"):
-    if format == "markdown":
-        renderer = MarkdownRenderer()
-    elif format == "json":
-        renderer = MarkdownRenderer()
+async def get_doc(owner_id: str, api_name: str):
+    renderer = MarkdownRenderer()
 
     try:
         api = doc_repo.get_api_metadata(owner_id, api_name)

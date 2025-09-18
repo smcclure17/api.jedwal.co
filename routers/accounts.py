@@ -30,7 +30,6 @@ async def get_account_data(user: CurrentUser, account_id: str | None = None):
 
     if not account_id:
         account_id = user.sub
-    print(account_id)
 
     user_item = account_repo.get_account(account_id)
     if user_item is None:
