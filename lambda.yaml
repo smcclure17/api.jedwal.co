@@ -27,6 +27,11 @@ Parameters:
     Description: ECR Image URI for the billing usage function
     NoEcho: true
 
+  WebhookImageUri:
+    Type: String
+    Description: ECR Image URI for the webhook processor function
+    NoEcho: true
+
   Environment:
     Type: String
     Description: Environment
@@ -213,6 +218,7 @@ Resources:
           EMAILS_ENABLED: "true"
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
           SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -256,6 +262,15 @@ Resources:
                   - ses:SendEmail
                   - ses:SendRawEmail
                 Resource: "*"
+        - PolicyName: SQSWebhookPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:GetQueueUrl
+                Resource: !GetAtt WebhookQueue.Arn
 
   # API Gateway
   ApiGateway:
@@ -445,6 +460,8 @@ Resources:
           EMAILS_ENABLED: "true"
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
           SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+
 
   LambdaStreamFunctionExecutionRole:
     Type: AWS::IAM::Role
@@ -669,6 +686,8 @@ Resources:
           EMAILS_ENABLED: "true"
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
           SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+
 
   LambdaBillingFunctionExecutionRole:
     Type: AWS::IAM::Role
@@ -704,6 +723,102 @@ Resources:
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt BillingLambdaDailyRule.Arn
 
+  WebhookProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref WebhookImageUri
+      Role: !GetAtt WebhookProcessorExecutionRole.Arn
+      FunctionName: !Sub "${Environment}-webhook-processor"
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          SHEETS_API_TABLE: !Ref DynamoDBTableV2
+          SENTRY_DSN: !Ref SentryDSN
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
+          OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
+          API_BASE_URL: !Ref ApiBaseUrl
+          CLIENT_BASE_URL: !Ref ClientBaseUrl
+          CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          STRIPE_SUBSCRIPTION_PRICE_ID: !Ref StripeSubscriptionPriceId
+          STRIPE_USAGE_BASED_PRICE_ID: !Ref StripeUsageBasedPriceId
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
+          COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
+          ENCRYPTION_KEY_ID: !Ref EncryptionKey
+          EMAILS_ENABLED: "true"
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WebhookQueue.Arn
+            BatchSize: 5
+            MaximumBatchingWindowInSeconds: 5
+
+  # Add to Resources section
+  WebhookProcessorExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SQSPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt WebhookQueue.Arn
+        - PolicyName: DynamoDBReadPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: 
+                  - !GetAtt DynamoDBTableV2.Arn
+
+  WebhookQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${Environment}-webhook-delivery-queue"
+      VisibilityTimeout: 300  # 6x Lambda timeout (30s * 6)
+      MessageRetentionPeriod: 1209600  # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WebhookDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  WebhookDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${Environment}-webhook-delivery-dlq"
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
 
 Outputs:
   ApiDomainName:

@@ -51,6 +51,8 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     TEST_DATA_REFRESH_INFO: str = ""  # Just for testing, TODO: separate test config?
 
+    WEBHOOK_QUEUE_URL: str
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

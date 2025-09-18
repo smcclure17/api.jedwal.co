@@ -1,10 +1,11 @@
 """User-related routes and operations."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 import fastapi
 from fastapi.responses import RedirectResponse
 
 from sheetsapi.account_repo import AccountRepo, UserNotFoundError
+from sheetsapi.email_client import EmailData, SESClient
 from sheetsapi.models.api_models import UserDataResponse
 from sheetsapi.config import Config
 from dependencies import CurrentUser

@@ -7,6 +7,7 @@ import json
 from typing import Annotated, Optional
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import JSONResponse
+import sentry_sdk
 
 from dependencies import CurrentUser
 from sheetsapi import (
@@ -30,6 +31,7 @@ from sheetsapi.models.api_models import (
 from sheetsapi.models.db_models import WebhookIntegration
 from sheetsapi.parsers.doc_ast import GoogleDocsParser
 from sheetsapi.parsers.doc_to_md import MarkdownRenderer
+from sheetsapi.webhook_queue import trigger_webhooks_for_doc
 
 router = APIRouter(tags=["docs"])
 cloudfront = cloudfront_helpers.create_cloudfront_client()
@@ -192,7 +194,7 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
     published_at = datetime.now().isoformat()
 
     try:
-        doc_repo.update_api(
+        updated_api = doc_repo.update_api(
             owner_id=data.owner_id,
             api_name=data.api_name,
             fields={
@@ -210,6 +212,19 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
                 distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
                 path=f"/doc/{data.owner_id}/{data.api_name}*",
             )
+
+        try:
+            trigger_webhooks_for_doc(
+                owner_id=data.owner_id,
+                api_name=data.api_name,
+                event_data={
+                    "title": updated_api.title,
+                    "published_at": updated_api.published_at,
+                    "custom_slug": updated_api.custom_slug
+                }
+            )
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
 
         return UpdateApiTtlResponse(message="Success!")
     except DocApiNotFoundError:
