@@ -3,17 +3,20 @@ Authentication routes and OAuth configuration.
 """
 
 import logging
-from fastapi import APIRouter, HTTPException
+import time
+from fastapi import APIRouter, Body, HTTPException
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth, OAuthError
 
-from sheetsapi import config, envelope_encryption, user_helpers, sheet_api_repo_v2
+from dependencies import CurrentUser
+from sheetsapi import config, user_helpers
+from sheetsapi.account_repo import AccountRepo
 from sheetsapi.models.domain_models import UserSession
 
 logger = logging.getLogger(__name__)
 
-sheet_api_repo = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+account_repo = AccountRepo.from_table_name()
 
 router = APIRouter(tags=["auth"])
 
@@ -21,7 +24,7 @@ router = APIRouter(tags=["auth"])
 oauth = OAuth(config.Config.to_starlette_config())
 
 OAUTH_SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/drive.file",
     "openid",
     "profile",
     "email",
@@ -72,7 +75,7 @@ async def auth(request: Request):
     request.session["user"] = user.model_dump()
 
     refresh_token = token.get("refresh_token")
-    existing_account = sheet_api_repo.get_account(user.sub)
+    existing_account = account_repo.get_account(user.sub)
 
     if existing_account is None:
         if refresh_token is None:
@@ -91,5 +94,31 @@ async def logout(request: Request):
     Log out the user by clearing their session.
     """
     request.session.pop("user", None)
-    request.session.pop("refresh_token", None)
     return RedirectResponse(url=config.Config.Constants.CLIENT_BASE_URL)
+
+
+@router.get("/google-picker-token")
+async def get_token(user: CurrentUser):
+    if not user.picker_expires_at:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    now = int(time.time())
+    expired_token = user.picker_expires_at <= now
+    if not user or not user.picker_token or expired_token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return {"token": user.picker_token}
+
+
+@router.post("/google-picker-token")
+async def save_token(request: Request, token=Body(...), expires_in=Body(...)):
+    if "user" not in request.session:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    now = int(time.time())
+    expires_at = now + expires_in
+
+    # Note -- these new session variables must match the names defined
+    # in the UserSession model, else they will not be set correctly
+    request.session["user"]["picker_token"] = token
+    request.session["user"]["picker_expires_at"] = expires_at
+    return {"message": "ok"}

@@ -2,6 +2,7 @@ import dataclasses
 from functools import cached_property
 import logging
 import gspread
+import requests
 from sheetsapi import envelope_encryption
 from sheetsapi.config import Config
 from google.oauth2.credentials import Credentials
@@ -75,3 +76,35 @@ class GoogleOauthFields:
             gspread.Client: The gspread client.
         """
         return gspread.authorize(self.google_oauth_creds)
+
+    def refresh_access_token(self) -> "GoogleOauthFields":
+        """Refresh the access token using the stored refresh token."""
+        refresh_token = envelope_encryption.EnvelopeEncryption.decrypt(
+            encrypted_data_b64=self.refresh_token_info.encrypted_refresh_token,
+            encrypted_key_b64=self.refresh_token_info.data_encryption_key,
+            context=self.refresh_token_info.context,
+        )
+
+        payload = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        }
+
+        response = requests.post(self.token_uri, data=payload)
+
+        if not response.ok:
+            logger.error(f"Failed to refresh token: {response.text}")
+            raise Exception(f"Failed to refresh token: {response.text}")
+
+        token_response = response.json()
+        new_access_token = token_response["access_token"]
+
+        return GoogleOauthFields(
+            access_token=new_access_token,
+            refresh_token_info=self.refresh_token_info,
+            token_uri=self.token_uri,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+        )

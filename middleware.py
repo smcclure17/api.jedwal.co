@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from sheetsapi import config
-from sheetsapi.rate_limiter import ApiRateLimitMiddleware
+from sheetsapi.rate_limiter import RateLimitMiddleware
 
 
 def setup_middleware(app: FastAPI) -> None:
@@ -19,7 +19,7 @@ def setup_middleware(app: FastAPI) -> None:
     """
 
     # Rate limiting middleware for /api/ routes
-    app.add_middleware(ApiRateLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware)
 
     # Session middleware for authentication
     app.add_middleware(

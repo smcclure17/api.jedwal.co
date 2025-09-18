@@ -2,11 +2,12 @@
 Sheet management routes and operations.
 """
 
+from typing import Annotated
 import gspread
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Body, Form, HTTPException
 from fastapi.responses import JSONResponse
 
-from sheetsapi import google_sheet_client, sheet_api_repo_v2, lru_cache
+from sheetsapi import google_sheet_client, lru_cache
 from sheetsapi import config, cloudfront_helpers
 from sheetsapi.models.api_models import (
     GetAllSheetsResponse,
@@ -16,19 +17,22 @@ from sheetsapi.models.api_models import (
     UpdateApiTtlResponse,
 )
 from dependencies import CurrentUser
+from sheetsapi.sheet_repo import SheetApiNotFoundError, SheetApiRepo
+from sheetsapi.account_repo import AccountRepo
 
 router = APIRouter(tags=["sheets"])
 cloudfront = cloudfront_helpers.create_cloudfront_client()
 
-api_manager_v2 = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+sheet_repo = SheetApiRepo.from_table_name()
+account_repo = AccountRepo.from_table_name()
 lru_worksheet_cache = lru_cache.LRUCache(capacity=100)
 
 
 @router.get("/api/{owner_id}/{sheet_api_name}")
 async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sheet1"):
     try:
-        sheet_api = api_manager_v2.get_sheet_api_metadata(owner_id, sheet_api_name)
-    except sheet_api_repo_v2.SheetApiNotFoundError:
+        sheet_api = sheet_repo.get_api_metadata(owner_id, sheet_api_name)
+    except SheetApiNotFoundError:
         raise HTTPException(404, detail="Sheet API not found.")
 
     google_sheet_id = sheet_api["google_sheet_id"]
@@ -62,7 +66,7 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
             status_code=404,
             detail=f"Worksheet {worksheet} not found. To specify a worksheet, use, e.g., ?worksheet=your_sheet_name.",
         )
-    except sheet_api_repo_v2.SheetApiNotFoundError:
+    except SheetApiNotFoundError:
         raise HTTPException(status_code=404, detail="Sheet API not found.")
     except google_sheet_client.NonUniqueColumnsError:
         raise HTTPException(
@@ -74,10 +78,10 @@ async def read_sheet_v2(owner_id: str, sheet_api_name: str, worksheet: str = "Sh
 @router.get("/get-all-sheets/{owner_id}", response_model=GetAllSheetsResponse)
 async def get_sheets_metadata_v2(owner_id: str, user: CurrentUser):
     """Get all sheets owned by the current user (personal sheets only)."""
-    if not api_manager_v2.check_user_access_for_owner(user.sub, owner_id):
+    if not account_repo.check_user_access_for_owner(user.sub, owner_id):
         raise HTTPException(403, "Not authorized")
 
-    sheet_apis = api_manager_v2.get_sheet_apis_for_account(owner_id)
+    sheet_apis = sheet_repo.get_apis_for_account(owner_id)
 
     # Add worksheets
     results = []
@@ -102,34 +106,36 @@ async def get_sheets_metadata_v2(owner_id: str, user: CurrentUser):
     return GetAllSheetsResponse(results=results, failures=failures)
 
 
-@router.post("/create-api")
+@router.post("/api")
 async def create_api_v2(
-    user: CurrentUser, google_sheet_id: str = Form(...), owner_id: str = Form(...)
+    google_id: Annotated[str, Body(...)],
+    user: CurrentUser,
+    owner_id: Annotated[str | None, Body(...)] = None,
 ):
     if owner_id is None:
         owner_id = user.sub  # fallback to use the user_id if no owner given
     else:
-        if not api_manager_v2.check_user_access_for_owner(user.sub, owner_id=owner_id):
+        if not account_repo.check_user_access_for_owner(user.sub, owner_id=owner_id):
             raise HTTPException(403, detail="Not authorized for organization.")
 
     # We use the user auth creds even if it's an organization sheet api
-    user_item = api_manager_v2.get_account(user.sub)
+    user_item = account_repo.get_account(user.sub)
     refresh_token_info = user_item["refresh_token_info"]
     free_account = user_item["account_status"] == "free"
-    number_of_apis = len(api_manager_v2.get_sheet_apis_for_account(owner_id=owner_id))
+    number_of_apis = len(sheet_repo.get_apis_for_account(owner_id=owner_id))
 
     # check that user is premium or has less than 2 APIs
     if free_account and number_of_apis >= 2:
         raise HTTPException(401, detail="Free accounts can only have 2 sheet APIs.")
 
     # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
-    if "docs.google.com/spreadsheets/d/" in google_sheet_id:
-        google_sheet_id = google_sheet_id.split("/d/")[1].split("/")[0]
+    if "docs.google.com/spreadsheets/d/" in google_id:
+        google_id = google_id.split("/d/")[1].split("/")[0]
 
     # Check the user has access to the Google Sheet
     google_client = google_sheet_client.GoogleSheets.from_token_info(refresh_token_info)
     try:
-        google_client.get_spreadsheet_data(google_sheet_id)
+        google_client.get_spreadsheet_data(google_id)
     except google_sheet_client.InaccessibleDocument:
         raise HTTPException(
             415, detail="Invalid document type. Only Google Sheets are supported."
@@ -140,9 +146,9 @@ async def create_api_v2(
             detail="You don't have access to this Google Sheet, please check your permissions in Google.",
         )
 
-    sheet_api_res = api_manager_v2.create_sheet_api(
+    sheet_api_res = sheet_repo.create_api(
         owner_id=owner_id,
-        google_sheet_id=google_sheet_id,
+        google_sheet_id=google_id,
         refresh_token_info=refresh_token_info,
     )
 
@@ -155,12 +161,12 @@ async def create_api_v2(
 
 @router.delete("/delete-api/{owner_id}/{sheet_api_name}")
 async def delete_api_v2(owner_id: str, sheet_api_name: str, user: CurrentUser):
-    if not api_manager_v2.check_user_access_for_owner(user.sub, owner_id):
+    if not account_repo.check_user_access_for_owner(user.sub, owner_id):
         raise HTTPException(403, "Not authorized")
 
     # TODO: need to be either the user or an org admin to delete
 
-    deleted_items = api_manager_v2.delete_sheet_api(owner_id, sheet_api_name)
+    deleted_items = sheet_repo.delete_api(owner_id, sheet_api_name)
 
     if cloudfront is not None:
         cloudfront_helpers.invalidate_cache(
@@ -173,11 +179,11 @@ async def delete_api_v2(owner_id: str, sheet_api_name: str, user: CurrentUser):
 
 @router.post("/update-cache-duration", response_model=UpdateApiTtlResponse)
 async def update_cache_duration_v2(data: UpdateApiTtlRequest, user: CurrentUser):
-    if not api_manager_v2.check_user_access_for_owner(user.sub, data.owner_id):
+    if not account_repo.check_user_access_for_owner(user.sub, data.owner_id):
         raise HTTPException(403, "Not authorized")
 
     try:
-        api_manager_v2.update_sheet_api(
+        sheet_repo.update_api(
             owner_id=data.owner_id,
             sheet_api_name=data.sheet_api_name,
             fields={"cache_duration": data.cache_duration},
@@ -193,5 +199,5 @@ async def update_cache_duration_v2(data: UpdateApiTtlRequest, user: CurrentUser)
             )
 
         return UpdateApiTtlResponse(message="Success!")
-    except sheet_api_repo_v2.SheetApiNotFoundError:
+    except SheetApiNotFoundError:
         raise HTTPException(404, "Sheet API Not Found. Cannot modify cache duration")

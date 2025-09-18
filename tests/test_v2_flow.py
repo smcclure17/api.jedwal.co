@@ -3,12 +3,17 @@ import time
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from sheetsapi import config, email_client, user_helpers
+from sheetsapi.account_repo import (
+    AccountRepo,
+    OrganizationNotFoundError,
+    UserAlreadyExistsError,
+)
+from sheetsapi.rate_limiter import RateLimitRepo, RateLimitExceededError
+from sheetsapi.sheet_repo import SheetApiRepo
 
 config.Config.init()
 
 from sheetsapi.models.domain_models import RefreshTokenInfo, UserSession
-from sheetsapi import sheet_api_repo_v2
-from sheetsapi.sheet_api_repo_v2 import RateLimitExceededError
 
 from app import app
 from dependencies import get_current_user
@@ -22,9 +27,8 @@ REFRESH_TOKEN_INFO = RefreshTokenInfo.from_dict_str(
     config.Config.Constants.TEST_DATA_REFRESH_INFO
 )
 
-api_repo = sheet_api_repo_v2.SheetApiRepo.from_table_name(
-    table_name=config.Config.Constants.SHEETS_API_TABLE
-)
+account_repo = AccountRepo.from_table_name()
+sheet_repo = SheetApiRepo.from_table_name()
 
 
 def test_end_to_end_api_flow_v2():
@@ -96,7 +100,7 @@ def test_end_to_end_orgs_v2():
 
     # Ensure user account exists first (could be done in setup)
     try:
-        api_repo.create_user(
+        account_repo.create_user(
             user_id=USER_ID,
             email=EMAIL,
             refresh_token_info=REFRESH_TOKEN_INFO,
@@ -104,9 +108,9 @@ def test_end_to_end_orgs_v2():
             family_name="Tester",
             account_status="premium",  # Start as premium to create org
         )
-    except sheet_api_repo_v2.UserAlreadyExistsError:
+    except UserAlreadyExistsError:
         # User already exists, update to premium status
-        api_repo.update_account(USER_ID, {"account_status": "premium"})
+        account_repo.update_account(USER_ID, {"account_status": "premium"})
 
     # Test create org
     response = client.post(
@@ -171,8 +175,8 @@ def test_end_to_end_orgs_v2():
 
     # Cleanup
     try:
-        api_repo.delete_organization(org_id)
-    except sheet_api_repo_v2.OrganizationNotFoundError:
+        account_repo.delete_organization(org_id)
+    except OrganizationNotFoundError:
         pass  # Already deleted
 
     # Clean up, so the override doesn't affect other tests
@@ -186,7 +190,7 @@ def test_account_status_v2():
 
     # Ensure user exists as premium to start
     try:
-        api_repo.create_user(
+        account_repo.create_user(
             user_id=USER_ID,
             email=EMAIL,
             refresh_token_info=REFRESH_TOKEN_INFO,
@@ -194,9 +198,9 @@ def test_account_status_v2():
             family_name="User",
             account_status="premium",
         )
-    except sheet_api_repo_v2.UserAlreadyExistsError:
+    except UserAlreadyExistsError:
         # User exists, update to premium
-        api_repo.update_account(USER_ID, {"account_status": "premium"})
+        account_repo.update_account(USER_ID, {"account_status": "premium"})
 
     # Create three test APIs
     test_sheets = [
@@ -215,15 +219,15 @@ def test_account_status_v2():
     # Test all APIs are accessible when premium
     for name in api_names:
         response = client.get(f"/api/{USER_ID}/{name}")
-        assert response.status_code == 200
+        assert response.status_code == 200, f"failed /api/{USER_ID}/{name}"
 
     # Downgrade account to free
-    result = api_repo.downgrade_account(USER_ID)
+    result = account_repo.downgrade_account(USER_ID)
     assert result["new_status"] == "free"
     assert result["sheets_frozen"] == 1  # One API should be frozen
 
     # Get the sheets to see which ones are actually frozen
-    sheets = api_repo.get_sheet_apis_for_account(USER_ID)
+    sheets = sheet_repo.get_apis_for_account(USER_ID)
     sheet_status = {
         sheet["sheet_api_name"]: sheet.get("frozen", False) for sheet in sheets
     }
@@ -250,7 +254,7 @@ def test_account_status_v2():
         assert response.status_code == 401, f"Frozen API {name} should return 401"
 
     # Upgrade back to premium
-    result = api_repo.upgrade_account(USER_ID)
+    result = account_repo.upgrade_account(USER_ID)
     assert result["new_status"] == "premium"
 
     # All APIs should work again
@@ -298,13 +302,13 @@ def test_rate_limit_functionality():
     test_limit = 3
 
     # Create repo instance
-    repo = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+    repo = RateLimitRepo.from_table_name()
 
     # Get current timestamp for verification later
     now = datetime.now(timezone.utc)
-    timestamp_minute = now.strftime("%Y-%m-%dT%H:%M")
+    timestamp_day = now.strftime("%Y-%m-%d")
 
-    print(f"Testing rate limit at time: {timestamp_minute} for resource: {resource_id}")
+    print(f"Testing rate limit at time: {timestamp_day} for resource: {resource_id}")
 
     # Test incrementing under the limit
     for i in range(1, test_limit + 1):
@@ -316,7 +320,7 @@ def test_rate_limit_functionality():
 
     # One more request should exceed the limit
     try:
-        repo.check_rate_limit(
+        is_exceeded, count = repo.check_rate_limit(
             resource_type=resource_type, resource_id=resource_id, limit=test_limit
         )
         # If we get here, the rate limit wasn't enforced
@@ -330,14 +334,14 @@ def test_rate_limit_functionality():
 
     # Verify we can retrieve the rate limit counts
     counts = repo.get_rate_limit_counts(
-        resource_type=resource_type, resource_id=resource_id, minutes=5
+        resource_type=resource_type, resource_id=resource_id
     )
 
     # We should have at least one record
     assert len(counts) >= 1, "Should have at least one rate limit record"
 
     # The current timestamp should have the count we expect
-    current_count = counts.get(timestamp_minute, 0)
+    current_count = counts.get(timestamp_day, 0)
     assert (
         current_count >= test_limit
-    ), f"Count for {timestamp_minute} should be at least {test_limit}"
+    ), f"Count for {timestamp_day} should be at least {test_limit}"

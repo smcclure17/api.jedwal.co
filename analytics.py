@@ -25,8 +25,8 @@ s3 = boto3.client("s3")
 def handler(event, _context):
     """Extract CloudFront logs from S3 and write to DynamoDB
 
-    Only processes API requests (calls to /api/* paths) since
-    these are the APIs we want analytics on.
+    Processes resource requests (calls to /api/* and /doc/* paths)
+    for analytics tracking.
     """
 
     results = []
@@ -47,15 +47,28 @@ def handler(event, _context):
         log_lines = parse_cloudfront_log_lines(object_content)
         prepped_rows = []
         for line in log_lines:
-            if "/api/" not in line["cs-uri-stem"]:
-                continue  # Only care about API requests, not user data
+            stem = line["cs-uri-stem"]
+
+            # Extract endpoint type (api or doc)
+            if "/api/" in stem:
+                resource_type = "api"
+                prefix = "/api/"
+            elif "/doc/" in stem:
+                resource_type = "doc"
+                prefix = "/doc/"
+            else:
+                continue  # Skip non-resource requests
 
             request_id = line["x-edge-request-id"]
-            # api log lines are formatted /api/{account_id}/{sheet_id}
-            parts: list[str] = line["cs-uri-stem"].split("/api/")[1].split("/")
+            path = stem.split(prefix)[1]
+            parts = path.split("/")
+
+            if len(parts) < 2:
+                continue  # Skip malformed requests
+
             owner_id = parts[0]
-            sheet_api_name = parts[1]
-            sheet_analytics_id = f"ANALYTICS#{owner_id}#{sheet_api_name}"
+            resource_name = parts[1]
+            sheet_analytics_id = f"ANALYTICS#{owner_id}#{resource_name}"
             timestamp = f"{line['date']}T{line['time']}Z"
 
             prepped_rows.append(
@@ -64,8 +77,9 @@ def handler(event, _context):
                     "SK": timestamp,
                     "status_code": int(line["sc-status"]),
                     "account_id": owner_id,
-                    "sheet_api_name": sheet_api_name,
-                    "path": line["cs-uri-stem"].split("/api/")[1],
+                    "sheet_api_name": resource_name,
+                    "resource_type": resource_type,
+                    "path": path,
                     "timestamp": timestamp,
                     "request_id": request_id,
                     "cache_result": line["x-edge-result-type"],

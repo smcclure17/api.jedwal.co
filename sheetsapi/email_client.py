@@ -1,10 +1,9 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import logging
 import dataclasses
 import urllib.parse
 import email.mime.multipart
 import email.mime.text
-import email.utils
 
 import boto3
 from sheetsapi.config import Config
@@ -39,9 +38,9 @@ class SESClient:
         Returns:
             True if the user has unsubscribed, False otherwise
         """
-        from sheetsapi.sheet_api_repo_v2 import SheetApiRepo
+        from sheetsapi.account_repo import AccountRepo
 
-        repo = SheetApiRepo.from_table_name()
+        repo = AccountRepo.from_table_name()
 
         user = repo.get_account(user_id)
         if user and user.get("unsubscribed", False):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 import stripe
-from sheetsapi import sheet_api_repo_v2
+from sheetsapi import account_repo
 from sheetsapi.config import Config
 
 
@@ -11,9 +11,9 @@ WEBHOOK_SECRET = Config.Constants.STRIPE_WEBHOOK_SECRET
 
 
 class StripeHandler:
-    def __init__(self, repo: Optional[sheet_api_repo_v2.SheetApiRepo] = None):
+    def __init__(self, repo: Optional[account_repo.AccountRepo] = None):
         if repo is None:
-            repo = sheet_api_repo_v2.SheetApiRepo.from_table_name()
+            repo = account_repo.AccountRepo.from_table_name()
         self.repo = repo
 
     def update_billing_period(self, email, start: datetime, end: datetime):
@@ -32,7 +32,7 @@ class StripeHandler:
         """Mark a user as a premium user"""
         user = self.repo.get_user_by_email(email)
         if user is None:
-            raise sheet_api_repo_v2.UserNotFoundError(
+            raise account_repo.UserNotFoundError(
                 f"Cannot find user for email Stripe email {email}"
             )
         self.repo.upgrade_account(owner_id=user["account_id"])
@@ -48,7 +48,7 @@ class StripeHandler:
 
         user = self.repo.get_user_by_email(email=email)
         if user is None:
-            raise sheet_api_repo_v2.UserNotFoundError(
+            raise account_repo.UserNotFoundError(
                 f"Cannot find user for email {email} from Stripe ID: {customer_id}"
             )
         self.repo.downgrade_account(owner_id=user["account_id"])

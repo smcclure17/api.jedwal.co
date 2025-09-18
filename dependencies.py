@@ -6,7 +6,7 @@ import logging
 from typing import Annotated
 
 import fastapi
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from starlette.requests import Request
 
 from sheetsapi.models.domain_models import UserSession
@@ -29,3 +29,13 @@ def get_current_user(request: Request) -> UserSession:
 
 
 CurrentUser = Annotated[UserSession, Depends(get_current_user)]
+
+
+async def get_google_creds(request: Request):
+    """
+    Dependency to get Google OAuth credentials from request state.
+    Can be used in route functions.
+    """
+    if hasattr(request.state, "google_creds"):
+        return request.state.google_creds
+    raise HTTPException(status_code=401, detail="Authentication required")

@@ -26,6 +26,7 @@ from routers import (
     payments,
     sheets,
     ui,
+    docs,
 )
 
 
@@ -48,6 +49,7 @@ app.include_router(organizations.router)
 app.include_router(analytics.router)
 app.include_router(payments.router)
 app.include_router(ui.router)
+app.include_router(docs.router)
 
 # Lambda handler for AWS
 handler = mangum.Mangum(app)
