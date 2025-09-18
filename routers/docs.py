@@ -23,6 +23,7 @@ from sheetsapi.models.api_models import (
     DocApiResponse,
     PublishDocApiRequest,
     UpdateApiTtlResponse,
+    UpdateDocApiSlugRequest,
 )
 from sheetsapi.parsers.doc_ast import GoogleDocsParser
 from sheetsapi.parsers.doc_to_md import MarkdownRenderer
@@ -227,4 +228,13 @@ async def add_category(owner_id: str, api_name: str, category: str, user: Curren
         raise HTTPException(403, "Not authorized")
 
     doc_repo.delete_category_from_api(owner_id, api_name, category)
+    return {"success": True}
+
+
+@router.post("/doc/update-slug")
+async def update_doc_slug(body: UpdateDocApiSlugRequest, user: CurrentUser):
+    if not account_repo.check_user_access_for_owner(user.sub, body.owner_id):
+        raise HTTPException(403, "Not authorized")
+
+    doc_repo.update_api(body.owner_id, body.api_name, {"custom_slug": body.slug})
     return {"success": True}

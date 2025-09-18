@@ -96,6 +96,13 @@ class AddCategoryToDocRequest(BaseModel):
     api_name: str
     category: str
 
+class UpdateDocApiSlugRequest(BaseModel):
+    """Request model for changing the slug for a Doc API"""
+
+    owner_id: str
+    api_name: str
+    slug: str
+
 
 class OrganizationResponse(BaseModel):
     """Response model for organization data"""
@@ -151,6 +158,7 @@ class DocApiResponse(BaseModel):
     title: str
     last_modified: str
     categories: Optional[list[str]] = None
+    slug: Optional[str] = None
 
     @classmethod
     def from_doc_api(cls, api: DocApi, title: str = None):
@@ -162,7 +170,8 @@ class DocApiResponse(BaseModel):
             created_at=api.created_at,
             title=title or "Untitled Post",
             last_modified=api.last_modified,
-            categories=api.categories
+            categories=api.categories,
+            slug=api.custom_slug or api.doc_api_name
         )
     
     def to_dict(self):

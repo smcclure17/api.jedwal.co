@@ -97,6 +97,7 @@ class DocApi(BaseModel):
     google_doc_id: str
     google_doc_payload: dict | str
     title: Optional[str] = None
+    custom_slug: Optional[str] = None
     published_at: Optional[str] = None
     creator: Optional[str] = None
     refresh_token_info: RefreshTokenInfo
