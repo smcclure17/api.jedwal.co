@@ -3,9 +3,13 @@ API models for external-facing interfaces.
 These models define the request/response structures for API endpoints.
 """
 
-from pydantic import BaseModel, EmailStr, Field
-from typing import Annotated, Any, List, Optional
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Annotated, Any, Dict, List, Optional, Literal
 from datetime import datetime
+import ipaddress
+from urllib.parse import urlparse
+import json
+
 
 from sheetsapi.models.db_models import DocApi
 from sheetsapi.models.domain_models import SpreadsheetDataModel
@@ -159,6 +163,7 @@ class DocApiResponse(BaseModel):
     last_modified: str
     categories: Optional[list[str]] = None
     slug: Optional[str] = None
+    webhooks: Any
 
     @classmethod
     def from_doc_api(cls, api: DocApi, title: str = None):
@@ -171,8 +176,143 @@ class DocApiResponse(BaseModel):
             title=title or "Untitled Post",
             last_modified=api.last_modified,
             categories=api.categories,
-            slug=api.custom_slug or api.doc_api_name
+            slug=api.custom_slug or api.doc_api_name,
+            webhooks=api.webhooks
         )
     
     def to_dict(self):
         return self.model_dump()
+    
+class DocApiPublicResponse(BaseModel):
+    doc_api_name: str
+    owner_id: str
+    frozen: bool = False
+    created_at: str
+    title: str
+    last_modified: str
+    categories: Optional[list[str]] = None
+    slug: Optional[str] = None
+
+    @classmethod
+    def from_doc_api(cls, api: DocApi, title: str = None):
+        return DocApiPublicResponse(
+            doc_api_name=api.doc_api_name,
+            owner_id=api.owner_id,
+            frozen=api.frozen,
+            created_at=api.created_at,
+            title=title or "Untitled Post",
+            last_modified=api.last_modified,
+            categories=api.categories,
+            slug=api.custom_slug or api.doc_api_name,
+        )
+    
+    def to_dict(self):
+        return self.model_dump()
+
+class WebhookIntegrationRequestObject(BaseModel):
+    url: str
+    method: Literal["GET", "POST"]
+    payload: Dict[str, Any] = {}
+
+    @field_validator("url")
+    @classmethod
+    def validate_webhook_url(cls, v: str) -> str:
+        """Validate webhook URL for security and correctness"""
+        if not v:
+            raise ValueError("URL cannot be empty")
+
+        try:
+            parsed = urlparse(v)
+        except Exception:
+            raise ValueError("Invalid URL format")
+
+        # Only allow HTTP/HTTPS
+        if parsed.scheme not in ["http", "https"]:
+            raise ValueError("Only HTTP and HTTPS protocols are allowed")
+
+        # Require hostname
+        if not parsed.hostname:
+            raise ValueError("URL must include a valid hostname")
+
+        # Block localhost and private IP ranges
+        hostname = parsed.hostname.lower()
+
+        # Block localhost variants
+        if hostname in ["localhost", "127.0.0.1", "::1"]:
+            raise ValueError("Localhost URLs are not allowed")
+
+        # Try to parse as IP address and block private ranges
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                raise ValueError(
+                    "Private, loopback, and link-local IP addresses are not allowed"
+                )
+        except ValueError:
+            # Not an IP address, continue with hostname validation
+            pass
+
+        # Block common private/internal hostnames
+        blocked_hostnames = [
+            "metadata.google.internal",
+            "instance-data",
+            "internal",
+            "0.0.0.0",
+        ]
+
+        for blocked in blocked_hostnames:
+            if blocked in hostname:
+                raise ValueError(f"Hostname '{hostname}' is not allowed")
+
+        # Block suspicious URL patterns
+        suspicious_patterns = ["file://", "ftp://", "data:", "javascript:", "vbscript:"]
+
+        v_lower = v.lower()
+        for pattern in suspicious_patterns:
+            if pattern in v_lower:
+                raise ValueError(f"URL contains blocked pattern: {pattern}")
+
+        # Ensure reasonable URL length
+        if len(v) > 2000:
+            raise ValueError("URL is too long (max 2000 characters)")
+
+        return v
+
+    @field_validator("payload")
+    @classmethod
+    def validate_payload(cls, v: Dict[str, Any], info) -> Dict[str, Any]:
+        """Validate payload based on HTTP method"""
+        # Access other field values using info.data
+        method = info.data.get("method", "POST") if info.data else "POST"
+
+        # GET requests shouldn't have payloads
+        if method == "GET" and v:
+            raise ValueError("GET requests cannot have a payload")
+
+        # Limit payload size (rough JSON size check)
+        try:
+            json_str = json.dumps(v)
+            if len(json_str) > 50000:  # ~50KB limit
+                raise ValueError("Payload is too large (max 50KB)")
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Payload must be JSON serializable: {e}")
+
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "url": "https://api.example.com/webhooks",
+                "method": "POST",
+                "payload": {
+                    "event": "site.republished",
+                    "timestamp": "2024-01-01T00:00:00Z",
+                },
+            }
+        }
+    }
+
+class AddWebhookToDocApiRequest(BaseModel):
+    owner_id: str
+    api_name: str
+    webhook: WebhookIntegrationRequestObject

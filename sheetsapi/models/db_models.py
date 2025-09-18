@@ -3,7 +3,7 @@ Database models that represent the persistence layer.
 These models include DynamoDB-specific fields like PK, SK, GSI1PK, etc.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 
@@ -89,6 +89,12 @@ class RateLimitRecord(BaseModel):
         )
 
 
+class WebhookIntegration(BaseModel):
+    url: str
+    method: Literal["GET", "POST"]
+    payload: Dict[str, Any]
+
+
 class DocApi(BaseModel):
     PK: str
     SK: str
@@ -103,6 +109,7 @@ class DocApi(BaseModel):
     refresh_token_info: RefreshTokenInfo
     frozen: bool = False
     categories: Optional[list[str]] = None
+    webhooks: Optional[list[WebhookIntegration]] = None
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     last_modified: str = Field(default_factory=lambda: datetime.now().isoformat())
     GSI2PK: str
@@ -111,4 +118,14 @@ class DocApi(BaseModel):
     @classmethod
     def from_dict(cls, item: dict):
         item["refresh_token_info"] = RefreshTokenInfo(**item["refresh_token_info"])
+
+        # Handle webhooks list - convert dict items to WebhookIntegration objects
+        if "webhooks" in item and item["webhooks"] is not None:
+            item["webhooks"] = [
+                WebhookIntegration(**webhook) if isinstance(webhook, dict) else webhook
+                for webhook in item["webhooks"]
+            ]
+        else:
+            item["webhooks"] = []
+
         return DocApi(**item)

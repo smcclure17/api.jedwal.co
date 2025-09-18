@@ -20,11 +20,14 @@ from sheetsapi.account_repo import AccountRepo
 from sheetsapi.doc_repo import DocApiNotFoundError, DocApiRepo
 from sheetsapi.models.api_models import (
     AddCategoryToDocRequest,
+    AddWebhookToDocApiRequest,
+    DocApiPublicResponse,
     DocApiResponse,
     PublishDocApiRequest,
     UpdateApiTtlResponse,
     UpdateDocApiSlugRequest,
 )
+from sheetsapi.models.db_models import WebhookIntegration
 from sheetsapi.parsers.doc_ast import GoogleDocsParser
 from sheetsapi.parsers.doc_to_md import MarkdownRenderer
 
@@ -172,7 +175,7 @@ async def get_public_apis(owner_id: str, categories: Optional[str] = None):
 
         gdocs = google_docs_client.GoogleDocs.from_token_info(api.refresh_token_info)
         title = gdocs.get_document_title(doc_id=api.google_doc_id)
-        res.append(DocApiResponse.from_doc_api(api, title=title))
+        res.append(DocApiPublicResponse.from_doc_api(api, title=title))
 
     return {"apis": res}
 
@@ -237,4 +240,26 @@ async def update_doc_slug(body: UpdateDocApiSlugRequest, user: CurrentUser):
         raise HTTPException(403, "Not authorized")
 
     doc_repo.update_api(body.owner_id, body.api_name, {"custom_slug": body.slug})
+    return {"success": True}
+
+
+@router.post("/doc/add-webhook")
+async def add_webhook(body: AddWebhookToDocApiRequest, user: CurrentUser):
+    if not account_repo.check_user_access_for_owner(user.sub, body.owner_id):
+        raise HTTPException(403, "Not authorized")
+
+    new_webhook = WebhookIntegration(**body.webhook.model_dump())
+    api_metadata = doc_repo.get_api_metadata(body.owner_id, body.api_name)
+    webhooks = api_metadata.webhooks or []
+
+    if new_webhook.url in [w.url for w in webhooks]:
+        raise HTTPException(400, f"Webhook already exists for url: {new_webhook.url}")
+
+    updated_webhooks = webhooks + [new_webhook]
+    doc_repo.update_api(
+        body.owner_id,
+        body.api_name,
+        {"webhooks": [w.model_dump() for w in updated_webhooks]},
+    )
+
     return {"success": True}
