@@ -4,7 +4,7 @@ Doc API management routes and operations.
 
 from datetime import datetime
 import json
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -19,6 +19,7 @@ from sheetsapi import cloudfront_helpers
 from sheetsapi.account_repo import AccountRepo
 from sheetsapi.doc_repo import DocApiNotFoundError, DocApiRepo
 from sheetsapi.models.api_models import (
+    AddCategoryToDocRequest,
     DocApiResponse,
     PublishDocApiRequest,
     UpdateApiTtlResponse,
@@ -54,7 +55,7 @@ async def get_doc(owner_id: str, api_name: str):
             "content": output,
             "title": api.title,
             "published_at": api.published_at,
-            "creator": api.creator
+            "creator": api.creator,
         },
         headers={"Cache-Control": f"max-age=86400, public"},  # Re-pull from DB daily
         status_code=200,
@@ -92,7 +93,7 @@ async def create_doc(
         google_doc_payload = google_docs.get_document(google_id)
     except google_docs_client.DocAccessException as error:
         raise HTTPException(415, detail="Could not access Doc. Check your permissions.")
-    
+
     # Creator/author should probably 1) be editable and 2) be the owner of the
     # Google Doc, not the user who creates the API, but that's more tricky
     # since the owner isn't returned in the Google Docs API call.
@@ -107,7 +108,7 @@ async def create_doc(
         refresh_token_info=refresh_token_info,
         payload=json.dumps(google_doc_payload),
         title=google_doc_payload["title"],
-        creator=creator
+        creator=creator,
     )
 
     doc_api_name = sheet_api_res.doc_api_name
@@ -148,6 +149,33 @@ async def get_apis_metadata(owner_id: str, user: CurrentUser):
     return {"apis": res}
 
 
+# "Public Facing" copy of metadata route for use by users
+# TODO: create some kind of API key auth for this
+@router.get("/docs/{owner_id}")
+async def get_public_apis(owner_id: str, categories: Optional[str] = None):
+    """Get all sheets owned by the current user (personal sheets only)."""
+
+    filter_categories: Optional[list[str]] = None
+    if categories:
+        filter_categories = [cat.strip() for cat in categories.split(",")]
+
+    res = []
+    for api in doc_repo.get_apis_for_account(owner_id):
+        if filter_categories:
+            # Intersection: API must have ALL specified categories
+            api_categories_set = set(api.categories or [])
+            filter_categories_set = set(filter_categories)
+
+            if not filter_categories_set.issubset(api_categories_set):
+                continue
+
+        gdocs = google_docs_client.GoogleDocs.from_token_info(api.refresh_token_info)
+        title = gdocs.get_document_title(doc_id=api.google_doc_id)
+        res.append(DocApiResponse.from_doc_api(api, title=title))
+
+    return {"apis": res}
+
+
 @router.post("/doc/publish")
 async def update_content(data: PublishDocApiRequest, user: CurrentUser):
     """Publish/update the google doc content to your API"""
@@ -182,3 +210,21 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
         return UpdateApiTtlResponse(message="Success!")
     except DocApiNotFoundError:
         raise HTTPException(404, "Sheet API Not Found. Cannot modify cache duration")
+
+
+@router.post("/doc/add-category")
+async def add_category(body: AddCategoryToDocRequest, user: CurrentUser):
+    if not account_repo.check_user_access_for_owner(user.sub, body.owner_id):
+        raise HTTPException(403, "Not authorized")
+
+    doc_repo.add_category_to_api(body.owner_id, body.api_name, body.category)
+    return {"success": True}
+
+
+@router.delete("/doc/delete-category/{owner_id}/{api_name}")
+async def add_category(owner_id: str, api_name: str, category: str, user: CurrentUser):
+    if not account_repo.check_user_access_for_owner(user.sub, owner_id):
+        raise HTTPException(403, "Not authorized")
+
+    doc_repo.delete_category_from_api(owner_id, api_name, category)
+    return {"success": True}

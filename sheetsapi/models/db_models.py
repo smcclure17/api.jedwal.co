@@ -101,6 +101,7 @@ class DocApi(BaseModel):
     creator: Optional[str] = None
     refresh_token_info: RefreshTokenInfo
     frozen: bool = False
+    categories: Optional[list[str]] = None
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     last_modified: str = Field(default_factory=lambda: datetime.now().isoformat())
     GSI2PK: str

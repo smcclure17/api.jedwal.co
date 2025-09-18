@@ -90,10 +90,11 @@ class DocApiRepo:
         item = result.get("Item")
         if item is None:
             raise DocApiNotFoundError(f"Sheet not found with key {key}")
-
+        
+        item["categories"] = self._get_categories_for_api(owner_id, sheet_api_id)
         return DocApi.from_dict(item)
 
-    def get_apis_for_account(self, owner_id: str):
+    def get_apis_for_account(self, owner_id: str) -> list[DocApi]:
         """Get all sheet APIs owned by a specific account (user or organization)."""
         # Check if the owner (user or org) exists
         owner = self.account_repo.get_account(owner_id)
@@ -113,7 +114,11 @@ class DocApiRepo:
             },
         )
         items = response.get("Items", [])
-        apis = [DocApi.from_dict(item) for item in items]
+        apis = []
+        for item in items:
+            api_name = item["doc_api_name"]
+            item["categories"] = self._get_categories_for_api(owner_id, api_name)
+            apis.append(DocApi.from_dict(item))
         return apis
 
     def get_api_by_google_doc_id(self, owner_id, google_sheet_id):
@@ -181,6 +186,55 @@ class DocApiRepo:
                 raise DocApiNotFoundError(f"Sheet API not found: {api_key}")
             raise
 
+    def add_category_to_api(self, owner_id: str, doc_api: str, category: str):
+        items = [
+            {
+                # Forward relationship: Category -> API
+                "PK": f"CATEGORY#{owner_id}#{category}",
+                "SK": f"API#{doc_api}",
+                "GSI1PK": f"API#{doc_api}",           # For reverse lookup
+                "GSI1SK": f"CATEGORY#{category}",
+                "owner_id": owner_id,
+                "relationship_type": "category_to_api"
+            },
+            {
+                # Reverse relationship: API -> Category  
+                "PK": f"API#{owner_id}#{doc_api}",
+                "SK": f"CATEGORY#{category}",
+                "GSI1PK": f"CATEGORY#{owner_id}#{category}",  # For forward lookup
+                "GSI1SK": f"API#{doc_api}",
+                "owner_id": owner_id,
+                "relationship_type": "api_to_category"
+            }
+        ]
+        
+        # Use batch write or transaction
+        with self.table.batch_writer() as batch:
+            for item in items:
+                batch.put_item(Item=item)
+
+    def delete_category_from_api(self, owner_id: str, doc_api: str, category: str):
+        """Delete the relationship between a category and an API"""
+        
+        # Define the two items to delete (both sides of the relationship)
+        keys_to_delete = [
+            {
+                # Forward relationship: Category -> API
+                "PK": f"CATEGORY#{owner_id}#{category}",
+                "SK": f"API#{doc_api}"
+            },
+            {
+                # Reverse relationship: API -> Category
+                "PK": f"API#{owner_id}#{doc_api}",
+                "SK": f"CATEGORY#{category}"
+            }
+        ]
+        
+        # Use batch write to delete both items atomically
+        with self.table.batch_writer() as batch:
+            for key in keys_to_delete:
+                batch.delete_item(Key=key)
+
     def create_api(
         self,
         owner_id,
@@ -245,3 +299,26 @@ class DocApiRepo:
             name = randomname.get_name()
             key = f"DOC#{owner_id}#{name}"
         return key
+
+    def _get_categories_for_api(self, owner_id: str, sheet_api_id: str) -> list[str]:
+        """Get all categories for a specific API using adjacency list pattern"""
+        
+        # Query the API -> Category relationships
+        pk = f"API#{owner_id}#{sheet_api_id}"
+        
+        response = self.table.query(
+            KeyConditionExpression="PK = :pk",
+            ExpressionAttributeValues={
+                ":pk": pk
+            }
+        )
+        
+        categories = []
+        for item in response.get("Items", []):
+            # SK format is "CATEGORY#{category}"
+            sk = item["SK"]
+            if sk.startswith("CATEGORY#"):
+                category = sk.replace("CATEGORY#", "")
+                categories.append(category)
+        
+        return categories

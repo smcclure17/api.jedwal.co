@@ -4,7 +4,7 @@ These models define the request/response structures for API endpoints.
 """
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import Annotated, Any, List
+from typing import Annotated, Any, List, Optional
 from datetime import datetime
 
 from sheetsapi.models.db_models import DocApi
@@ -89,6 +89,13 @@ class CreateOrganizationRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     invitees: list[EmailStr]
 
+class AddCategoryToDocRequest(BaseModel):
+    """Request model for adding category to a Doc API"""
+
+    owner_id: str
+    api_name: str
+    category: str
+
 
 class OrganizationResponse(BaseModel):
     """Response model for organization data"""
@@ -143,6 +150,7 @@ class DocApiResponse(BaseModel):
     created_at: str
     title: str
     last_modified: str
+    categories: Optional[list[str]] = None
 
     @classmethod
     def from_doc_api(cls, api: DocApi, title: str = None):
@@ -154,6 +162,7 @@ class DocApiResponse(BaseModel):
             created_at=api.created_at,
             title=title or "Untitled Post",
             last_modified=api.last_modified,
+            categories=api.categories
         )
     
     def to_dict(self):

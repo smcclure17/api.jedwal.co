@@ -173,12 +173,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if not (path.startswith("/api/") or path.startswith("/doc/")):
             return await call_next(request)
+        elif "category" in path:
+            return await call_next(request)  # hack for category routes
 
         path_parts = request.url.path.split("/")
         if len(path_parts) >= 4:  # /{api or doc}/{owner_id}/{sheet_api_name}
             owner_id = path_parts[2]
 
             account = self.account_repo.get_account(owner_id)
+            print(account, "ACCOUNT")
             account_status = account["account_status"]
             api_rate_limit = API_RATE_LIMIT_VALUES[account_status]
 
