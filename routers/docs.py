@@ -2,6 +2,7 @@
 Doc API management routes and operations.
 """
 
+from datetime import datetime
 import json
 from typing import Annotated
 from fastapi import APIRouter, Body, HTTPException
@@ -52,7 +53,12 @@ async def get_doc(owner_id: str, api_name: str, format: str = "markdown"):
     output = renderer.render(ast.parse())
 
     return JSONResponse(
-        content={"content": output, "title": api.title},
+        content={
+            "content": output,
+            "title": api.title,
+            "published_at": api.published_at,
+            "creator": api.creator
+        },
         headers={"Cache-Control": f"max-age=86400, public"},  # Re-pull from DB daily
         status_code=200,
     )
@@ -89,6 +95,14 @@ async def create_doc(
         google_doc_payload = google_docs.get_document(google_id)
     except google_docs_client.DocAccessException as error:
         raise HTTPException(415, detail="Could not access Doc. Check your permissions.")
+    
+    # Creator/author should probably 1) be editable and 2) be the owner of the
+    # Google Doc, not the user who creates the API, but that's more tricky
+    # since the owner isn't returned in the Google Docs API call.
+    if user.family_name:
+        creator = f"{user.given_name} {user.family_name}"
+    else:
+        creator = f"{user.given_name}"
 
     sheet_api_res = doc_repo.create_api(
         owner_id=owner_id,
@@ -96,6 +110,7 @@ async def create_doc(
         refresh_token_info=refresh_token_info,
         payload=json.dumps(google_doc_payload),
         title=google_doc_payload["title"],
+        creator=creator
     )
 
     doc_api_name = sheet_api_res.doc_api_name
@@ -145,12 +160,17 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
     api = doc_repo.get_api_metadata(data.owner_id, data.api_name)
     google_docs = google_docs_client.GoogleDocs.from_token_info(api.refresh_token_info)
     google_doc_payload = google_docs.get_document(api.google_doc_id)
+    published_at = datetime.now().isoformat()
 
     try:
         doc_repo.update_api(
             owner_id=data.owner_id,
             api_name=data.api_name,
-            fields={"google_doc_payload": json.dumps(google_doc_payload)},
+            fields={
+                "google_doc_payload": json.dumps(google_doc_payload),
+                "title": google_doc_payload["title"],
+                "published_at": published_at,
+            },
         )
 
         # Invalidate anything in the cache to ensure the TTL is updated right away.

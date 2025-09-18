@@ -188,6 +188,7 @@ class DocApiRepo:
         refresh_token_info: RefreshTokenInfo,
         payload: dict,
         title: str,
+        creator: str
     ) -> DocApi:
         """Create a new sheet API"""
         if self.account_repo.get_account(owner_id) is None:
@@ -198,6 +199,7 @@ class DocApiRepo:
 
         doc_api_key = self._create_unique_doc_pk(owner_id)
         api_name = doc_api_key.split("#")[2]
+        published_at = datetime.now().isoformat()
 
         item = DocApi(
             PK=doc_api_key,
@@ -212,6 +214,8 @@ class DocApiRepo:
             GSI2PK=f"ACCOUNT#{owner_id}",
             GSI2SK=doc_api_key,
             title=title,
+            published_at=published_at,
+            creator=creator
         )
 
         try:
