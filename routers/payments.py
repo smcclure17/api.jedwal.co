@@ -102,5 +102,4 @@ async def create_checkout_session(user: CurrentUser):
         )
         return {"url": checkout_session.url}
     except Exception as e:
-        print(e)
         raise HTTPException(400, detail=str(e))

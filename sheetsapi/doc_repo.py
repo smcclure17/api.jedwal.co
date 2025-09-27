@@ -13,6 +13,7 @@ from sheetsapi.account_repo import AccountRepo
 from sheetsapi.config import Config
 from sheetsapi.models.domain_models import RefreshTokenInfo
 from sheetsapi.models.db_models import DocApi
+from sheetsapi.image_handler import ImageHandler
 
 AccountType = Literal["user", "organization"]
 AccountStatus = Literal["free", "premium"]
@@ -32,10 +33,17 @@ class DocApiNotFoundError(Exception):
 
 
 class DocApiRepo:
-    def __init__(self, client, table_name: str, account_repo: AccountRepo):
+    def __init__(
+        self,
+        client,
+        table_name: str,
+        account_repo: AccountRepo,
+        image_handler: ImageHandler,
+    ):
         self.client = client
         self.table_name = table_name
         self.account_repo = account_repo
+        self.image_handler = image_handler
 
     @property
     def table(self) -> ServiceResource:
@@ -47,7 +55,8 @@ class DocApiRepo:
         account_repo = AccountRepo.from_table_name(
             table_name=Config.Constants.SHEETS_API_TABLE
         )
-        return DocApiRepo(client, table_name, account_repo)
+        image_handler = ImageHandler()
+        return DocApiRepo(client, table_name, account_repo, image_handler)
 
     def delete_api(self, owner_id: str, api_name: str):
         """Delete a sheet API and all its analytics records."""
@@ -56,7 +65,6 @@ class DocApiRepo:
         deleted_items = defaultdict(int)
 
         # Check sheet API exists. This will throw if doesn't exist
-        self.get_api_metadata(owner_id, api_name)
         deleted_items["apis"] += 1
         self.table.delete_item(Key={"PK": sheet_api_key, "SK": sheet_api_key})
 
@@ -90,7 +98,7 @@ class DocApiRepo:
         item = result.get("Item")
         if item is None:
             raise DocApiNotFoundError(f"Sheet not found with key {key}")
-        
+
         item["categories"] = self._get_categories_for_api(owner_id, sheet_api_id)
         return DocApi.from_dict(item)
 
@@ -192,22 +200,22 @@ class DocApiRepo:
                 # Forward relationship: Category -> API
                 "PK": f"CATEGORY#{owner_id}#{category}",
                 "SK": f"API#{doc_api}",
-                "GSI1PK": f"API#{doc_api}",           # For reverse lookup
+                "GSI1PK": f"API#{doc_api}",  # For reverse lookup
                 "GSI1SK": f"CATEGORY#{category}",
                 "owner_id": owner_id,
-                "relationship_type": "category_to_api"
+                "relationship_type": "category_to_api",
             },
             {
-                # Reverse relationship: API -> Category  
+                # Reverse relationship: API -> Category
                 "PK": f"API#{owner_id}#{doc_api}",
                 "SK": f"CATEGORY#{category}",
                 "GSI1PK": f"CATEGORY#{owner_id}#{category}",  # For forward lookup
                 "GSI1SK": f"API#{doc_api}",
                 "owner_id": owner_id,
-                "relationship_type": "api_to_category"
-            }
+                "relationship_type": "api_to_category",
+            },
         ]
-        
+
         # Use batch write or transaction
         with self.table.batch_writer() as batch:
             for item in items:
@@ -215,21 +223,21 @@ class DocApiRepo:
 
     def delete_category_from_api(self, owner_id: str, doc_api: str, category: str):
         """Delete the relationship between a category and an API"""
-        
+
         # Define the two items to delete (both sides of the relationship)
         keys_to_delete = [
             {
                 # Forward relationship: Category -> API
                 "PK": f"CATEGORY#{owner_id}#{category}",
-                "SK": f"API#{doc_api}"
+                "SK": f"API#{doc_api}",
             },
             {
                 # Reverse relationship: API -> Category
                 "PK": f"API#{owner_id}#{doc_api}",
-                "SK": f"CATEGORY#{category}"
-            }
+                "SK": f"CATEGORY#{category}",
+            },
         ]
-        
+
         # Use batch write to delete both items atomically
         with self.table.batch_writer() as batch:
             for key in keys_to_delete:
@@ -241,8 +249,9 @@ class DocApiRepo:
         google_doc_id: str,
         refresh_token_info: RefreshTokenInfo,
         payload: dict,
+        ast_payload: str,
         title: str,
-        creator: str
+        creator: str,
     ) -> DocApi:
         """Create a new sheet API"""
         if self.account_repo.get_account(owner_id) is None:
@@ -262,6 +271,7 @@ class DocApiRepo:
             owner_id=owner_id,
             google_doc_id=google_doc_id,
             google_doc_payload=payload,
+            google_doc_ast=ast_payload,
             refresh_token_info=refresh_token_info,
             frozen=False,
             created_at=datetime.now().isoformat(),
@@ -269,7 +279,7 @@ class DocApiRepo:
             GSI2SK=doc_api_key,
             title=title,
             published_at=published_at,
-            creator=creator
+            creator=creator,
         )
 
         try:
@@ -302,17 +312,14 @@ class DocApiRepo:
 
     def _get_categories_for_api(self, owner_id: str, sheet_api_id: str) -> list[str]:
         """Get all categories for a specific API using adjacency list pattern"""
-        
+
         # Query the API -> Category relationships
         pk = f"API#{owner_id}#{sheet_api_id}"
-        
+
         response = self.table.query(
-            KeyConditionExpression="PK = :pk",
-            ExpressionAttributeValues={
-                ":pk": pk
-            }
+            KeyConditionExpression="PK = :pk", ExpressionAttributeValues={":pk": pk}
         )
-        
+
         categories = []
         for item in response.get("Items", []):
             # SK format is "CATEGORY#{category}"
@@ -320,5 +327,5 @@ class DocApiRepo:
             if sk.startswith("CATEGORY#"):
                 category = sk.replace("CATEGORY#", "")
                 categories.append(category)
-        
+
         return categories

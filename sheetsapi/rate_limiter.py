@@ -181,7 +181,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             owner_id = path_parts[2]
 
             account = self.account_repo.get_account(owner_id)
-            print(account, "ACCOUNT")
             account_status = account["account_status"]
             api_rate_limit = API_RATE_LIMIT_VALUES[account_status]
 

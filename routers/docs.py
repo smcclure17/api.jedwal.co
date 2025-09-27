@@ -22,6 +22,7 @@ from sheetsapi.doc_repo import DocApiNotFoundError, DocApiRepo
 from sheetsapi.models.api_models import (
     AddCategoryToDocRequest,
     AddWebhookToDocApiRequest,
+    DeleteWebhookToDocApiRequest,
     DocApiPublicResponse,
     DocApiResponse,
     PublishDocApiRequest,
@@ -29,8 +30,15 @@ from sheetsapi.models.api_models import (
     UpdateDocApiSlugRequest,
 )
 from sheetsapi.models.db_models import WebhookIntegration
-from sheetsapi.parsers.doc_ast import GoogleDocsParser
+from sheetsapi.parsers.doc_ast import (
+    ElementType,
+    GoogleDocsParser,
+    Node,
+    node_to_dict,
+    dict_to_node,
+)
 from sheetsapi.parsers.doc_to_md import MarkdownRenderer
+from sheetsapi.image_handler import ImageHandler
 from sheetsapi.webhook_queue import trigger_webhooks_for_doc
 
 router = APIRouter(tags=["docs"])
@@ -39,6 +47,7 @@ cloudfront = cloudfront_helpers.create_cloudfront_client()
 account_repo = AccountRepo.from_table_name()
 doc_repo = DocApiRepo.from_table_name()
 lru_worksheet_cache = lru_cache.LRUCache(capacity=100)
+image_handler = ImageHandler()
 
 
 @router.get("/doc/{owner_id}/{api_name}")
@@ -53,8 +62,22 @@ async def get_doc(owner_id: str, api_name: str):
     if api.frozen:
         raise HTTPException(401, "API is frozen. Re-upgrade to premium to unfreeze")
 
-    ast = GoogleDocsParser(docs_json=json.loads(api.google_doc_payload))
-    output = renderer.render(ast.parse())
+    # Backwards compat: We previously didn't store the serialized AST in the DB
+    # (just the raw json payload). So, if an older post doesn't have the AST stored
+    # we'll need to create it here.
+    if api.google_doc_ast:
+        serialized_ast = json.loads(api.google_doc_ast)
+        ast: Node = dict_to_node(serialized_ast)
+    else:
+        parser = GoogleDocsParser(
+            docs_json=json.loads(api.google_doc_payload), image_handler=image_handler
+        )
+        ast = parser.parse()
+        doc_repo.update_api(
+            owner_id, api_name, {"google_doc_ast": json.dumps(node_to_dict(ast))}
+        )
+
+    output = renderer.render(ast)
 
     return JSONResponse(
         content={
@@ -100,6 +123,9 @@ async def create_doc(
     except google_docs_client.DocAccessException as error:
         raise HTTPException(415, detail="Could not access Doc. Check your permissions.")
 
+    ast_parser = GoogleDocsParser(google_doc_payload, image_handler=image_handler)
+    google_doc_ast_json = node_to_dict(ast_parser.parse())
+
     # Creator/author should probably 1) be editable and 2) be the owner of the
     # Google Doc, not the user who creates the API, but that's more tricky
     # since the owner isn't returned in the Google Docs API call.
@@ -113,6 +139,7 @@ async def create_doc(
         google_doc_id=google_id,
         refresh_token_info=refresh_token_info,
         payload=json.dumps(google_doc_payload),
+        ast_payload=json.dumps(google_doc_ast_json),
         title=google_doc_payload["title"],
         creator=creator,
     )
@@ -129,6 +156,13 @@ async def delete_doc(owner_id: str, api_name: str, user: CurrentUser):
     if not account_repo.check_user_access_for_owner(user.sub, owner_id):
         raise HTTPException(403, "Not authorized")
 
+    try:
+        api_metadata = doc_repo.get_api_metadata(owner_id, api_name)
+    except DocApiNotFoundError:
+        raise HTTPException(
+            400, f"Cannot find doc api to delete. {owner_id}/{api_name}"
+        )
+
     # TODO: need to be either the user or an org admin to delete
     deleted_items = doc_repo.delete_api(owner_id, api_name)
 
@@ -138,6 +172,32 @@ async def delete_doc(owner_id: str, api_name: str, user: CurrentUser):
             distribution_id=config.Config.Constants.CLOUDFRONT_DISTRIBUTION_ID,
             path=f"/doc/{owner_id}/{api_name}*",
         )
+
+    # Get all images from AST and delete them
+    # TODO: maybe move this to async/a queue to not block
+    # the main thread? But, probably fine for now with small
+    # number of images.
+    try:
+        ast: Node = dict_to_node(json.loads(api_metadata.google_doc_ast))
+
+        def dfs_delete_images(node: Node):
+            if isinstance(node, Node) and node.node_type == ElementType.IMAGE:
+                image_handler.delete(node.src)
+
+            children = getattr(node, "children", None)
+            if isinstance(children, list):
+                for child in children:
+                    if isinstance(child, Node):
+                        dfs_delete_images(child)
+
+        dfs_delete_images(ast)
+    except Exception as e:
+        sentry_sdk.capture_exception(
+            Exception(
+                f"failed to delete images for api {owner_id}/{api_name}. Error {e}"
+            )
+        )
+
     return deleted_items
 
 
@@ -191,6 +251,9 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
     api = doc_repo.get_api_metadata(data.owner_id, data.api_name)
     google_docs = google_docs_client.GoogleDocs.from_token_info(api.refresh_token_info)
     google_doc_payload = google_docs.get_document(api.google_doc_id)
+    parser = GoogleDocsParser(
+        docs_json=json.loads(api.google_doc_payload), image_handler=image_handler
+    )
     published_at = datetime.now().isoformat()
 
     try:
@@ -199,6 +262,7 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
             api_name=data.api_name,
             fields={
                 "google_doc_payload": json.dumps(google_doc_payload),
+                "google_doc_ast": json.dumps(node_to_dict(parser.parse())),
                 "title": google_doc_payload["title"],
                 "published_at": published_at,
             },
@@ -220,8 +284,8 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
                 event_data={
                     "title": updated_api.title,
                     "published_at": updated_api.published_at,
-                    "custom_slug": updated_api.custom_slug
-                }
+                    "custom_slug": updated_api.custom_slug,
+                },
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
@@ -271,6 +335,31 @@ async def add_webhook(body: AddWebhookToDocApiRequest, user: CurrentUser):
         raise HTTPException(400, f"Webhook already exists for url: {new_webhook.url}")
 
     updated_webhooks = webhooks + [new_webhook]
+    doc_repo.update_api(
+        body.owner_id,
+        body.api_name,
+        {"webhooks": [w.model_dump() for w in updated_webhooks]},
+    )
+
+    return {"success": True}
+
+
+@router.delete("/doc/delete-webhook")
+async def delete_webhook(body: DeleteWebhookToDocApiRequest, user: CurrentUser):
+    if not account_repo.check_user_access_for_owner(user.sub, body.owner_id):
+        raise HTTPException(403, "Not authorized")
+
+    # Get existing webhooks
+    api_metadata = doc_repo.get_api_metadata(body.owner_id, body.api_name)
+    webhooks = api_metadata.webhooks or []
+
+    # Filter out the one to delete
+    updated_webhooks = [w for w in webhooks if w.url != body.url]
+
+    if len(updated_webhooks) == len(webhooks):
+        raise HTTPException(404, f"No webhook found for url: {body.url}")
+
+    # Save updated list
     doc_repo.update_api(
         body.owner_id,
         body.api_name,

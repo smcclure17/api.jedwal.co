@@ -316,3 +316,8 @@ class AddWebhookToDocApiRequest(BaseModel):
     owner_id: str
     api_name: str
     webhook: WebhookIntegrationRequestObject
+
+class DeleteWebhookToDocApiRequest(BaseModel):
+    owner_id: str
+    api_name: str
+    url: str

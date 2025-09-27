@@ -102,6 +102,7 @@ class DocApi(BaseModel):
     owner_id: str
     google_doc_id: str
     google_doc_payload: dict | str
+    google_doc_ast: Optional[str | dict] = None
     title: Optional[str] = None
     custom_slug: Optional[str] = None
     published_at: Optional[str] = None

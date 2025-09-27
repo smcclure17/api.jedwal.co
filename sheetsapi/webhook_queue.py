@@ -43,7 +43,6 @@ def create_webhook_event(
             "retryCount": retry_count,
             "timestamp": datetime.now().isoformat()
         }
-        print("BODYY", message_body)
 
         response = sqs.send_message(
             QueueUrl=WEBHOOK_QUEUE_URL,
