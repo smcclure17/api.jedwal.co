@@ -842,7 +842,6 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # S3 Bucket for Image Storage
   ImageStorageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -850,10 +849,10 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -868,12 +867,24 @@ Resources:
               - !Ref ClientBaseUrl
               - !Ref ClientAppBaseUrl
             MaxAge: 3600
-
       Tags:
         - Key: Environment
           Value: !Ref Environment
         - Key: Purpose
           Value: ImageStorage
+
+  ImageStorageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImageStorageBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub "${ImageStorageBucket.Arn}/*"
+
 
 Outputs:
   ApiDomainName:

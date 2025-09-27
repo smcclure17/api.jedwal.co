@@ -31,6 +31,22 @@ class ImageHandler:
 
         return f"{self.bucket_url}/{object_key}"
 
+    def delete(self, url: str):
+        """Delete an image from the S3 bucket given its URL"""
+        if not url.startswith(self.bucket_url):
+            raise ValueError(f"URL does not belong to this bucket: {url}")
+
+        # Extract the object key (everything after the bucket_url + '/')
+        object_key = url.replace(f"{self.bucket_url}/", "", 1)
+
+        try:
+            self.s3_client.delete_object(
+                Bucket=self.bucket_location,
+                Key=object_key,
+            )
+        except ClientError as e:
+            raise ClientError(f"Failed to delete from S3: {str(e)}")
+
     def _check_src_is_url(self, url: str):
         if not url.startswith("https://"):
             raise ValueError(f"Cannot upload source that is not url: {url}")

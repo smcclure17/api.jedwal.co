@@ -65,7 +65,6 @@ class DocApiRepo:
         deleted_items = defaultdict(int)
 
         # Check sheet API exists. This will throw if doesn't exist
-        self.get_api_metadata(owner_id, api_name)
         deleted_items["apis"] += 1
         self.table.delete_item(Key={"PK": sheet_api_key, "SK": sheet_api_key})
 
