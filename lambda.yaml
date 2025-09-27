@@ -219,6 +219,8 @@ Resources:
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
           SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
           WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+          IMAGE_STORAGE_BUCKET_URL: !Sub "https://${ImageStorageBucket}.s3.${AWS::Region}.amazonaws.com"
+          IMAGE_STORAGE_BUCKET: !Ref ImageStorageBucket
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -271,6 +273,20 @@ Resources:
                   - sqs:SendMessage
                   - sqs:GetQueueUrl
                 Resource: !GetAtt WebhookQueue.Arn
+        - PolicyName: S3ImageStoragePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "${ImageStorageBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt ImageStorageBucket.Arn
 
   # API Gateway
   ApiGateway:
@@ -461,6 +477,8 @@ Resources:
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
           SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
           WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+          IMAGE_STORAGE_BUCKET_URL: !Sub "https://${ImageStorageBucket}.s3.${AWS::Region}.amazonaws.com"
+          IMAGE_STORAGE_BUCKET: !Ref ImageStorageBucket
 
 
   LambdaStreamFunctionExecutionRole:
@@ -687,6 +705,8 @@ Resources:
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
           SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
           WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+          IMAGE_STORAGE_BUCKET_URL: !Sub "https://${ImageStorageBucket}.s3.${AWS::Region}.amazonaws.com"
+          IMAGE_STORAGE_BUCKET: !Ref ImageStorageBucket
 
 
   LambdaBillingFunctionExecutionRole:
@@ -754,6 +774,8 @@ Resources:
           EMAILS_ENABLED: "true"
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
           SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
+          IMAGE_STORAGE_BUCKET_URL: !Sub "https://${ImageStorageBucket}.s3.${AWS::Region}.amazonaws.com"
+          IMAGE_STORAGE_BUCKET: !Ref ImageStorageBucket
       Events:
         SQSEvent:
           Type: SQS
@@ -819,6 +841,39 @@ Resources:
       Tags:
         - Key: Environment
           Value: !Ref Environment
+
+  # S3 Bucket for Image Storage
+  ImageStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Environment}-sheetsapi-images-${AWS::Region}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+            AllowedOrigins:
+              - !Sub "https://api.${DomainName}"
+              - !Ref ClientBaseUrl
+              - !Ref ClientAppBaseUrl
+            MaxAge: 3600
+
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: ImageStorage
 
 Outputs:
   ApiDomainName:

@@ -264,7 +264,6 @@ class SheetApiRepo:
     def unfreeze_apis(self, owner_id: str):
         # Get all sheet APIs for this account
         sheets = self.get_apis_for_account(owner_id)
-        print(sheets)
 
         # Use batch operations to unfreeze all sheets
         unfrozen_count = 0

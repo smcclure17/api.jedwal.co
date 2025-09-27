@@ -6,6 +6,7 @@ import os
 import requests
 
 from sheetsapi import config, sentry_helpers
+from sheetsapi.webhook_repo import WebhookRepo
 
 config.Config.init()
 
@@ -13,6 +14,8 @@ if os.getenv("LAMBDA_TASK_ROOT"):
     sentry_helpers.init()
 
 logger = logging.getLogger(__name__)
+
+repo = WebhookRepo.from_table_name()
 
 
 def call_webhook(url: str, method: str = "POST", payload: dict | None = None) -> bool:

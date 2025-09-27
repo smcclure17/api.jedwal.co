@@ -1,7 +1,11 @@
-from enum import StrEnum, auto
+from enum import Enum, StrEnum, auto
+import json
 from typing import Dict, List, Any, Optional, Union
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass, asdict
 from functools import reduce
+
+
+from sheetsapi.image_handler import ImageHandler
 
 
 class ElementType(StrEnum):
@@ -126,13 +130,17 @@ class DocumentNode(Node):
 class GoogleDocsParser:
     """Parse Google Docs API JSON into an AST structure"""
 
-    def __init__(self, docs_json: Dict[str, Any]):
+    def __init__(
+        self, docs_json: Dict[str, Any], image_handler: Optional[ImageHandler]
+    ):
         """Initialize parser with Google Docs API JSON response"""
         self.docs_json = docs_json
         # Cache inline objects for quick lookup
         self.inline_objects = self.docs_json.get("inlineObjects", {})
         # Store list counters
         self.list_counters = {}
+        # Image handler
+        self.image_handler = image_handler
 
     def parse(self) -> DocumentNode:
         """Parse Google Docs JSON to AST"""
@@ -284,9 +292,13 @@ class GoogleDocsParser:
         image_props = embedded_obj.get("imageProperties", {})
 
         # Get image URL
-        url = image_props.get("contentUri")
-        if not url:
+        google_url = image_props.get("contentUri")
+        if not google_url:
             return None
+        if self.image_handler is not None:
+            url = self.image_handler.upload(src=google_url)
+        else:
+            url = google_url
 
         title = embedded_obj.get("title", f"Image {inline_obj_id}")
         alt = embedded_obj.get("description", title)
@@ -370,3 +382,56 @@ class GoogleDocsParser:
             table_node.rows.append(row_node)
 
         return table_node
+
+CLASSES = {
+    "ElementType": ElementType,
+    "NamedStyles": NamedStyles,
+    "DocumentNode": DocumentNode,
+    "ParagraphNode": ParagraphNode,
+    "TextNode": TextNode,
+    "LinkNode": LinkNode,
+    "ImageNode": ImageNode,
+    "HeadingNode": HeadingNode,
+    "ListItemNode": ListItemNode,
+    "TableNode": TableNode,
+    "TableRowNode": TableRowNode,
+    "TableCellNode": TableCellNode,
+}
+
+def node_to_dict(node):
+    if is_dataclass(node):
+        result = {"__class__": node.__class__.__name__}
+        for f in fields(node):
+            value = getattr(node, f.name)
+            result[f.name] = node_to_dict(value)
+        return result
+    elif isinstance(node, Enum):
+        return {"__enum__": f"{node.__class__.__name__}.{node.name}"}
+    elif isinstance(node, list):
+        return [node_to_dict(v) for v in node]
+    elif isinstance(node, dict):
+        return {k: node_to_dict(v) for k, v in node.items()}
+    else:
+        return node
+
+
+def dict_to_node(data, classes = CLASSES):
+    if isinstance(data, dict):
+        if "__enum__" in data:
+            enum_name, member = data["__enum__"].split(".")
+            enum_cls = classes[enum_name]
+            return enum_cls[member]
+        if "__class__" in data:
+            cls_name = data["__class__"]
+            cls = classes[cls_name]
+            init_kwargs = {}
+            for f in fields(cls):
+                if f.name in data:
+                    init_kwargs[f.name] = dict_to_node(data[f.name], classes)
+            return cls(**init_kwargs)
+        else:
+            return {k: dict_to_node(v, classes) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [dict_to_node(v, classes) for v in data]
+    else:
+        return data

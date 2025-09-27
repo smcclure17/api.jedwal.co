@@ -53,6 +53,10 @@ class EnvConstants(pydantic_settings.BaseSettings):
 
     WEBHOOK_QUEUE_URL: str
 
+    IMAGE_STORAGE_BUCKET: str
+
+    IMAGE_STORAGE_BUCKET_URL: str
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
