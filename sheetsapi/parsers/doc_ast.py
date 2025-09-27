@@ -383,6 +383,9 @@ class GoogleDocsParser:
 
         return table_node
 
+# List of all possible node types. This is used
+# to help with (de)serialization. Please keep this
+# up to date with the node types defined above.
 CLASSES = {
     "ElementType": ElementType,
     "NamedStyles": NamedStyles,
@@ -398,7 +401,8 @@ CLASSES = {
     "TableCellNode": TableCellNode,
 }
 
-def node_to_dict(node):
+def node_to_dict(node: Node):
+    """Serialize an AST to a dict/json for storage"""
     if is_dataclass(node):
         result = {"__class__": node.__class__.__name__}
         for f in fields(node):
@@ -416,6 +420,7 @@ def node_to_dict(node):
 
 
 def dict_to_node(data, classes = CLASSES):
+    """Deserialize an AST from storage"""
     if isinstance(data, dict):
         if "__enum__" in data:
             enum_name, member = data["__enum__"].split(".")
