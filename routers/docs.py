@@ -251,9 +251,7 @@ async def update_content(data: PublishDocApiRequest, user: CurrentUser):
     api = doc_repo.get_api_metadata(data.owner_id, data.api_name)
     google_docs = google_docs_client.GoogleDocs.from_token_info(api.refresh_token_info)
     google_doc_payload = google_docs.get_document(api.google_doc_id)
-    parser = GoogleDocsParser(
-        docs_json=json.loads(api.google_doc_payload), image_handler=image_handler
-    )
+    parser = GoogleDocsParser(docs_json=google_doc_payload, image_handler=image_handler)
     published_at = datetime.now().isoformat()
 
     try:
