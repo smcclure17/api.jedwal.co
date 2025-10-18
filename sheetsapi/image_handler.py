@@ -1,10 +1,10 @@
+import hashlib
 from typing import Optional
 import boto3
 import requests
 from urllib.parse import urlparse
 import os
 from botocore.exceptions import ClientError
-import uuid
 
 from sheetsapi import config
 
@@ -21,13 +21,22 @@ class ImageHandler:
         self.s3_client = boto3.client("s3")
 
     def upload(self, src: str) -> str:
-        """Upload an image from URL to S3 bucket"""
+        """Upload an image from URL to S3 bucket. 
+
+        Deduplicates by SHA256 hash of the image bytes.
+        """
         self._check_src_is_url(src)
 
         image_data = self._download_image(src)
         file_extension = self._get_file_extension(src)
-        object_key = f"images/{uuid.uuid4()}{file_extension}"
-        self._upload_to_s3(image_data, object_key)
+        image_hash = hashlib.sha256(image_data).hexdigest()
+        object_key = f"images/{image_hash}{file_extension}"
+
+        # Only upload if an image with these same bytes
+        # doesn't already exist. Otherwise, it means
+        # we've already processed this image earlier.
+        if not self._object_exists(object_key):
+            self._upload_to_s3(image_data, object_key)
 
         return f"{self.bucket_url}/{object_key}"
 
@@ -110,3 +119,16 @@ class ImageHandler:
             ".webp": "image/webp",
         }
         return content_types.get(ext, "image/jpeg")
+
+    def _object_exists(self, key: str) -> bool:
+        """Return True if object exists in S3, else False."""
+        try:
+            self.s3_client.head_object(
+                Bucket=self.bucket_location,
+                Key=key,
+            )
+            return True
+        except self.s3_client.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            raise
