@@ -175,6 +175,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         elif "category" in path:
             return await call_next(request)  # hack for category routes
+        elif request.method.lower() != "get":
+            return await call_next(request)  # hack for category routes
 
         path_parts = request.url.path.split("/")
         if len(path_parts) >= 4:  # /{api or doc}/{owner_id}/{sheet_api_name}
