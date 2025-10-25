@@ -50,17 +50,22 @@ class AccountRepo:
         user_id: str,  # Google SUB id
         email: str,
         refresh_token_info: RefreshTokenInfo,
-        given_name: str,
-        family_name: str,
+        given_name: Optional[str] = None,
+        family_name: Optional[str] = None,
         account_status: Optional[AccountStatus] = "free",
     ):
+        
+        display_name = (
+            f"{given_name or ''} {family_name or ''}".strip() or "Unknown User"
+        )
+
         """Create a new user. Fails if user already exists."""
         item = {
             "PK": f"ACCOUNT#{user_id}",
             "SK": f"ACCOUNT#{user_id}",
             "type": "user",
             "account_id": user_id,
-            "display_name": f"{given_name} {family_name}",
+            "display_name": display_name,
             "email": email,
             "refresh_token_info": refresh_token_info.to_dict(),
             "given_name": given_name,
