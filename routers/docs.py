@@ -4,9 +4,8 @@ Doc API management routes and operations.
 
 from datetime import datetime
 import json
-from typing import Annotated, Optional
-from fastapi import APIRouter, Body, HTTPException
-from fastapi.responses import JSONResponse
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Response
 import sentry_sdk
 
 from dependencies import CurrentUser
@@ -22,9 +21,15 @@ from sheetsapi.doc_repo import DocApiNotFoundError, DocApiRepo
 from sheetsapi.models.api_models import (
     AddCategoryToDocRequest,
     AddWebhookToDocApiRequest,
+    CheckDocNameAvailableResponse,
+    CreateDocRequest,
+    CreateDocResponse,
     DeleteWebhookToDocApiRequest,
+    DocApiContentResponse,
     DocApiPublicResponse,
     DocApiResponse,
+    DocsMetadataResponse,
+    DocsPublicMetadataResponse,
     PublishDocApiRequest,
     UpdateApiTtlResponse,
     UpdateDocApiSlugRequest,
@@ -51,7 +56,9 @@ image_handler = ImageHandler()
 
 
 @router.get("/doc/{owner_id}/{api_name}")
-async def get_doc(owner_id: str, api_name: str):
+async def get_doc(
+    owner_id: str, api_name: str, response: Response
+) -> DocApiContentResponse:
     renderer = MarkdownRenderer()
 
     try:
@@ -79,37 +86,35 @@ async def get_doc(owner_id: str, api_name: str):
 
     output = renderer.render(ast)
 
-    return JSONResponse(
-        content={
-            "content": output,
-            "title": api.title,
-            "published_at": api.published_at,
-            "creator": api.creator,
-        },
-        headers={"Cache-Control": f"max-age=86400, public"},  # Re-pull from DB daily
-        status_code=200,
-    )
+    response.headers["Cache-Control"] = "max-age=86400, public"
+    return {
+        "content": output,
+        "title": api.title,
+        "published_at": api.published_at,
+        "creator": api.creator,
+    }
 
 
 @router.post("/doc")
-async def create_doc(
-    google_id: Annotated[str, Body(...)],
-    user: CurrentUser,
-    owner_id: Annotated[str | None, Body(...)] = None,
-):
-    if owner_id is None:
+async def create_doc(body: CreateDocRequest, user: CurrentUser) -> CreateDocResponse:
+    if body.owner_id is None:
         owner_id = user.sub  # fallback to use the user_id if no owner given
     else:
-        if not account_repo.check_user_access_for_owner(user.sub, owner_id=owner_id):
+        if not account_repo.check_user_access_for_owner(
+            user.sub, owner_id=body.owner_id
+        ):
             raise HTTPException(403, detail="Not authorized for organization.")
+        owner_id = body.owner_id
 
     # We use the user auth creds even if it's an organization sheet api
     user_item = account_repo.get_account(user.sub)
     refresh_token_info = user_item["refresh_token_info"]
 
     # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
-    if "docs.google.com/document/d/" in google_id:
-        google_id = google_id.split("/d/")[1].split("/")[0]
+    if "docs.google.com/document/d/" in body.google_id:
+        google_id = body.google_id.split("/d/")[1].split("/")[0]
+    else:
+        google_id = body.google_id
 
     auth = auth_utils.GoogleOauthFields.from_tokens(
         access_token=google_docs_client.EMPTY_ACCESS_TOKEN,
@@ -142,13 +147,14 @@ async def create_doc(
         ast_payload=json.dumps(google_doc_ast_json),
         title=google_doc_payload["title"],
         creator=creator,
+        doc_api_name=body.doc_api_name
     )
 
     doc_api_name = sheet_api_res.doc_api_name
-    return {
-        "url": f"{config.Config.Constants.API_BASE_URL}/doc/{owner_id}/{doc_api_name}",
-        "api_name": doc_api_name,
-    }
+    return CreateDocResponse(
+        url=f"{config.Config.Constants.API_BASE_URL}/doc/{owner_id}/{doc_api_name}",
+        post_id=doc_api_name,
+    )
 
 
 @router.delete("/doc/{owner_id}/{api_name}")
@@ -202,7 +208,7 @@ async def delete_doc(owner_id: str, api_name: str, user: CurrentUser):
 
 
 @router.get("/docs/metadata/{owner_id}")
-async def get_apis_metadata(owner_id: str, user: CurrentUser):
+async def get_apis_metadata(owner_id: str, user: CurrentUser) -> DocsMetadataResponse:
     """Get all sheets owned by the current user (personal sheets only)."""
     if not account_repo.check_user_access_for_owner(user.sub, owner_id):
         raise HTTPException(403, "Not authorized")
@@ -212,7 +218,7 @@ async def get_apis_metadata(owner_id: str, user: CurrentUser):
         gdocs = google_docs_client.GoogleDocs.from_token_info(api.refresh_token_info)
         title = gdocs.get_document_title(doc_id=api.google_doc_id)
         res.append(DocApiResponse.from_doc_api(api, title=title))
-    return {"apis": res}
+    return DocsMetadataResponse(apis=res)
 
 
 # "Public Facing" copy of metadata route for use by users
@@ -239,7 +245,7 @@ async def get_public_apis(owner_id: str, categories: Optional[str] = None):
         title = gdocs.get_document_title(doc_id=api.google_doc_id)
         res.append(DocApiPublicResponse.from_doc_api(api, title=title))
 
-    return {"apis": res}
+    return DocsPublicMetadataResponse(apis=res)
 
 
 @router.post("/doc/publish")
@@ -305,7 +311,7 @@ async def add_category(body: AddCategoryToDocRequest, user: CurrentUser):
 @router.delete("/doc/delete-category/{owner_id}/{api_name}")
 async def add_category(owner_id: str, api_name: str, category: str, user: CurrentUser):
     if not account_repo.check_user_access_for_owner(user.sub, owner_id):
-        raise HTTPException(403, "Not authorized")
+        raise HTTPException(403, f"Not authorized {owner_id}, {user.sub}")
 
     doc_repo.delete_category_from_api(owner_id, api_name, category)
     return {"success": True}
@@ -365,3 +371,13 @@ async def delete_webhook(body: DeleteWebhookToDocApiRequest, user: CurrentUser):
     )
 
     return {"success": True}
+
+
+@router.get("/doc/check-name-available")
+async def check_name_available(
+    owner_id: str, api_name: str, user: CurrentUser
+) -> CheckDocNameAvailableResponse:
+    if not account_repo.check_user_access_for_owner(user.sub, owner_id):
+        raise HTTPException(403, "Not authorized")
+
+    return {"available": doc_repo.check_if_name_available(owner_id, api_name)}

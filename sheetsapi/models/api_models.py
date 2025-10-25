@@ -11,7 +11,8 @@ from urllib.parse import urlparse
 import json
 
 
-from sheetsapi.models.db_models import DocApi
+from dependencies import CurrentUser
+from sheetsapi.models.db_models import DocApi, WebhookIntegration
 from sheetsapi.models.domain_models import SpreadsheetDataModel
 from sheetsapi.account_repo import AccountStatus, AccountType
 
@@ -75,8 +76,10 @@ class UpdateApiTtlRequest(BaseModel):
         gt=0, description="Cache duration in seconds, minimum 1 second"
     )
 
+
 class PublishDocApiRequest(BaseModel):
     """Update Doc API content to match Google Doc"""
+
     owner_id: str
     api_name: str
 
@@ -93,12 +96,14 @@ class CreateOrganizationRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     invitees: list[EmailStr]
 
+
 class AddCategoryToDocRequest(BaseModel):
     """Request model for adding category to a Doc API"""
 
     owner_id: str
     api_name: str
     category: str
+
 
 class UpdateDocApiSlugRequest(BaseModel):
     """Request model for changing the slug for a Doc API"""
@@ -163,7 +168,9 @@ class DocApiResponse(BaseModel):
     last_modified: str
     categories: Optional[list[str]] = None
     slug: Optional[str] = None
-    webhooks: Any
+    webhooks: Optional[list[WebhookIntegration]]
+    published_at: Optional[str] = None
+
 
     @classmethod
     def from_doc_api(cls, api: DocApi, title: str = None):
@@ -177,12 +184,14 @@ class DocApiResponse(BaseModel):
             last_modified=api.last_modified,
             categories=api.categories,
             slug=api.custom_slug or api.doc_api_name,
-            webhooks=api.webhooks
+            webhooks=api.webhooks,
+            published_at=api.published_at
         )
-    
+
     def to_dict(self):
         return self.model_dump()
-    
+
+
 class DocApiPublicResponse(BaseModel):
     doc_api_name: str
     owner_id: str
@@ -205,14 +214,16 @@ class DocApiPublicResponse(BaseModel):
             categories=api.categories,
             slug=api.custom_slug or api.doc_api_name,
         )
-    
+
     def to_dict(self):
         return self.model_dump()
+
 
 class WebhookIntegrationRequestObject(BaseModel):
     url: str
     method: Literal["GET", "POST"]
     payload: Dict[str, Any] = {}
+    name: Optional[str] = None
 
     @field_validator("url")
     @classmethod
@@ -312,12 +323,48 @@ class WebhookIntegrationRequestObject(BaseModel):
         }
     }
 
+
 class AddWebhookToDocApiRequest(BaseModel):
     owner_id: str
     api_name: str
     webhook: WebhookIntegrationRequestObject
 
+
 class DeleteWebhookToDocApiRequest(BaseModel):
     owner_id: str
     api_name: str
     url: str
+
+
+class DocsMetadataResponse(BaseModel):
+    apis: List[DocApiResponse]
+
+
+class DocsPublicMetadataResponse(BaseModel):
+    apis: List[DocApiPublicResponse]
+
+
+class DocApiContentResponse(BaseModel):
+    content: str
+    title: str
+    published_at: Optional[str] = None
+    creator: Optional[str] = None
+
+
+class CreateDocResponse(BaseModel):
+    url: str
+    post_id: str
+
+
+class CreateDocRequest(BaseModel):
+    google_id: str
+    owner_id: str | None = (None,)
+    doc_api_name: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z0-9-]+$",
+        description="Must contain only letters, numbers, and hyphens",
+    )
+
+
+class CheckDocNameAvailableResponse(BaseModel):
+    available: bool

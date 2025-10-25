@@ -93,6 +93,7 @@ class WebhookIntegration(BaseModel):
     url: str
     method: Literal["GET", "POST"]
     payload: Dict[str, Any]
+    name: Optional[str] = None
 
 
 class DocApi(BaseModel):

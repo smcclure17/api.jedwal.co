@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 
 import boto3
@@ -252,6 +252,7 @@ class DocApiRepo:
         ast_payload: str,
         title: str,
         creator: str,
+        doc_api_name: Optional[str] = None
     ) -> DocApi:
         """Create a new sheet API"""
         if self.account_repo.get_account(owner_id) is None:
@@ -260,7 +261,11 @@ class DocApiRepo:
         if existing_api is not None:
             return existing_api
 
-        doc_api_key = self._create_unique_doc_pk(owner_id)
+        if doc_api_name is None:
+            doc_api_key = self._create_unique_doc_pk(owner_id)
+        else:
+            doc_api_key = f"DOC#{owner_id}#{doc_api_name}"
+        
         api_name = doc_api_key.split("#")[2]
         published_at = datetime.now().isoformat()
 
@@ -294,6 +299,11 @@ class DocApiRepo:
                     f"Sheet API with key {doc_api_key} already exists"
                 )
             raise
+
+    def check_if_name_available(self, owner_id, doc_api_name) -> bool:
+        key = f"DOC#{owner_id}#{doc_api_name}"
+        res = self.table.get_item(Key={"PK": key, "SK": key})
+        return res.get("Item") is None
 
     def _create_unique_doc_pk(self, owner_id: str):
         """Create a unique key for a sheet API."""

@@ -185,7 +185,7 @@ async def update_cache_duration_v2(data: UpdateApiTtlRequest, user: CurrentUser)
     try:
         sheet_repo.update_api(
             owner_id=data.owner_id,
-            sheet_api_name=data.sheet_api_name,
+            sheet_api_name=data.api_name,
             fields={"cache_duration": data.cache_duration},
         )
 

@@ -15,7 +15,9 @@ analytics_handler = analytics_client.AnalyticsClient.from_table_name()
 
 
 @router.get("/get-api-invocations")
-def get_sheet_invocations(account_id: str, sheet_api_name: str, start_time: str):
+def get_sheet_invocations(
+    account_id: str, sheet_api_name: str, start_time: str
+) -> list[ApiInvocationResponse]:
     """
     Get API invocation logs for a specific sheet.
 
