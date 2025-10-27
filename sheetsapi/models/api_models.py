@@ -168,6 +168,8 @@ class DocApiResponse(BaseModel):
     categories: Optional[list[str]] = None
     slug: Optional[str] = None
     webhooks: Optional[list[WebhookIntegration]]
+    published_at: Optional[str] = None
+
 
     @classmethod
     def from_doc_api(cls, api: DocApi, title: str = None):
@@ -182,6 +184,7 @@ class DocApiResponse(BaseModel):
             categories=api.categories,
             slug=api.custom_slug or api.doc_api_name,
             webhooks=api.webhooks,
+            published_at=api.published_at
         )
 
     def to_dict(self):
@@ -346,6 +349,21 @@ class DocApiContentResponse(BaseModel):
     published_at: Optional[str] = None
     creator: Optional[str] = None
 
+
 class CreateDocResponse(BaseModel):
     url: str
     post_id: str
+
+
+class CreateDocRequest(BaseModel):
+    google_id: str
+    owner_id: str | None = (None,)
+    doc_api_name: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z0-9-]+$",
+        description="Must contain only letters, numbers, and hyphens",
+    )
+
+
+class CheckDocNameAvailableResponse(BaseModel):
+    available: bool

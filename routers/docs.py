@@ -4,8 +4,8 @@ Doc API management routes and operations.
 
 from datetime import datetime
 import json
-from typing import Annotated, Optional
-from fastapi import APIRouter, Body, HTTPException, Response
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Response
 import sentry_sdk
 
 from dependencies import CurrentUser
@@ -21,6 +21,8 @@ from sheetsapi.doc_repo import DocApiNotFoundError, DocApiRepo
 from sheetsapi.models.api_models import (
     AddCategoryToDocRequest,
     AddWebhookToDocApiRequest,
+    CheckDocNameAvailableResponse,
+    CreateDocRequest,
     CreateDocResponse,
     DeleteWebhookToDocApiRequest,
     DocApiContentResponse,
@@ -94,24 +96,25 @@ async def get_doc(
 
 
 @router.post("/doc")
-async def create_doc(
-    google_id: Annotated[str, Body(...)],
-    user: CurrentUser,
-    owner_id: Annotated[str | None, Body(...)] = None,
-) -> CreateDocResponse:
-    if owner_id is None:
+async def create_doc(body: CreateDocRequest, user: CurrentUser) -> CreateDocResponse:
+    if body.owner_id is None:
         owner_id = user.sub  # fallback to use the user_id if no owner given
     else:
-        if not account_repo.check_user_access_for_owner(user.sub, owner_id=owner_id):
+        if not account_repo.check_user_access_for_owner(
+            user.sub, owner_id=body.owner_id
+        ):
             raise HTTPException(403, detail="Not authorized for organization.")
+        owner_id = body.owner_id
 
     # We use the user auth creds even if it's an organization sheet api
     user_item = account_repo.get_account(user.sub)
     refresh_token_info = user_item["refresh_token_info"]
 
     # Hack: parse the sheet ID from the URL if it's a Google Sheets URL
-    if "docs.google.com/document/d/" in google_id:
-        google_id = google_id.split("/d/")[1].split("/")[0]
+    if "docs.google.com/document/d/" in body.google_id:
+        google_id = body.google_id.split("/d/")[1].split("/")[0]
+    else:
+        google_id = body.google_id
 
     auth = auth_utils.GoogleOauthFields.from_tokens(
         access_token=google_docs_client.EMPTY_ACCESS_TOKEN,
@@ -144,6 +147,7 @@ async def create_doc(
         ast_payload=json.dumps(google_doc_ast_json),
         title=google_doc_payload["title"],
         creator=creator,
+        doc_api_name=body.doc_api_name
     )
 
     doc_api_name = sheet_api_res.doc_api_name
@@ -367,3 +371,13 @@ async def delete_webhook(body: DeleteWebhookToDocApiRequest, user: CurrentUser):
     )
 
     return {"success": True}
+
+
+@router.get("/doc/check-name-available")
+async def check_name_available(
+    owner_id: str, api_name: str, user: CurrentUser
+) -> CheckDocNameAvailableResponse:
+    if not account_repo.check_user_access_for_owner(user.sub, owner_id):
+        raise HTTPException(403, "Not authorized")
+
+    return {"available": doc_repo.check_if_name_available(owner_id, api_name)}
