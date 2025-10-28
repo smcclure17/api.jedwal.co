@@ -50,17 +50,22 @@ class AccountRepo:
         user_id: str,  # Google SUB id
         email: str,
         refresh_token_info: RefreshTokenInfo,
-        given_name: str,
-        family_name: str,
+        given_name: Optional[str] = None,
+        family_name: Optional[str] = None,
         account_status: Optional[AccountStatus] = "free",
     ):
+        
+        display_name = (
+            f"{given_name or ''} {family_name or ''}".strip() or "Unknown User"
+        )
+
         """Create a new user. Fails if user already exists."""
         item = {
             "PK": f"ACCOUNT#{user_id}",
             "SK": f"ACCOUNT#{user_id}",
             "type": "user",
             "account_id": user_id,
-            "display_name": f"{given_name} {family_name}",
+            "display_name": display_name,
             "email": email,
             "refresh_token_info": refresh_token_info.to_dict(),
             "given_name": given_name,
@@ -528,6 +533,10 @@ class AccountRepo:
             Key={"PK": f"ACCOUNT#{owner_id}", "SK": f"MEMBERSHIP#{user_id}"}
         ).get("Item")
         return membership is not None
+
+    def check_if_organization_exists(self, org_id: str):
+        user_or_org = self.get_account(org_id.lower())
+        return not user_or_org or user_or_org.get("type") != "organization"
 
     def _check_org_exists(self, org_id: str):
         user_or_org = self.get_account(org_id)

@@ -11,7 +11,6 @@ from urllib.parse import urlparse
 import json
 
 
-from dependencies import CurrentUser
 from sheetsapi.models.db_models import DocApi, WebhookIntegration
 from sheetsapi.models.domain_models import SpreadsheetDataModel
 from sheetsapi.account_repo import AccountStatus, AccountType
