@@ -534,6 +534,10 @@ class AccountRepo:
         ).get("Item")
         return membership is not None
 
+    def check_if_organization_exists(self, org_id: str):
+        user_or_org = self.get_account(org_id.lower())
+        return not user_or_org or user_or_org.get("type") != "organization"
+
     def _check_org_exists(self, org_id: str):
         user_or_org = self.get_account(org_id)
         if not user_or_org or user_or_org.get("type") != "organization":

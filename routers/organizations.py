@@ -100,3 +100,10 @@ async def delete_organization(org_id: str, user: CurrentUser):
 
     deleted_items = account_repo.delete_organization(org_id)
     return {"message": f"Delete success", "items": deleted_items}
+
+
+@router.get("/organization/check-name-available")
+async def check_name_available(organization_name: str, _user: CurrentUser):
+    return {
+        "available": account_repo.check_if_organization_exists(org_id=organization_name)
+    }
