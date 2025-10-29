@@ -7,10 +7,7 @@ __pycache__
 dist/
 
 # docker build script contains sensitive information
-build-and-push-image.sh
-build-push-analytics.sh
-build-push-billing.sh
-build-push-webhooks.sh
+deploy-scripts/
 
 # cloudformation deploy script contains sensitive parameters
 deploy-stack.sh
