@@ -1,13 +1,14 @@
 FROM public.ecr.aws/lambda/python:3.12
 
-COPY requirements.txt ${LAMBDA_TASK_ROOT}
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY pyproject.toml uv.lock ${LAMBDA_TASK_ROOT}
+RUN uv pip install --system --no-cache -r pyproject.toml
 
-RUN pip install -r requirements.txt
-
-# TODO: Be more picky about what to include to reduce the 
+# TODO: Be more picky about what to include to reduce the
 # size of the final image + reduce cold start time
 COPY . ${LAMBDA_TASK_ROOT}
 
+RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
 RUN ls -la ${LAMBDA_TASK_ROOT}
 
-CMD [ "webhook_orchestrator.handler" ]
+CMD [ "lambdas/webhook_orchestrator.handler" ]
