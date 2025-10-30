@@ -33,10 +33,14 @@ app = FastAPI(
 )
 
 
-# CORS middleware
+# CORS middleware for cross-origin requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=[
+        settings.client_base_url,
+        settings.client_app_base_url,
+        settings.api_base_url,
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,7 +60,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Include the API router
-app.include_router(api_router, prefix=settings.api_prefix)
+app.include_router(api_router)
 
 
 # Root endpoint
@@ -66,7 +70,7 @@ async def root():
     return {
         "name": settings.app_name,
         "version": settings.app_version,
-        "docs": f"{settings.api_prefix}/docs",
+        "docs": f"/docs",
     }
 
 

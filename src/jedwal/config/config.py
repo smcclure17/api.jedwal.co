@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     environment: str
 
     # API
-    api_prefix: str = "/api/v1"
     allowed_origins: list[str] = ["*"]
 
     # AWS Configuration
