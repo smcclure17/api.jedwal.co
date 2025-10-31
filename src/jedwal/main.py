@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 
 from jedwal.api import api_router
 from jedwal.config import settings
@@ -32,6 +33,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# Session middleware for authentication (must be before CORS)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.oauth_secret_token,
+    same_site="none",
+    https_only=True,
+    # domain="jedwal.co",
+)
 
 # CORS middleware for cross-origin requests
 app.add_middleware(

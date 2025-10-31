@@ -4,6 +4,7 @@ from functools import lru_cache
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
+from mypy_boto3_dynamodb.service_resource import Table
 
 from jedwal.config import settings
 
@@ -25,7 +26,7 @@ def get_dynamodb_resource():
     return boto3.resource("dynamodb", **config)
 
 
-def get_table(table_name: str):
+def get_table(table_name: str) -> Table:
     """
     Get a DynamoDB table instance.
 

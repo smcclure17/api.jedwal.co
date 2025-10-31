@@ -2,7 +2,6 @@
 
 from functools import lru_cache
 
-import starlette.config
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -75,17 +74,6 @@ class Settings(BaseSettings):
     # Image Storage
     image_storage_bucket: str
     image_storage_bucket_url: str
-
-    def to_starlette_config(self) -> starlette.config.Config:
-        """
-        Convert the configuration to a Starlette configuration object.
-
-        Used for Starlette middleware that requires a Starlette config object.
-
-        Returns:
-            Starlette config object with environment constants from the app config.
-        """
-        return starlette.config.Config(environ=self.model_dump())
 
 
 @lru_cache
