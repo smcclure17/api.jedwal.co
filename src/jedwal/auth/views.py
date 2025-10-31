@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
-from .service import authenticate
+
+from jedwal.database.core import DbTable
+from jedwal.account.models import AccountRead
+from .service import authenticate, CurrentAccount
 from .oauth import oauth
 from jedwal.config import settings
 
@@ -17,9 +20,9 @@ async def login(request: Request):
 
 
 @auth_router.get("/auth")
-async def auth(request: Request):
+async def auth(request: Request, table: DbTable):
     """OAuth callback - complete authentication."""
-    await authenticate(request=request)
+    await authenticate(table=table, request=request)
     return RedirectResponse(url=settings.client_app_base_url)
 
 
@@ -27,3 +30,9 @@ async def auth(request: Request):
 async def logout(request: Request):
     request.session.pop("account", None)
     return RedirectResponse(url=settings.client_base_url)
+
+
+@auth_router.get("/me", response_model=AccountRead)
+async def get_me(current_account: CurrentAccount):
+    """Get current authenticated account"""
+    return AccountRead.from_account(current_account)

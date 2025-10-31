@@ -7,6 +7,7 @@ from jedwal.common.encryption import EnvelopeEncryption
 from .oauth import oauth
 from .models import GoogleAccountSession
 from jedwal.account.service import create_account, get_account, get_account_by_email
+from jedwal.database.core import DbTable
 
 
 from authlib.integrations.starlette_client import OAuthError
@@ -14,7 +15,7 @@ from authlib.integrations.starlette_client import OAuthError
 log = logging.getLogger(__name__)
 
 
-async def authenticate(request: Request):
+async def authenticate(*, table: DbTable, request: Request):
     try:
         token: dict = await oauth.google.authorize_access_token(request)
     except OAuthError as e:
@@ -38,7 +39,7 @@ async def authenticate(request: Request):
     request.session["account"] = account_session.model_dump()
 
     refresh_token = token.get("refresh_token")
-    existing_account = get_account(id=account_session.sub)
+    existing_account = get_account(table=table, id=account_session.sub)
 
     if existing_account is None:
         if refresh_token is None:
@@ -69,17 +70,22 @@ async def authenticate(request: Request):
             refresh_token_info=token_info,
         )
 
-        create_account(account=account)
+        create_account(table=table, account=account)
 
 
-def get_current_account(*, request: Request) -> Account:
+def has_required_permissions(*, current_account: Account, account_id: str):
+    # TODO: will require org check later (db lookup)
+    return account_id == current_account.account_id
+
+
+def get_current_account(*, table: DbTable, request: Request) -> Account:
     """Get currently authenticated account from session."""
     session_user = request.session.get("account")
 
     if session_user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    account = get_account_by_email(email=session_user["email"])
+    account = get_account_by_email(table=table, email=session_user["email"])
 
     if account is None:
         raise HTTPException(status_code=401, detail="Account not found")

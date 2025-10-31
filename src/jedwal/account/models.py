@@ -1,8 +1,6 @@
-
-
 import json
 from typing import Any, Literal
-from pydantic import EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 from jedwal.common.schemas import BaseSchema, TimestampMixin
 
 AccountStatus = Literal["free", "premium"]
@@ -20,7 +18,8 @@ class RefreshTokenInfo(BaseSchema):
 
     @classmethod
     def from_dict_str(cls, item: str) -> "RefreshTokenInfo":
-        return RefreshTokenInfo(**json.loads(item)) # for testing only
+        return RefreshTokenInfo(**json.loads(item))  # for testing only
+
 
 class Account(BaseSchema, TimestampMixin):
     """Account domain model"""
@@ -35,7 +34,6 @@ class Account(BaseSchema, TimestampMixin):
         ..., description="OAuth refresh token information"
     )
 
-
     @classmethod
     def create_display_name(
         cls, given_name: str | None, family_name: str | None
@@ -43,3 +41,21 @@ class Account(BaseSchema, TimestampMixin):
         """Create display name from given and family names."""
         display_name = f"{given_name or ''} {family_name or ''}".strip()
         return display_name or "Unknown User"
+
+
+class AccountRead(BaseSchema):
+    id: str
+    account_status: str
+    display_name: str
+    email: EmailStr
+    type: Literal["user", "org"]
+
+    @classmethod
+    def from_account(cls, account: Account):
+        return AccountRead(
+            id=account.account_id,
+            account_status=account.account_status,
+            display_name=account.display_name,
+            email=account.email,
+            type="user",
+        )

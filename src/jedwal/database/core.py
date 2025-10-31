@@ -1,9 +1,11 @@
 """DynamoDB connection and client management."""
 
 from functools import lru_cache
+from typing import Annotated
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
+from fastapi import Depends
 from mypy_boto3_dynamodb.service_resource import Table
 
 from jedwal.config import settings
@@ -26,7 +28,7 @@ def get_dynamodb_resource():
     return boto3.resource("dynamodb", **config)
 
 
-def get_table(table_name: str) -> Table:
+def get_table(table_name: str | None = None) -> Table:
     """
     Get a DynamoDB table instance.
 
@@ -42,14 +44,19 @@ def get_table(table_name: str) -> Table:
         table = get_table(settings.sheets_api_table)
         response = table.get_item(Key={"id": "123"})
     """
+    if table_name is None:
+        table_name = settings.sheets_api_table
     dynamodb = get_dynamodb_resource()
     return dynamodb.Table(table_name)
 
+
+DbTable = Annotated[Table, Depends(get_table)]
 
 # Export condition helpers for easy imports
 __all__ = [
     "get_dynamodb_resource",
     "get_table",
+    "DbTable",
     "Key",
     "Attr",
 ]
