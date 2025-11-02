@@ -5,7 +5,8 @@ from typing import Any, Dict, Optional, Tuple
 from cryptography.fernet import Fernet
 from pydantic import BaseModel
 
-from jedwal import config
+from jedwal.config import settings
+
 
 class EncryptionOutput(BaseModel):
     """Result of an encryption call"""
@@ -13,6 +14,7 @@ class EncryptionOutput(BaseModel):
     encrypted_data: str
     encrypted_key: str
     context: Dict[str, Any]
+
 
 # In-memory cache to store encryption keys
 # TODO: Use e.g. Redis to distribute this across Lambda runtimes
@@ -28,7 +30,7 @@ class EnvelopeEncryption:
     @staticmethod
     def get_kms_client():
         """Get a KMS client."""
-        return boto3.client("kms", region_name=config.Config.Constants.AWS_REGION)
+        return boto3.client("kms", region_name=settings.aws_region)
 
     @staticmethod
     def generate_data_key(context: Optional[Dict] = None) -> Tuple[str, str]:
@@ -49,7 +51,7 @@ class EnvelopeEncryption:
         # Generate a data key using KMS
         kms_client = EnvelopeEncryption.get_kms_client()
         response = kms_client.generate_data_key(
-            KeyId=config.Config.Constants.ENCRYPTION_KEY_ID,
+            KeyId=settings.encryption_key_id,
             KeySpec="AES_256",
             EncryptionContext=context,
         )
