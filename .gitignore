@@ -6,6 +6,13 @@ dist/
 wheels/
 *.egg-info
 
+
+# Claude Code
+.claude
+
+# Ruff Cache
+.ruff_cache
+
 # Virtual environments
 .venv
 venv/
