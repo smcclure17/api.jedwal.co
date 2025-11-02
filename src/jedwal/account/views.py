@@ -1,20 +1,19 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 
 from jedwal.account.models import AccountRead
-from jedwal.account.service import get_account_read
-from jedwal.auth.service import CurrentAccount, has_required_permissions
+from jedwal.account.service import delete_account, get_account_read
 from jedwal.database.core import DbTable
 
 account_router = APIRouter()
 
 
 @account_router.get("/", response_model=AccountRead)
-async def get_account(account_id: str, table: DbTable, current_account: CurrentAccount):
-    if not has_required_permissions(
-        current_account=current_account, account_id=account_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Account unauthorized"
-        )
-
+async def get_account(account_id: str, table: DbTable):
+    """Get account details for the authenticated user."""
     return get_account_read(table=table, id=account_id)
+
+
+@account_router.delete("/", response_model=None)
+async def delete_account_endpoint(account_id: str, table: DbTable):
+    """Delete the authenticated user's account."""
+    return delete_account(table=table, id=account_id)

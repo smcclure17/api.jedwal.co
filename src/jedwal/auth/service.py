@@ -73,11 +73,6 @@ async def authenticate(*, table: DbTable, request: Request):
         create_account(table=table, account=account)
 
 
-def has_required_permissions(*, current_account: Account, account_id: str):
-    # TODO: will require org check later (db lookup)
-    return account_id == current_account.account_id
-
-
 def get_current_account(*, table: DbTable, request: Request) -> Account:
     """Get currently authenticated account from session."""
     session_user = request.session.get("account")
@@ -94,3 +89,19 @@ def get_current_account(*, table: DbTable, request: Request) -> Account:
 
 
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
+
+
+def verify_account_access(
+    *, account_id: str, current_account: CurrentAccount
+) -> Account:
+    """Verify current account has permission to access the specified account."""
+    # TODO: will require org check later (db lookup)
+    if account_id != current_account.account_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this account",
+        )
+    return current_account
+
+
+VerifiedAccount = Annotated[Account, Depends(verify_account_access)]

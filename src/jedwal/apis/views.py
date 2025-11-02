@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
 from jedwal.apis import service
 from jedwal.apis.models import (
@@ -8,7 +8,7 @@ from jedwal.apis.models import (
     ApiSpreadsheetDataRead,
     ApiUpdate,
 )
-from jedwal.auth.service import CurrentAccount, has_required_permissions
+from jedwal.auth.service import VerifiedAccount
 from jedwal.database.core import DbTable
 
 public_apis_router = APIRouter(prefix="/api")
@@ -20,18 +20,9 @@ async def get_api_data(
     account_id: str,
     api_id: str,
     table: DbTable,
-    current_account: CurrentAccount,
     worksheet: str | None = None,
 ):
     """Get data from a sheet API endpoint."""
-    if not has_required_permissions(
-        current_account=current_account, account_id=account_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account not authorized for this API",
-        )
-
     return service.get_api_data(
         table=table,
         owner_id=account_id,
@@ -44,18 +35,9 @@ async def get_api_data(
 async def get_apis_for_account(
     account_id: str,
     table: DbTable,
-    current_account: CurrentAccount,
     worksheet: str | None = None,
 ):
     """Get all APIs for an account."""
-    if not has_required_permissions(
-        current_account=current_account, account_id=account_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account not authorized for this API",
-        )
-
     return service.get_apis_for_account(
         table=table,
         owner_id=account_id,
@@ -69,29 +51,20 @@ async def create_api(
     account_id: str,
     request: ApiCreateRequest,
     table: DbTable,
-    current_account: CurrentAccount,
+    verified_account: VerifiedAccount,
 ):
     """Create a new API endpoint for a Google Sheet.
 
     The account_id from the path determines the owner of the API.
     User must have permissions to manage this account (self or org).
     """
-    # Verify user has permissions to manage this account
-    if not has_required_permissions(
-        current_account=current_account, account_id=account_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to create APIs for this account",
-        )
-
     # Build internal ApiCreate with refresh token from authenticated user
     api_create = ApiCreate(
         owner_id=account_id,  # Owner comes from path, not request body
         google_sheet_id=request.google_sheet_id,
         cache_duration=request.cache_duration,
         frozen=request.frozen,
-        refresh_token_info=current_account.refresh_token_info,
+        refresh_token_info=verified_account.refresh_token_info,
     )
 
     created_api, url = service.create_api(table=table, api_create=api_create)
@@ -113,17 +86,8 @@ async def update_api(
     api_id: str,
     updates: ApiUpdate,
     table: DbTable,
-    current_account: CurrentAccount,
 ):
     """Update an API with partial updates."""
-    if not has_required_permissions(
-        current_account=current_account, account_id=account_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account not authorized for this API",
-        )
-
     updated_api = service.update_api(
         table=table,
         owner_id=account_id,
@@ -147,14 +111,6 @@ async def delete_api(
     account_id: str,
     api_id: str,
     table: DbTable,
-    current_account: CurrentAccount,
 ):
-    if not has_required_permissions(
-        current_account=current_account, account_id=account_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account not authorized for this API",
-        )
-
+    """Delete an API endpoint."""
     service.delete_api(table=table, owner_id=account_id, api_id=api_id)
