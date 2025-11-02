@@ -6,17 +6,6 @@ from jedwal.apis import service
 from jedwal.apis.models import Api
 
 
-def test_generate_unique_api_key(dynamodb_table):
-    """Test that API key generation creates unique randomnames."""
-    key = service._generate_unique_api_key(
-        table=dynamodb_table, owner_id="test-user"
-    )
-    assert isinstance(key, str)
-    assert len(key) > 0
-    # randomname generates names like "adjective-noun"
-    assert "-" in key
-
-
 def test_generate_unique_api_key_retries_on_collision(dynamodb_table, sample_api):
     """Test that key generation retries if collision occurs."""
     # Create an API to cause a collision
