@@ -11,7 +11,6 @@ from jedwal.apis.models import (
 from jedwal.auth.service import CurrentAccount, has_required_permissions
 from jedwal.database.core import DbTable
 
-
 public_apis_router = APIRouter(prefix="/api")
 authenticated_apis_router = APIRouter(prefix="/apis")
 

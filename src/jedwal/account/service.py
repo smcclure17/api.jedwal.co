@@ -1,6 +1,7 @@
 from pydantic import EmailStr
-from jedwal.account.models import Account, AccountRead
+
 from jedwal.account import repository
+from jedwal.account.models import Account, AccountRead
 from jedwal.database.core import DbTable
 
 

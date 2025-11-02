@@ -1,6 +1,8 @@
 import json
 from typing import Any, Literal
-from pydantic import BaseModel, EmailStr, Field
+
+from pydantic import EmailStr, Field
+
 from jedwal.common.schemas import BaseSchema, TimestampMixin
 
 AccountStatus = Literal["free", "premium"]

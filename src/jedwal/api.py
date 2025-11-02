@@ -1,10 +1,11 @@
 """API router configuration."""
 
 from fastapi import APIRouter, Depends
+
+from jedwal.account.views import account_router
+from jedwal.apis.views import authenticated_apis_router, public_apis_router
 from jedwal.auth.service import get_current_account
 from jedwal.auth.views import auth_router
-from jedwal.apis.views import authenticated_apis_router, public_apis_router
-from jedwal.account.views import account_router
 from jedwal.config.config import settings
 
 # Main API router

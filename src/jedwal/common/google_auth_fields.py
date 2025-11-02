@@ -1,13 +1,13 @@
 import dataclasses
-from functools import cached_property
 import logging
+from functools import cached_property
+
 import requests
+from google.oauth2.credentials import Credentials
+
 from jedwal.account.models import RefreshTokenInfo
 from jedwal.common.encryption import EnvelopeEncryption
 from jedwal.config import settings
-from google.oauth2.credentials import Credentials
-
-
 
 logger = logging.getLogger(__name__)
 

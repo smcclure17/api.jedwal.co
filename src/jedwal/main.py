@@ -80,7 +80,7 @@ async def root():
     return {
         "name": settings.app_name,
         "version": settings.app_version,
-        "docs": f"/docs",
+        "docs": "/docs",
     }
 
 

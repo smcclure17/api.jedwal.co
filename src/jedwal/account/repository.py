@@ -1,12 +1,12 @@
 
 
 from datetime import datetime
-from jedwal.account.models import Account
-from jedwal.common.exceptions import ConflictException, NotFoundException
-from jedwal.account.models import RefreshTokenInfo
+
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
+from jedwal.account.models import Account, RefreshTokenInfo
+from jedwal.common.exceptions import ConflictException, NotFoundException
 
 
 def to_item(*, account: Account) -> dict:
@@ -148,5 +148,5 @@ def get_account_by_email(*, table: Table, email: str) -> Account:
     items = response.get("Items", [])
     if not items:
         raise NotFoundException(f"User with email {email} not found.")
-    
+
     return to_account(item=items[0])

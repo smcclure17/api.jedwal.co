@@ -1,16 +1,16 @@
-from typing import Annotated
 import logging
+from typing import Annotated
+
+from authlib.integrations.starlette_client import OAuthError
 from fastapi import Depends, HTTPException, Request, status
 
 from jedwal.account.models import Account, RefreshTokenInfo
-from jedwal.common.encryption import EnvelopeEncryption
-from .oauth import oauth
-from .models import GoogleAccountSession
 from jedwal.account.service import create_account, get_account, get_account_by_email
+from jedwal.common.encryption import EnvelopeEncryption
 from jedwal.database.core import DbTable
 
-
-from authlib.integrations.starlette_client import OAuthError
+from .models import GoogleAccountSession
+from .oauth import oauth
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ async def authenticate(*, table: DbTable, request: Request):
     user_token = token.get("userinfo")
     if not user_token:
         raise HTTPException(
-            status_code=500, detail=f"User data unexpectedly not found in auth token"
+            status_code=500, detail="User data unexpectedly not found in auth token"
         )
 
     # access tokens are short-lived and never persisted, no need to encrypt
@@ -45,7 +45,7 @@ async def authenticate(*, table: DbTable, request: Request):
         if refresh_token is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No refresh token found but no account exists for user. "
+                detail="No refresh token found but no account exists for user. "
                 "Is it possible a user with a deleted account is trying to create a new one?",
             )
 

@@ -5,7 +5,6 @@ from jedwal.account.service import get_account_read
 from jedwal.auth.service import CurrentAccount, has_required_permissions
 from jedwal.database.core import DbTable
 
-
 account_router = APIRouter()
 
 

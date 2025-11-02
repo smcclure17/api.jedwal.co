@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
-from jedwal.database.core import DbTable
 from jedwal.account.models import AccountRead
-from .service import authenticate, CurrentAccount
-from .oauth import oauth
 from jedwal.config import settings
+from jedwal.database.core import DbTable
+
+from .oauth import oauth
+from .service import CurrentAccount, authenticate
 
 auth_router = APIRouter()
 

@@ -1,7 +1,8 @@
-import threading
-import boto3
 import base64
-from typing import Any, Dict, Optional, Tuple
+import threading
+from typing import Any
+
+import boto3
 from cryptography.fernet import Fernet
 from pydantic import BaseModel
 
@@ -13,7 +14,7 @@ class EncryptionOutput(BaseModel):
 
     encrypted_data: str
     encrypted_key: str
-    context: Dict[str, Any]
+    context: dict[str, Any]
 
 
 # In-memory cache to store encryption keys
@@ -33,7 +34,7 @@ class EnvelopeEncryption:
         return boto3.client("kms", region_name=settings.aws_region)
 
     @staticmethod
-    def generate_data_key(context: Optional[Dict] = None) -> Tuple[str, str]:
+    def generate_data_key(context: dict | None = None) -> tuple[str, str]:
         """
         Generate a new data encryption key (DEK) using KMS.
 
@@ -69,7 +70,7 @@ class EnvelopeEncryption:
         return fernet_key, encrypted_key_b64
 
     @staticmethod
-    def decrypt_data_key(encrypted_key_b64: str, context: Optional[Dict] = None) -> str:
+    def decrypt_data_key(encrypted_key_b64: str, context: dict | None = None) -> str:
         """
         Decrypt an encrypted data key using KMS.
 
@@ -100,7 +101,7 @@ class EnvelopeEncryption:
         return fernet_key
 
     @staticmethod
-    def encrypt(plaintext: str, context: Optional[Dict] = None) -> EncryptionOutput:
+    def encrypt(plaintext: str, context: dict | None = None) -> EncryptionOutput:
         """Encrypt data using envelope encryption."""
         # Generate a new data key
         plaintext_key, encrypted_key = EnvelopeEncryption.generate_data_key(context)
@@ -118,7 +119,7 @@ class EnvelopeEncryption:
 
     @staticmethod
     def decrypt(
-        encrypted_data_b64: str, encrypted_key_b64: str, context: Optional[Dict] = None
+        encrypted_data_b64: str, encrypted_key_b64: str, context: dict | None = None
     ) -> str:
         """Decrypt data using envelope encryption.
 

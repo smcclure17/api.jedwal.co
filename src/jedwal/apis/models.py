@@ -1,7 +1,9 @@
 from typing import Any
+
 from pydantic import Field
-from jedwal.common.schemas import BaseSchema, TimestampMixin
+
 from jedwal.account.models import RefreshTokenInfo
+from jedwal.common.schemas import BaseSchema, TimestampMixin
 
 
 class ApiBase(BaseSchema):
