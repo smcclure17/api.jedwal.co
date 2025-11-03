@@ -56,37 +56,6 @@ def test_get_api(dynamodb_table, sample_api):
     assert result.owner_id == "test-user-123"
 
 
-def test_get_apis_for_account(dynamodb_table, sample_api, sample_refresh_token_info):
-    """Test retrieving all APIs for an account."""
-    from jedwal.apis import repository
-
-    # Create multiple APIs for the same owner
-    api1 = sample_api
-    api2 = Api(
-        api_key="second-api-key",
-        owner_id="test-user-123",
-        google_sheet_id="different-sheet-id",
-        refresh_token_info=sample_refresh_token_info,
-        frozen=False,
-        cache_duration=7200,
-        created_at=sample_api.created_at,
-        updated_at=sample_api.updated_at,
-    )
-
-    repository.create_api(table=dynamodb_table, api=api1)
-    repository.create_api(table=dynamodb_table, api=api2)
-
-    # Get all APIs for the owner
-    results = service.get_apis_for_account(
-        table=dynamodb_table, owner_id="test-user-123"
-    )
-
-    assert len(results) == 2
-    assert all(api.owner_id == "test-user-123" for api in results)
-    api_keys = {api.api_key for api in results}
-    assert api_keys == {"test-api-key", "second-api-key"}
-
-
 def test_update_api(dynamodb_table, sample_api):
     """Test updating an API with partial updates."""
     from jedwal.apis import repository

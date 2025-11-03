@@ -1,5 +1,8 @@
 import gspread
 
+from jedwal.account.models import RefreshTokenInfo
+from jedwal.common.google_auth_fields import GoogleOauthFields
+
 
 class InaccessibleDocument(Exception):
     "Raised when a Google Sheet cannot be opened, e.g., if it's actually an XLSX"
@@ -49,3 +52,13 @@ def read_worksheet(*, worksheet: gspread.Worksheet) -> list[dict]:
         if str(error).startswith("the header row in the worksheet contains duplicates"):
             raise NonUniqueColumnsError("Spreadsheet columns are not unique")
         raise error
+
+
+def gspread_from_refresh_token_info(
+    *, refresh_token_info: RefreshTokenInfo
+) -> gspread.Client:
+    google_oauth_fields = GoogleOauthFields.from_tokens(
+        access_token="some access token",  # force a refresh. TODO: can we avoid this?
+        refresh_token_info=refresh_token_info,
+    )
+    return gspread.authorize(google_oauth_fields.google_oauth_creds)

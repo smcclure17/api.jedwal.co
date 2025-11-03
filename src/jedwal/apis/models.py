@@ -21,6 +21,7 @@ class ApiCreateRequest(ApiBase):
 
     Note: owner_id comes from the path parameter, not the request body.
     """
+
     pass
 
 
@@ -48,6 +49,7 @@ class ApiRead(ApiBase, TimestampMixin):
 
     api_key: str = Field(..., description="Unique API key identifier")
     owner_id: str = Field(..., description="Account ID of the owner")
+    worksheet_names: list[str] = Field(..., description="Worksheet names for the API")
 
 
 class ApiUpdate(BaseSchema):

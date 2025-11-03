@@ -21,11 +21,9 @@ def get_api_spreadsheet(
 ) -> gspread.Spreadsheet:
     api = get_api(table=table, owner_id=owner_id, api_id=api_id)
 
-    google_oauth_fields = GoogleOauthFields.from_tokens(
-        access_token="some access token",  # force a refresh. TODO: can we avoid this?
-        refresh_token_info=api.refresh_token_info,
+    gspread_client = google_sheets.gspread_from_refresh_token_info(
+        refresh_token_info=api.refresh_token_info
     )
-    gspread_client = gspread.authorize(google_oauth_fields.google_oauth_creds)
     return google_sheets.open_spreadsheet(
         gspread_client=gspread_client, sheet_id=api.google_sheet_id
     )
@@ -69,18 +67,31 @@ def get_api_data(
 
 def get_apis_for_account(*, table: DbTable, owner_id: str) -> list[ApiRead]:
     apis = repository.get_apis_by_owner(table=table, owner_id=owner_id)
-    return [
-        ApiRead(
-            api_key=api.api_key,
-            owner_id=api.owner_id,
-            cache_duration=api.cache_duration,
-            frozen=api.frozen,
-            created_at=api.created_at,
-            updated_at=api.updated_at,
-            google_sheet_id=api.google_sheet_id,
+
+    api_reads = []
+    for api in apis:
+
+        gspread_client = google_sheets.gspread_from_refresh_token_info(
+            refresh_token_info=api.refresh_token_info
         )
-        for api in apis
-    ]
+
+        spreadsheet = google_sheets.open_spreadsheet(
+            gspread_client=gspread_client, sheet_id=api.google_sheet_id
+        )
+
+        api_reads.append(
+            ApiRead(
+                api_key=api.api_key,
+                owner_id=api.owner_id,
+                cache_duration=api.cache_duration,
+                frozen=api.frozen,
+                created_at=api.created_at,
+                updated_at=api.updated_at,
+                google_sheet_id=api.google_sheet_id,
+                worksheet_names=[ws.title for ws in spreadsheet.worksheets()],
+            )
+        )
+    return api_reads
 
 
 def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
@@ -108,11 +119,9 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
             detail=f"API already exists for this Google Sheet: {existing_api.api_key}",
         )
 
-    google_oauth_fields = GoogleOauthFields.from_tokens(
-        access_token="some token data",
-        refresh_token_info=api_create.refresh_token_info,
+    gspread_client = google_sheets.gspread_from_refresh_token_info(
+        refresh_token_info=api_create.refresh_token_info
     )
-    gspread_client = gspread.authorize(google_oauth_fields.google_oauth_creds)
 
     try:
         google_sheets.open_spreadsheet(
