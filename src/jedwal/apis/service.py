@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from jedwal.account import service as account_service
 from jedwal.apis import google_sheets, repository
 from jedwal.apis.models import Api, ApiCreate, ApiRead, ApiUpdate
-from jedwal.common.google_auth_fields import GoogleOauthFields
+from jedwal.apis.worksheets import service as worksheet_service
 from jedwal.config.config import settings
 from jedwal.database.core import DbTable
 
@@ -16,10 +16,7 @@ def get_api(*, table: DbTable, owner_id: str, api_id: str) -> Api:
     return repository.get_api(table=table, owner_id=owner_id, api_id=api_id)
 
 
-def get_api_spreadsheet(
-    *, table: DbTable, owner_id: str, api_id: str
-) -> gspread.Spreadsheet:
-    api = get_api(table=table, owner_id=owner_id, api_id=api_id)
+def get_api_spreadsheet(*, api: Api) -> gspread.Spreadsheet:
 
     gspread_client = google_sheets.gspread_from_refresh_token_info(
         refresh_token_info=api.refresh_token_info
@@ -30,38 +27,25 @@ def get_api_spreadsheet(
 
 
 def get_api_data(
-    *, table: DbTable, owner_id: str, api_id: str, worksheet_name: str | None = None
+    *, table: DbTable, api: Api, worksheet_name: str | None = None
 ) -> dict:
-    """
-    Get data from a sheet API.
+    """Get data from a sheet API with caching."""
+    from jedwal.apis.worksheets import service as worksheet_service
 
-    Args:
-        table: DynamoDB table resource
-        owner_id: Owner account ID
-        api_id: API identifier
-        worksheet_name: Optional worksheet name. If None, returns first sheet.
+    # If no worksheet specified, get the first sheet's name
+    if worksheet_name is None:
+        spreadsheet = get_api_spreadsheet(api=api)
+        worksheet_name = spreadsheet.sheet1.title
 
-    Returns:
-        Dict with spreadsheet title, id, and data
-    """
-    spreadsheet = get_api_spreadsheet(table=table, owner_id=owner_id, api_id=api_id)
-
-    if worksheet_name:
-        worksheet = spreadsheet.worksheet(worksheet_name)
-    else:
-        worksheet = spreadsheet.sheet1
-
-    try:
-        data = google_sheets.read_worksheet(worksheet=worksheet)
-    except google_sheets.NonUniqueColumnsError as e:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, detail=[{"msg": str(e)}]
-        )
+    data, expires_at = worksheet_service.get_worksheet_data(
+        table=table, api=api, worksheet_name=worksheet_name
+    )
 
     return {
-        "title": spreadsheet.title,
-        "sheet_id": spreadsheet.id,
+        "title": worksheet_name,
+        "sheet_id": api.google_sheet_id,
         "data": data,
+        "expires_at": expires_at,
     }
 
 
@@ -161,12 +145,21 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
 def update_api(
     *, table: DbTable, owner_id: str, api_id: str, updates: ApiUpdate
 ) -> Api:
+    """Update an API. If cache_duration is changed, all worksheet caches are invalidated."""
     # Only update fields that were explicitly provided
     update_data = updates.model_dump(exclude_unset=True)
 
     if not update_data:
-        # No fields to update, just return existing API
         return repository.get_api(table=table, owner_id=owner_id, api_id=api_id)
+
+    # If cache_duration has changed, invalidate all worksheets
+    if "cache_duration" in update_data:
+        existing_api = repository.get_api(table=table, owner_id=owner_id, api_id=api_id)
+        updated_cache_duration = update_data["cache_duration"]
+        if existing_api and updated_cache_duration != existing_api.cache_duration:
+            worksheet_service.delete_all_worksheets_for_api(
+                table=table, owner_id=owner_id, api_key=api_id
+            )
 
     return repository.update_api(
         table=table, owner_id=owner_id, api_id=api_id, updates=update_data
@@ -174,6 +167,17 @@ def update_api(
 
 
 def delete_api(*, table: DbTable, owner_id: str, api_id: str):
+    """
+    Delete an API and all its associated worksheet caches.
+
+    Args:
+        table: DynamoDB table resource
+        owner_id: Owner account ID
+        api_id: API key to delete
+    """
+    worksheet_service.delete_all_worksheets_for_api(
+        table=table, owner_id=owner_id, api_key=api_id
+    )
     repository.delete_api(table=table, owner_id=owner_id, api_key=api_id)
 
 

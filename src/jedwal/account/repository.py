@@ -1,6 +1,6 @@
 
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
@@ -89,7 +89,7 @@ def update_account(*, table: Table, account: Account) -> Account:
         NotFoundException: If account not found
     """
     # Update the updated_at timestamp
-    account.updated_at = datetime.utcnow()
+    account.updated_at = datetime.now(timezone.utc)
 
     item = to_item(account=account)
 

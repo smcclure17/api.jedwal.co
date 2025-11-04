@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from pydantic import Field
@@ -64,3 +65,4 @@ class ApiSpreadsheetDataRead(BaseSchema):
     title: str
     sheet_id: str
     data: list[dict[Any, Any]]
+    expires_at: datetime

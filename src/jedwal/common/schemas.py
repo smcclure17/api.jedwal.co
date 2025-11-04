@@ -1,6 +1,6 @@
 """Common Pydantic schemas."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class TimestampMixin(BaseModel):
     """Mixin for timestamp fields."""
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
 
 class BaseSchema(BaseModel):

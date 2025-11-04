@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, BackgroundTasks, Response, status
 
 from jedwal.apis import service
 from jedwal.apis.models import (
@@ -23,19 +23,14 @@ async def get_api_data(
     worksheet: str | None = None,
 ):
     """Get data from a sheet API endpoint."""
-    return service.get_api_data(
-        table=table,
-        owner_id=account_id,
-        api_id=api_id,
-        worksheet_name=worksheet,
-    )
+    api = service.get_api(table=table, owner_id=account_id, api_id=api_id)
+    return service.get_api_data(table=table, api=api, worksheet_name=worksheet)
 
 
 @authenticated_apis_router.get("", response_model=list[ApiRead])
 async def get_apis_for_account(
     account_id: str,
     table: DbTable,
-    worksheet: str | None = None,
 ):
     """Get all APIs for an account."""
     return service.get_apis_for_account(
@@ -95,6 +90,8 @@ async def update_api(
         updates=updates,
     )
 
+    # TODO: Invalidate CloudFront cache in background for api and it's worksheets
+
     return ApiRead(
         api_key=updated_api.api_key,
         owner_id=updated_api.owner_id,
@@ -114,3 +111,5 @@ async def delete_api(
 ):
     """Delete an API endpoint."""
     service.delete_api(table=table, owner_id=account_id, api_id=api_id)
+
+    # TODO: invalidate cache in cloudfront for item and all worksheets

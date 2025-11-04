@@ -52,7 +52,7 @@ def read_worksheet(*, worksheet: gspread.Worksheet) -> list[dict]:
         if str(error).startswith("the header row in the worksheet contains duplicates"):
             raise NonUniqueColumnsError("Spreadsheet columns are not unique")
         raise error
-
+    
 
 def gspread_from_refresh_token_info(
     *, refresh_token_info: RefreshTokenInfo

@@ -2,5 +2,6 @@
 
 from jedwal.apis import repository
 from jedwal.apis.models import Api
+from jedwal.apis import service
 
-__all__ = ["Api", "repository"]
+__all__ = ["Api", "repository", "service"]
