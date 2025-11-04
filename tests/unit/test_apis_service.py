@@ -135,7 +135,7 @@ def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account
     with (
         patch("jedwal.apis.service.google_sheets.open_spreadsheet", return_value=mock_spreadsheet),
         patch("jedwal.apis.service.randomname.get_name", return_value="test-generated-key"),
-        patch("jedwal.apis.service.GoogleOauthFields.from_tokens", return_value=mock_oauth_fields),
+        patch("jedwal.common.google_auth_fields.GoogleOauthFields.from_tokens", return_value=mock_oauth_fields),
         patch("jedwal.apis.service.gspread.authorize", return_value=mock_gspread_client),
     ):
         created_api, url = service.create_api(

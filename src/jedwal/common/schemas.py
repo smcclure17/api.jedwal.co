@@ -1,15 +1,18 @@
 """Common Pydantic schemas."""
 
 from datetime import datetime, timezone
+from functools import partial
 
 from pydantic import BaseModel, ConfigDict, Field
+
+utcnow = partial(datetime.now, timezone.utc)
 
 
 class TimestampMixin(BaseModel):
     """Mixin for timestamp fields."""
 
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class BaseSchema(BaseModel):

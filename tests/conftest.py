@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Generator
-from datetime import datetime
+from datetime import datetime, timezone
 
 import boto3
 import pytest
@@ -11,6 +11,7 @@ from mypy_boto3_dynamodb.service_resource import Table
 
 from jedwal.account.models import Account, RefreshTokenInfo
 from jedwal.apis.models import Api, ApiCreate
+from jedwal.apis.worksheets.models import Worksheet, WorksheetCreate
 
 
 @pytest.fixture(scope="function")
@@ -130,4 +131,36 @@ def sample_api_create(sample_refresh_token_info) -> ApiCreate:
         frozen=False,
         owner_id="test-user-123",
         refresh_token_info=sample_refresh_token_info,
+    )
+
+
+@pytest.fixture
+def sample_worksheet() -> Worksheet:
+    """Create a sample Worksheet for testing."""
+    return Worksheet(
+        owner_id="test-user-123",
+        api_key="test-api-key",
+        title="Sheet1",
+        data=[
+            {"name": "Alice", "age": 30},
+            {"name": "Bob", "age": 25},
+        ],
+        expires_at=datetime(2024, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+    )
+
+
+@pytest.fixture
+def sample_worksheet_create() -> WorksheetCreate:
+    """Create a sample WorksheetCreate for testing."""
+    return WorksheetCreate(
+        owner_id="test-user-123",
+        api_key="test-api-key",
+        title="Sheet1",
+        data=[
+            {"name": "Alice", "age": 30},
+            {"name": "Bob", "age": 25},
+        ],
+        expires_at=datetime(2030, 12, 31, 23, 59, 59, tzinfo=timezone.utc),  # Future date so cache is fresh
     )

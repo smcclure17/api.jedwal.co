@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from jedwal.common.schemas import BaseSchema, TimestampMixin
 
