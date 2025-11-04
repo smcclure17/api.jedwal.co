@@ -53,18 +53,20 @@ def get_api_data(
 
 
 def get_apis_for_account(*, table: DbTable, owner_id: str) -> list[ApiRead]:
+    """Get all APIs for an account with cached spreadsheet titles.
+
+    Spreadsheet titles are cached on API creation and can be refreshed manually.
+    Worksheet names can be fetched separately via the worksheets endpoint.
+    """
     apis = repository.get_apis_by_owner(table=table, owner_id=owner_id)
-
     api_reads = []
+
     for api in apis:
-
-        gspread_client = google_sheets.gspread_from_refresh_token_info(
-            refresh_token_info=api.refresh_token_info
-        )
-
-        spreadsheet = google_sheets.open_spreadsheet(
-            gspread_client=gspread_client, sheet_id=api.google_sheet_id
-        )
+        # TEMP: update spreadsheet_title if it's empty
+        if api.spreadsheet_title is None:
+            refresh_spreadsheet_title(
+                table=table, owner_id=api.owner_id, api_id=api.api_key
+            )
 
         api_reads.append(
             ApiRead(
@@ -75,7 +77,7 @@ def get_apis_for_account(*, table: DbTable, owner_id: str) -> list[ApiRead]:
                 created_at=api.created_at,
                 updated_at=api.updated_at,
                 google_sheet_id=api.google_sheet_id,
-                worksheet_names=[ws.title for ws in spreadsheet.worksheets()],
+                spreadsheet_title=api.spreadsheet_title,
             )
         )
     return api_reads
@@ -111,7 +113,7 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
     )
 
     try:
-        google_sheets.open_spreadsheet(
+        spreadsheet = google_sheets.open_spreadsheet(
             gspread_client=gspread_client, sheet_id=google_sheet_id
         )
     except google_sheets.InaccessibleDocument:
@@ -136,6 +138,7 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
         refresh_token_info=api_create.refresh_token_info,
         frozen=api_create.frozen,
         cache_duration=api_create.cache_duration,
+        spreadsheet_title=spreadsheet.title,
         created_at=now,
         updated_at=now,
     )
@@ -182,6 +185,29 @@ def delete_api(*, table: DbTable, owner_id: str, api_id: str):
         table=table, owner_id=owner_id, api_key=api_id
     )
     repository.delete_api(table=table, owner_id=owner_id, api_key=api_id)
+
+
+def refresh_spreadsheet_title(*, table: DbTable, owner_id: str, api_id: str) -> Api:
+    """
+    Refresh the cached spreadsheet title from Google Sheets.
+
+    Args:
+        table: DynamoDB table resource
+        owner_id: Owner account ID
+        api_id: API key
+
+    Returns:
+        Updated Api with fresh spreadsheet title
+    """
+    api = get_api(table=table, owner_id=owner_id, api_id=api_id)
+    spreadsheet = get_api_spreadsheet(api=api)
+
+    return repository.update_api(
+        table=table,
+        owner_id=owner_id,
+        api_id=api_id,
+        updates={"spreadsheet_title": spreadsheet.title},
+    )
 
 
 def _generate_unique_api_key(*, table: DbTable, owner_id: str) -> str:

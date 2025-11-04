@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from jedwal.account.views import account_router
 from jedwal.apis.views import authenticated_apis_router, public_apis_router
+from jedwal.posts.views import public_posts_router, authenticated_posts_router
 from jedwal.auth.service import verify_account_access
 from jedwal.auth.views import auth_router
 from jedwal.config.config import settings
@@ -16,9 +17,12 @@ authenticated_account_router = APIRouter(
 )
 authenticated_account_router.include_router(account_router)
 authenticated_account_router.include_router(authenticated_apis_router)
+authenticated_account_router.include_router(authenticated_posts_router)
 
 public_account_router = APIRouter(prefix="/{account_id}")
 public_account_router.include_router(public_apis_router)
+public_account_router.include_router(public_posts_router)
+
 
 
 # Health check endpoint

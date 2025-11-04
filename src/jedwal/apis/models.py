@@ -43,6 +43,9 @@ class Api(ApiBase, TimestampMixin):
     refresh_token_info: RefreshTokenInfo = Field(
         ..., description="OAuth refresh token for accessing the sheet"
     )
+    spreadsheet_title: str | None = Field(
+        None, description="Cached title of the Google Spreadsheet"
+    )
 
 
 class ApiRead(ApiBase, TimestampMixin):
@@ -50,14 +53,14 @@ class ApiRead(ApiBase, TimestampMixin):
 
     api_key: str = Field(..., description="Unique API key identifier")
     owner_id: str = Field(..., description="Account ID of the owner")
-    worksheet_names: list[str] = Field(..., description="Worksheet names for the API")
+    spreadsheet_title: str | None = Field(
+        None, description="Cached title of the Google Spreadsheet"
+    )
 
 
 class ApiUpdate(BaseSchema):
     """Schema for updating an API - all fields optional for partial updates."""
 
-    google_sheet_id: str | None = None
-    frozen: bool | None = None
     cache_duration: int | None = None
 
 

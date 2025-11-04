@@ -8,11 +8,17 @@ from jedwal.apis.models import (
     ApiSpreadsheetDataRead,
     ApiUpdate,
 )
+from jedwal.apis.worksheets.views import authenticated_worksheets_router
 from jedwal.auth.service import VerifiedAccount
 from jedwal.database.core import DbTable
 
-public_apis_router = APIRouter(prefix="/api")
+public_apis_router = APIRouter(prefix="/apis")
 authenticated_apis_router = APIRouter(prefix="/apis")
+
+# Include worksheets router as a sub-router of APIs
+authenticated_apis_router.include_router(
+    authenticated_worksheets_router, prefix="/{api_id}"
+)
 
 
 @public_apis_router.get("/{api_id}", response_model=ApiSpreadsheetDataRead)
@@ -70,6 +76,7 @@ async def create_api(
         google_sheet_id=created_api.google_sheet_id,
         frozen=created_api.frozen,
         cache_duration=created_api.cache_duration,
+        spreadsheet_title=created_api.spreadsheet_title,
         created_at=created_api.created_at,
         updated_at=created_api.updated_at,
     )
@@ -98,6 +105,7 @@ async def update_api(
         google_sheet_id=updated_api.google_sheet_id,
         frozen=updated_api.frozen,
         cache_duration=updated_api.cache_duration,
+        spreadsheet_title=updated_api.spreadsheet_title,
         created_at=updated_api.created_at,
         updated_at=updated_api.updated_at,
     )
@@ -113,3 +121,26 @@ async def delete_api(
     service.delete_api(table=table, owner_id=account_id, api_id=api_id)
 
     # TODO: invalidate cache in cloudfront for item and all worksheets
+
+
+@authenticated_apis_router.post("/{api_id}/refresh-title", response_model=ApiRead)
+async def refresh_spreadsheet_title(
+    account_id: str,
+    api_id: str,
+    table: DbTable,
+):
+    """Manually refresh the spreadsheet title from Google Sheets."""
+    updated_api = service.refresh_spreadsheet_title(
+        table=table, owner_id=account_id, api_id=api_id
+    )
+
+    return ApiRead(
+        api_key=updated_api.api_key,
+        owner_id=updated_api.owner_id,
+        google_sheet_id=updated_api.google_sheet_id,
+        frozen=updated_api.frozen,
+        cache_duration=updated_api.cache_duration,
+        spreadsheet_title=updated_api.spreadsheet_title,
+        created_at=updated_api.created_at,
+        updated_at=updated_api.updated_at,
+    )

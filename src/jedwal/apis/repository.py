@@ -13,7 +13,7 @@ def to_item(*, api: Api) -> dict:
     # PK format: SHEET#{owner_id}#{api_key}
     sheet_key = f"SHEET#{api.owner_id}#{api.api_key}"
 
-    return {
+    item = {
         "PK": sheet_key,
         "SK": sheet_key,
         "sheet_api_name": api.api_key,  # Keep for backward compatibility, same as api_key
@@ -28,6 +28,12 @@ def to_item(*, api: Api) -> dict:
         "GSI2PK": f"ACCOUNT#{api.owner_id}",
         "GSI2SK": sheet_key,
     }
+
+    # Only add spreadsheet_title if it exists (optional field)
+    if api.spreadsheet_title is not None:
+        item["spreadsheet_title"] = api.spreadsheet_title
+
+    return item
 
 
 def from_item(*, item: dict) -> Api:
@@ -46,6 +52,7 @@ def from_item(*, item: dict) -> Api:
         refresh_token_info=RefreshTokenInfo(**item["refresh_token_info"]),
         frozen=item.get("frozen", False),
         cache_duration=item["cache_duration"],
+        spreadsheet_title=item.get("spreadsheet_title"),  # Optional field
         created_at=datetime.fromisoformat(item["created_at"]),
         updated_at=datetime.fromisoformat(updated_stamp),
     )

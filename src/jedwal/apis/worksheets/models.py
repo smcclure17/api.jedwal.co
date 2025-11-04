@@ -46,3 +46,8 @@ class WorksheetRead(WorksheetBase, TimestampMixin):
     expires_at: datetime = Field(..., description="When cache expires (UTC)")
     is_expired: bool = Field(..., description="Whether cache has expired")
 
+
+class WorksheetNamesRead(BaseSchema):
+    """Response containing worksheet names for an API."""
+
+    worksheets: list[str] = Field(..., description="List of worksheet names from Google Sheets")

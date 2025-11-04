@@ -65,7 +65,7 @@ def test_update_api(dynamodb_table, sample_api):
     repository.create_api(table=dynamodb_table, api=sample_api)
 
     # Update only frozen status
-    updates = ApiUpdate(frozen=True)
+    updates = ApiUpdate(cache_duration=100)
     updated = service.update_api(
         table=dynamodb_table,
         owner_id="test-user-123",
@@ -73,8 +73,7 @@ def test_update_api(dynamodb_table, sample_api):
         updates=updates,
     )
 
-    assert updated.frozen is True
-    assert updated.cache_duration == 3600  # Unchanged
+    assert updated.cache_duration == 100  # Unchanged
 
 
 def test_update_api_empty_updates(dynamodb_table, sample_api):
