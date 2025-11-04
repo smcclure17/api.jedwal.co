@@ -18,14 +18,18 @@ def get_worksheet_model(*, table: DbTable, api: Api, worksheet_name: str):
 
 
 def get_worksheet_data(
-    *, table: DbTable, api: Api, worksheet_name: str
+    *,
+    table: DbTable,
+    api: Api,
+    worksheet_name: str,
+    spreadsheet: gspread.Spreadsheet | None = None
 ) -> tuple[list[dict[str, Any]], datetime]:
     """Get worksheet data. Uses cache if fresh, fetches from Google if expired/missing.
 
     Returns:
-        tuple where first item is data, second item is expiration timestamp"""
+        tuple where first item is data, second item is expiration timestamp
+    """
     from jedwal.apis.service import get_api_spreadsheet
-
 
     cached = repository.get_worksheet(
         table=table, owner_id=api.owner_id, api_key=api.api_key, title=worksheet_name
@@ -34,7 +38,9 @@ def get_worksheet_data(
     if cached and not cached.is_expired:
         return cached.data, cached.expires_at
 
-    spreadsheet = get_api_spreadsheet(api=api)
+    # Use provided spreadsheet or fetch new one
+    if spreadsheet is None:
+        spreadsheet = get_api_spreadsheet(api=api)
 
     try:
         ws = spreadsheet.worksheet(worksheet_name)

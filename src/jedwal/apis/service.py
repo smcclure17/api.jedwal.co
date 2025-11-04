@@ -33,12 +33,15 @@ def get_api_data(
     from jedwal.apis.worksheets import service as worksheet_service
 
     # If no worksheet specified, get the first sheet's name
+    # and keep spreadsheet so that we can (optionally) pass it
+    # along to get_worksheet_data to avoid double fetching
+    spreadsheet = None
     if worksheet_name is None:
         spreadsheet = get_api_spreadsheet(api=api)
         worksheet_name = spreadsheet.sheet1.title
 
     data, expires_at = worksheet_service.get_worksheet_data(
-        table=table, api=api, worksheet_name=worksheet_name
+        table=table, api=api, worksheet_name=worksheet_name, spreadsheet=spreadsheet
     )
 
     return {
