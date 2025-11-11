@@ -79,8 +79,16 @@ async def root():
     }
 
 
-# Lambda entrypoint for live deploys.
-handler = mangum.Mangum(app)
+mangumHandler = mangum.Mangum(app, lifespan="off")
+
+
+# See: https://github.com/Kludex/mangum/issues/307
+# By default, Mangum redirects go to the underlying lambda/gateway
+# URL, not the cloudfront/canonical domain. They use the "Host"
+# header value, so we override that here with the correct domain.
+def handler(event, context):
+    event["multiValueHeaders"]["Host"] = ["api.jedwal.co"]
+    return mangumHandler(event, context)
 
 
 if __name__ == "__main__":
