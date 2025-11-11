@@ -6,7 +6,9 @@ from fastapi import HTTPException, status
 class NotFoundException(HTTPException):
     """Resource not found exception."""
 
-    def __init__(self, detail: str = "Resource not found"):
+    def __init__(self, detail=None):
+        if detail is None:
+            detail = [{"msg": "Resource not found"}]
         super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
@@ -20,7 +22,7 @@ class BadRequestException(HTTPException):
 class UnauthorizedException(HTTPException):
     """Unauthorized exception."""
 
-    def __init__(self, detail: str = "Unauthorized"):
+    def __init__(self, detail="Unauthorized"):
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
 

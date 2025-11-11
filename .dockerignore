@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Testing
+tests/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+docker/
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github/
+
+# Documentation
+README.md
+docs/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Lambda-specific excludes
+lambdas/  # Exclude Lambda functions from FastAPI image
+
+# Misc
+*.log
+*.md

@@ -30,16 +30,16 @@ def open_spreadsheet(
         # parse the error to find out if it's a non-supported file.
         message = e.error["message"]
         if message == "This operation is not supported for this document":
-            raise InaccessibleDocument("Filetype is unsupported")
+            raise InaccessibleDocument("Filetype is unsupported") from e
         if message == "The caller does not have permission":
-            raise InsufficientPermissions("User does not have access to file")
+            raise InsufficientPermissions("User does not have access to file") from e
         if e.code == 429:
             raise GoogleRateLimitExceeded(
                 "Google Sheets Rate Limit exceeded (error 429)."
-            )
+            ) from e
         raise e
-    except PermissionError:
-        raise InsufficientPermissions("User does not have access to file")
+    except PermissionError as e:
+        raise InsufficientPermissions("User does not have access to file") from e
     return google_sheet
 
 
@@ -48,11 +48,11 @@ def read_worksheet(*, worksheet: gspread.Worksheet) -> list[dict]:
         return worksheet.get_all_records()
     except gspread.exceptions.GSpreadException as error:
         if str(error).startswith("the header row in the worksheet is not unique"):
-            raise NonUniqueColumnsError("Spreadsheet columns are not unique")
+            raise NonUniqueColumnsError("Spreadsheet columns are not unique") from error
         if str(error).startswith("the header row in the worksheet contains duplicates"):
-            raise NonUniqueColumnsError("Spreadsheet columns are not unique")
+            raise NonUniqueColumnsError("Spreadsheet columns are not unique") from error
         raise error
-    
+
 
 def gspread_from_refresh_token_info(
     *, refresh_token_info: RefreshTokenInfo

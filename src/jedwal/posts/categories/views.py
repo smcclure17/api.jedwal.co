@@ -7,7 +7,9 @@ from jedwal.posts.categories import service
 from jedwal.posts.categories.models import CategoryCreate, CategoryRead
 
 # Nested under posts routes: /manage/{account_id}/posts/{post_key}/categories
-authenticated_categories_router = APIRouter(prefix="/categories")
+authenticated_categories_router = APIRouter(
+    prefix="/categories", tags=["post categories"]
+)
 
 
 @authenticated_categories_router.get("", response_model=list[CategoryRead])

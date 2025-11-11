@@ -1,6 +1,6 @@
 """Unit tests for worksheets repository layer."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from jedwal.apis.worksheets import repository
 from jedwal.apis.worksheets.models import WorksheetCreate
@@ -59,7 +59,7 @@ def test_save_worksheet_upserts(dynamodb_table, sample_worksheet_create):
         api_key="test-api-key",
         title="Sheet1",
         data=[{"name": "Charlie", "age": 35}],
-        expires_at=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        expires_at=datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC),
     )
     second = repository.save_worksheet(
         table=dynamodb_table, worksheet_create=updated_create
@@ -86,11 +86,13 @@ def test_get_all_worksheets_for_api(dynamodb_table):
         worksheet_create = WorksheetCreate(
             owner_id="test-user-123",
             api_key="test-api-key",
-            title=f"Sheet{i+1}",
+            title=f"Sheet{i + 1}",
             data=[{"row": i}],
             expires_at=datetime(2024, 12, 31, 23, 59, 59),
         )
-        repository.save_worksheet(table=dynamodb_table, worksheet_create=worksheet_create)
+        repository.save_worksheet(
+            table=dynamodb_table, worksheet_create=worksheet_create
+        )
 
     # Create a worksheet for a different API
     other_worksheet = WorksheetCreate(
@@ -115,7 +117,9 @@ def test_get_all_worksheets_for_api(dynamodb_table):
 def test_delete_worksheet(dynamodb_table, sample_worksheet_create):
     """Test deleting a specific worksheet."""
     # Save worksheet
-    repository.save_worksheet(table=dynamodb_table, worksheet_create=sample_worksheet_create)
+    repository.save_worksheet(
+        table=dynamodb_table, worksheet_create=sample_worksheet_create
+    )
 
     # Verify it exists
     result = repository.get_worksheet(
@@ -162,11 +166,13 @@ def test_delete_all_worksheets_for_api(dynamodb_table):
         worksheet_create = WorksheetCreate(
             owner_id="test-user-123",
             api_key="test-api-key",
-            title=f"Sheet{i+1}",
+            title=f"Sheet{i + 1}",
             data=[{"row": i}],
             expires_at=datetime(2024, 12, 31, 23, 59, 59),
         )
-        repository.save_worksheet(table=dynamodb_table, worksheet_create=worksheet_create)
+        repository.save_worksheet(
+            table=dynamodb_table, worksheet_create=worksheet_create
+        )
 
     # Create a worksheet for a different API
     other_worksheet = WorksheetCreate(
@@ -203,12 +209,12 @@ def test_worksheet_is_expired_property(sample_worksheet):
     """Test the is_expired property on Worksheet model."""
     # Past expiry
     past_worksheet = sample_worksheet.model_copy(
-        update={"expires_at": datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc)}
+        update={"expires_at": datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)}
     )
     assert past_worksheet.is_expired is True
 
     # Future expiry
     future_worksheet = sample_worksheet.model_copy(
-        update={"expires_at": datetime(2030, 1, 1, 0, 0, 0, tzinfo=timezone.utc)}
+        update={"expires_at": datetime(2030, 1, 1, 0, 0, 0, tzinfo=UTC)}
     )
     assert future_worksheet.is_expired is False

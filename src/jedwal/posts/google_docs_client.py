@@ -1,6 +1,7 @@
 import dataclasses
+from typing import Any
+
 import requests
-from typing import Dict, Any, Optional
 from google.oauth2.credentials import Credentials
 
 from jedwal.account.models import RefreshTokenInfo
@@ -39,7 +40,7 @@ class GoogleDocs:
     def from_auth(cls, auth: GoogleOauthFields):
         return GoogleDocs(creds=auth.google_oauth_creds, session=requests.Session())
 
-    def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
+    def get_document(self, doc_id: str) -> dict[str, Any] | None:
         url = f"https://docs.googleapis.com/v1/documents/{doc_id}"
         response = self.session.get(
             url,

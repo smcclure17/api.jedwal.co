@@ -1,9 +1,6 @@
+from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum, StrEnum, auto
-import json
-from typing import Dict, List, Any, Optional, Union
-from dataclasses import dataclass, field, fields, is_dataclass, asdict
-from functools import reduce
-
+from typing import Any
 
 from jedwal.posts.parsers.image_handler import ImageHandler
 
@@ -58,7 +55,7 @@ class LinkNode(Node):
     """Link node containing a URL and child nodes"""
 
     url: str
-    children: List[Node] = field(default_factory=list)
+    children: list[Node] = field(default_factory=list)
 
 
 @dataclass
@@ -74,8 +71,8 @@ class ImageNode(Node):
 class ParagraphNode(Node):
     """Paragraph node containing child nodes"""
 
-    children: List[Node] = field(default_factory=list)
-    alignment: Optional[str] = None
+    children: list[Node] = field(default_factory=list)
+    alignment: str | None = None
 
 
 @dataclass
@@ -83,7 +80,7 @@ class HeadingNode(Node):
     """Heading node with level and content"""
 
     level: int
-    children: List[Node] = field(default_factory=list)
+    children: list[Node] = field(default_factory=list)
 
 
 @dataclass
@@ -93,22 +90,22 @@ class ListItemNode(Node):
     nesting_level: int = 0
     ordered: bool = False
     list_id: str = ""
-    number: Optional[int] = None
-    children: List[Node] = field(default_factory=list)
+    number: int | None = None
+    children: list[Node] = field(default_factory=list)
 
 
 @dataclass
 class TableNode(Node):
     """Table node containing rows"""
 
-    rows: List["TableRowNode"] = field(default_factory=list)
+    rows: list["TableRowNode"] = field(default_factory=list)
 
 
 @dataclass
 class TableRowNode(Node):
     """Table row node containing cells"""
 
-    cells: List["TableCellNode"] = field(default_factory=list)
+    cells: list["TableCellNode"] = field(default_factory=list)
     is_header: bool = False
 
 
@@ -116,23 +113,21 @@ class TableRowNode(Node):
 class TableCellNode(Node):
     """Table cell node containing child nodes"""
 
-    children: List[Node] = field(default_factory=list)
+    children: list[Node] = field(default_factory=list)
 
 
 @dataclass
 class DocumentNode(Node):
     """Root document node containing all content"""
 
-    children: List[Node] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    children: list[Node] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class GoogleDocsParser:
     """Parse Google Docs API JSON into an AST structure"""
 
-    def __init__(
-        self, docs_json: Dict[str, Any], image_handler: Optional[ImageHandler]
-    ):
+    def __init__(self, docs_json: dict[str, Any], image_handler: ImageHandler | None):
         """Initialize parser with Google Docs API JSON response"""
         self.docs_json = docs_json
         # Cache inline objects for quick lookup
@@ -164,7 +159,7 @@ class GoogleDocsParser:
 
         return document
 
-    def _process_element(self, element: Dict[str, Any]) -> Optional[Node]:
+    def _process_element(self, element: dict[str, Any]) -> Node | None:
         """Process a document element and convert it to an AST node"""
         if "paragraph" in element:
             return self._process_paragraph(element["paragraph"])
@@ -176,7 +171,7 @@ class GoogleDocsParser:
         # Add more element types as needed
         return None
 
-    def _process_paragraph(self, paragraph: Dict[str, Any]) -> Node:
+    def _process_paragraph(self, paragraph: dict[str, Any]) -> Node:
         """Process a paragraph element to AST node"""
         paragraph_style = paragraph.get("paragraphStyle", {})
         named_style = paragraph_style.get("namedStyleType", NamedStyles.NORMAL)
@@ -238,9 +233,7 @@ class GoogleDocsParser:
 
             return paragraph_node
 
-    def _process_text_run(
-        self, text_run: Dict[str, Any]
-    ) -> Union[TextNode, LinkNode, None]:
+    def _process_text_run(self, text_run: dict[str, Any]) -> TextNode | LinkNode | None:
         """Process a text run to AST node"""
         content = text_run.get("content", "")
         if not content:
@@ -277,8 +270,8 @@ class GoogleDocsParser:
             )
 
     def _process_inline_object(
-        self, inline_obj_element: Dict[str, Any]
-    ) -> Optional[ImageNode]:
+        self, inline_obj_element: dict[str, Any]
+    ) -> ImageNode | None:
         """Process an inline object element (usually images)"""
         inline_obj_id = inline_obj_element.get("inlineObjectId")
         if not inline_obj_id or inline_obj_id not in self.inline_objects:
@@ -305,7 +298,7 @@ class GoogleDocsParser:
 
         return ImageNode(node_type=ElementType.IMAGE, src=url, alt=alt, title=title)
 
-    def _process_list_item(self, paragraph: Dict[str, Any]) -> ListItemNode:
+    def _process_list_item(self, paragraph: dict[str, Any]) -> ListItemNode:
         """Process a list item paragraph to AST node"""
         bullet = paragraph.get("bullet", {})
         list_id = bullet.get("listId", "")
@@ -358,7 +351,7 @@ class GoogleDocsParser:
                 return nesting_levels[nesting_level].get("glyphType", "BULLET")
         return "BULLET"
 
-    def _process_table(self, table: Dict[str, Any]) -> TableNode:
+    def _process_table(self, table: dict[str, Any]) -> TableNode:
         """Process a table element to AST node"""
         table_node = TableNode(node_type=ElementType.TABLE)
 
@@ -383,6 +376,7 @@ class GoogleDocsParser:
 
         return table_node
 
+
 # List of all possible node types. This is used
 # to help with (de)serialization. Please keep this
 # up to date with the node types defined above.
@@ -400,6 +394,7 @@ CLASSES = {
     "TableRowNode": TableRowNode,
     "TableCellNode": TableCellNode,
 }
+
 
 def node_to_dict(node: Node):
     """Serialize an AST to a dict/json for storage"""
@@ -419,7 +414,7 @@ def node_to_dict(node: Node):
         return node
 
 
-def dict_to_node(data, classes = CLASSES):
+def dict_to_node(data, classes=CLASSES):
     """Deserialize an AST from storage"""
     if isinstance(data, dict):
         if "__enum__" in data:

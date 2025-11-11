@@ -1,11 +1,11 @@
 """Common Pydantic schemas."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 
 from pydantic import BaseModel, ConfigDict, Field
 
-utcnow = partial(datetime.now, timezone.utc)
+utcnow = partial(datetime.now, UTC)
 
 
 class TimestampMixin(BaseModel):
@@ -23,4 +23,3 @@ class BaseSchema(BaseModel):
         populate_by_name=True,
         str_strip_whitespace=True,
     )
-

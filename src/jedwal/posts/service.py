@@ -1,11 +1,12 @@
-from datetime import datetime, timezone
 import json
+from datetime import UTC, datetime
 from typing import Annotated
+
 from fastapi import Depends, HTTPException, status
-from jedwal.config import settings
+
+from jedwal.account import service as account_service
 from jedwal.database.core import DbTable
 from jedwal.posts import repository
-from jedwal.account import service as account_service
 from jedwal.posts.categories import service as categories_service
 from jedwal.posts.google_docs_client import DocAccessException, GoogleDocs
 from jedwal.posts.models import Post, PostCreate, PostRead
@@ -31,23 +32,8 @@ def get_post_data(*, table: DbTable, post: Post):
     if post.frozen:
         raise HTTPException(401, "Post is frozen. Re-upgrade to premium to unfreeze")
 
-    # Backwards compat: We previously didn't store the serialized AST in the DB
-    # (just the raw json payload). So, if an older post doesn't have the AST stored
-    # we'll need to create it here.
-    # if post.google_doc_ast:
     serialized_ast = json.loads(post.google_doc_ast)
     ast: Node = dict_to_node(serialized_ast)
-    # else:
-    #     parser = GoogleDocsParser(
-    #         docs_json=json.loads(post.google_doc_payload), image_handler=image_handler
-    #     )
-    #     ast = parser.parse()
-    #     repository.update_post(
-    #         table=table,
-    #         owner_id=owner_id,
-    #         post_id=post_id,
-    #         updates={"google_doc_ast": json.dumps(node_to_dict(ast))},
-    #     )
 
     output = renderer.render(ast)
     return {"content": output, "title": post.title, "document_id": post.google_doc_id}
@@ -59,7 +45,6 @@ def get_posts_for_account(*, table: DbTable, owner_id: str) -> list[PostRead]:
 
     post_reads = []
     for post in posts:
-
         # TEMP: load categories into item if they haven't been initialized
         # for denormalized storage yet
         if post.categories is None:
@@ -75,6 +60,7 @@ def get_posts_for_account(*, table: DbTable, owner_id: str) -> list[PostRead]:
                 categories=post.categories,
                 created_at=post.created_at,
                 updated_at=post.updated_at,
+                google_doc_id=post.google_doc_id,
             )
         )
     return post_reads
@@ -87,8 +73,7 @@ def delete_post(*, table: DbTable, owner_id: str, post_id: str):
 
 def create_post(
     *, table: DbTable, post_create: PostCreate, image_handler: ImageHandler
-) -> tuple[Post, str]:
-
+) -> Post:
     account = account_service.get_account(table=table, id=post_create.owner_id)
     free_account = account.account_status == "free"
 
@@ -99,7 +84,7 @@ def create_post(
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             detail="Free accounts can only have 2 posts.",
-        )
+        ) from None
 
     google_doc_id = _extract_doc_id_from_url(post_create.google_doc_id)
 
@@ -110,17 +95,17 @@ def create_post(
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail=f"Post already exists for this Google Doc: {existing_post.post_key}",
-        )
+        ) from None
 
     google_docs = GoogleDocs.from_token_info(info=post_create.refresh_token_info)
 
     try:
         google_doc_payload = google_docs.get_document(google_doc_id)
-    except DocAccessException:
+    except DocAccessException as e:
         raise HTTPException(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Could not open Document.",
-        )
+        ) from e
 
     ast_parser = GoogleDocsParser(google_doc_payload, image_handler=image_handler)
     google_doc_ast_json = node_to_dict(ast_parser.parse())
@@ -136,9 +121,7 @@ def create_post(
         title=google_doc_payload["title"],
     )
 
-    created_post = repository.create_post(table=table, post=post)
-    url = f"{settings.api_base_url}/{post_create.owner_id}/post/{post_create.post_key}"
-    return created_post, url
+    return repository.create_post(table=table, post=post)
 
 
 def refresh_post_data(
@@ -160,7 +143,7 @@ def refresh_post_data(
             "google_doc_payload": json.dumps(google_doc_payload),
             "google_doc_ast": json.dumps(node_to_dict(parser.parse())),
             "title": google_doc_payload["title"],
-            "updated_at": datetime.now(tz=timezone.utc),
+            "updated_at": datetime.now(tz=UTC),
         },
     )
 

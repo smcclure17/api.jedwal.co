@@ -1,11 +1,11 @@
 from datetime import datetime
-from jedwal.account.models import RefreshTokenInfo
-from jedwal.common.exceptions import NotFoundException, ConflictException
-from jedwal.posts.models import Post
-from mypy_boto3_dynamodb.service_resource import Table
+
 from botocore.exceptions import ClientError
+from mypy_boto3_dynamodb.service_resource import Table
 
-
+from jedwal.account.models import RefreshTokenInfo
+from jedwal.common.exceptions import ConflictException, NotFoundException
+from jedwal.posts.models import Post
 
 
 def to_item(*, post: Post) -> dict:
@@ -59,7 +59,7 @@ def from_item(*, item: dict) -> Post:
         google_doc_payload=item["google_doc_payload"],
         google_doc_ast=item["google_doc_ast"],
         title=item["title"],
-        creator=item["creator"],
+        creator=item.get("creator", "Unknown"),
         refresh_token_info=RefreshTokenInfo(**item["refresh_token_info"]),
         frozen=item.get("frozen", False),
         categories=item.get("categories"),  # Denormalized categories
@@ -172,7 +172,7 @@ def delete_post(*, table: Table, owner_id: str, post_key: str) -> None:
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise NotFoundException(f"Post with key {post_key} not found")
+            raise NotFoundException(f"Post with key {post_key} not found") from e
         raise
 
 
@@ -184,15 +184,15 @@ def create_post(*, table: Table, post: Post) -> Post:
         table.put_item(Item=item, ConditionExpression="attribute_not_exists(PK)")
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise ConflictException(f"API with key {post.post_key} already exists")
+            raise ConflictException(
+                f"API with key {post.post_key} already exists"
+            ) from e
         raise
 
     return post
 
 
-def update_post(
-    *, table: Table, owner_id: str, post_key: str, updates: dict
-) -> Post:
+def update_post(*, table: Table, owner_id: str, post_key: str, updates: dict) -> Post:
     """Update an existing Post with partial updates."""
     # First, get the existing Post
     existing_post = get_post(table=table, owner_id=owner_id, post_id=post_key)
@@ -227,7 +227,7 @@ def update_post(
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise NotFoundException(f"Post with key {post_key} not found")
+            raise NotFoundException(f"Post with key {post_key} not found") from e
         raise
 
     return from_item(item=response["Attributes"])

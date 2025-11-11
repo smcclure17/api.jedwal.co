@@ -3,7 +3,6 @@
 from unittest.mock import patch
 
 from jedwal.apis import service
-from jedwal.apis.models import Api
 
 
 def test_generate_unique_api_key_retries_on_collision(dynamodb_table, sample_api):
@@ -132,12 +131,22 @@ def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account
     mock_gspread_client = Mock()
 
     with (
-        patch("jedwal.apis.service.google_sheets.open_spreadsheet", return_value=mock_spreadsheet),
-        patch("jedwal.apis.service.randomname.get_name", return_value="test-generated-key"),
-        patch("jedwal.common.google_auth_fields.GoogleOauthFields.from_tokens", return_value=mock_oauth_fields),
-        patch("jedwal.apis.service.gspread.authorize", return_value=mock_gspread_client),
+        patch(
+            "jedwal.apis.service.google_sheets.open_spreadsheet",
+            return_value=mock_spreadsheet,
+        ),
+        patch(
+            "jedwal.apis.service.randomname.get_name", return_value="test-generated-key"
+        ),
+        patch(
+            "jedwal.common.google_auth_fields.GoogleOauthFields.from_tokens",
+            return_value=mock_oauth_fields,
+        ),
+        patch(
+            "jedwal.apis.service.gspread.authorize", return_value=mock_gspread_client
+        ),
     ):
-        created_api, url = service.create_api(
+        created_api = service.create_api(
             table=dynamodb_table,
             api_create=sample_api_create,
         )
@@ -145,13 +154,16 @@ def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account
         # Assert API was created successfully
         assert created_api.api_key == "test-generated-key"
         assert created_api.owner_id == "test-user-123"
-        assert created_api.google_sheet_id == "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+        assert (
+            created_api.google_sheet_id
+            == "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+        )
         assert created_api.cache_duration == 3600
         assert created_api.frozen is False
-        assert url.endswith("/test-user-123/api/test-generated-key")
 
         # Verify it's in the database
         from jedwal.apis import repository
+
         retrieved = repository.get_api(
             table=dynamodb_table,
             owner_id="test-user-123",

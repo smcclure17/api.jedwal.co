@@ -1,27 +1,24 @@
 import hashlib
-from typing import Optional
+import os
+from urllib.parse import urlparse
+
 import boto3
 import requests
-from urllib.parse import urlparse
-import os
 from botocore.exceptions import ClientError
 
 from jedwal.config import settings
 
 
 class ImageHandler:
-
     def __init__(
-        self, bucket_location: Optional[str] = None, bucket_url: Optional[str] = None
+        self, bucket_location: str | None = None, bucket_url: str | None = None
     ):
-        self.bucket_location = (
-            bucket_location or settings.image_storage_bucket
-        )
+        self.bucket_location = bucket_location or settings.image_storage_bucket
         self.bucket_url = bucket_url or settings.image_storage_bucket_url
         self.s3_client = boto3.client("s3")
 
     def upload(self, src: str) -> str:
-        """Upload an image from URL to S3 bucket. 
+        """Upload an image from URL to S3 bucket.
 
         Deduplicates by SHA256 hash of the image bytes.
         """
@@ -43,7 +40,7 @@ class ImageHandler:
     def delete(self, url: str):
         """Delete an image from the S3 bucket given its URL"""
         if not url.startswith(self.bucket_url):
-            raise ValueError(f"URL does not belong to this bucket: {url}")
+            raise ValueError(f"URL does not belong to this bucket: {url}") from None
 
         # Extract the object key (everything after the bucket_url + '/')
         object_key = url.replace(f"{self.bucket_url}/", "", 1)
@@ -54,11 +51,11 @@ class ImageHandler:
                 Key=object_key,
             )
         except ClientError as e:
-            raise ClientError(f"Failed to delete from S3: {str(e)}")
+            raise ClientError(f"Failed to delete from S3: {str(e)}") from e
 
     def _check_src_is_url(self, url: str):
         if not url.startswith("https://"):
-            raise ValueError(f"Cannot upload source that is not url: {url}")
+            raise ValueError(f"Cannot upload source that is not url: {url}") from None
 
     def _download_image(self, url: str) -> bytes:
         """Download image from URL and return bytes"""
@@ -75,14 +72,14 @@ class ImageHandler:
             if not content_type.startswith("image/"):
                 raise ValueError(
                     f"URL does not point to an image. Content-Type: {content_type}"
-                )
+                ) from None
 
             return response.content
 
         except requests.RequestException as e:
             raise requests.RequestException(
                 f"Failed to download image from {url}: {str(e)}"
-            )
+            ) from e
 
     def _get_file_extension(self, url: str) -> str:
         """Extract file extension from URL or content type"""
@@ -105,7 +102,7 @@ class ImageHandler:
                 ContentType=self._get_content_type(object_key),
             )
         except ClientError as e:
-            raise ClientError(f"Failed to upload to S3: {str(e)}")
+            raise ClientError(f"Failed to upload to S3: {str(e)}") from e
 
     def _get_content_type(self, filename: str) -> str:
         """Get appropriate content type based on file extension"""

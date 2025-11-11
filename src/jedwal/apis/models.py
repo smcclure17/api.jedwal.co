@@ -58,6 +58,10 @@ class ApiRead(ApiBase, TimestampMixin):
     )
 
 
+class ApiCreateRead(BaseSchema):
+    api_key: str = Field(..., description="ID of the newly created API.")
+
+
 class ApiUpdate(BaseSchema):
     """Schema for updating an API - all fields optional for partial updates."""
 

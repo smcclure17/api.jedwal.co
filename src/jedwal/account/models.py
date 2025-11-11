@@ -4,8 +4,10 @@ from typing import Any, Literal
 from pydantic import EmailStr, Field
 
 from jedwal.common.schemas import BaseSchema, TimestampMixin
+from jedwal.organizations.models import Organization
 
 AccountStatus = Literal["free", "premium"]
+AccountType = Literal["user", "organization"]
 
 
 class RefreshTokenInfo(BaseSchema):
@@ -35,6 +37,9 @@ class Account(BaseSchema, TimestampMixin):
     refresh_token_info: RefreshTokenInfo = Field(
         ..., description="OAuth refresh token information"
     )
+    do_not_email: bool | None = Field(
+        default=False, description="Whether or not user has opted out of emails"
+    )
 
     @classmethod
     def create_display_name(
@@ -49,8 +54,7 @@ class AccountRead(BaseSchema):
     id: str
     account_status: str
     display_name: str
-    email: EmailStr
-    type: Literal["user", "org"]
+    email: EmailStr | None = Field(..., description="Email exists for users, not orgs.")
 
     @classmethod
     def from_account(cls, account: Account):
@@ -59,5 +63,18 @@ class AccountRead(BaseSchema):
             account_status=account.account_status,
             display_name=account.display_name,
             email=account.email,
-            type="user",
+        )
+
+    @classmethod
+    def from_account_or_org(cls, account: Account | Organization):
+        try:
+            email = account.email
+        except AttributeError:
+            email = None  # account is an org with no email
+
+        return AccountRead(
+            id=account.account_id,
+            account_status=account.account_status,
+            display_name=account.display_name,
+            email=email,
         )

@@ -81,9 +81,7 @@ def delete_category_from_post(
             batch.delete_item(Key=key)
 
 
-def get_categories_for_post(
-    *, table: Table, owner_id: str, post_key: str
-) -> list[str]:
+def get_categories_for_post(*, table: Table, owner_id: str, post_key: str) -> list[str]:
     """Get all categories for a specific post using adjacency list pattern."""
     pk = f"API#{owner_id}#{post_key}"  # TODO: this should really be DOC, not api
 

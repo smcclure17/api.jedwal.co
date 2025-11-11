@@ -1,7 +1,8 @@
-"""Main FastAPI application following Netflix Dispatch architecture."""
+"""Main FastAPI application architecture."""
 
 from contextlib import asynccontextmanager
 
+import mangum
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -21,11 +22,9 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown logic
     print(f"Shutting down {settings.app_name}")
 
 
-# Create the main FastAPI application
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -34,16 +33,14 @@ app = FastAPI(
 )
 
 
-# Session middleware for authentication (must be before CORS)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.oauth_secret_token,
     same_site="none",
     https_only=True,
-    # domain="jedwal.co",
+    domain="jedwal.co",
 )
 
-# CORS middleware for cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -69,11 +66,9 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Include the API router
 app.include_router(api_router)
 
 
-# Root endpoint
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -82,6 +77,10 @@ async def root():
         "version": settings.app_version,
         "docs": "/docs",
     }
+
+
+# Lambda entrypoint for live deploys.
+handler = mangum.Mangum(app)
 
 
 if __name__ == "__main__":

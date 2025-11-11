@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from jedwal.common.schemas import BaseSchema, TimestampMixin
 
@@ -36,7 +36,7 @@ class Worksheet(WorksheetBase, TimestampMixin):
     @property
     def is_expired(self) -> bool:
         """Check if cache has expired based on expires_at timestamp."""
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
 
 class WorksheetRead(WorksheetBase, TimestampMixin):
@@ -50,4 +50,6 @@ class WorksheetRead(WorksheetBase, TimestampMixin):
 class WorksheetNamesRead(BaseSchema):
     """Response containing worksheet names for an API."""
 
-    worksheets: list[str] = Field(..., description="List of worksheet names from Google Sheets")
+    worksheets: list[str] = Field(
+        ..., description="List of worksheet names from Google Sheets"
+    )

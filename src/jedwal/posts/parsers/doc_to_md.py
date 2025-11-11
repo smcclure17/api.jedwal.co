@@ -1,7 +1,6 @@
 import re
-from typing import List
-from jedwal.posts.parsers.doc_ast import DocumentNode, ElementType, Node
 
+from jedwal.posts.parsers.doc_ast import DocumentNode, ElementType, Node
 
 INDENTATION = "  "
 
@@ -18,7 +17,7 @@ class MarkdownRenderer:
         # Normalize multiple consecutive newlines down to at most two (one blank line)
         return re.sub(r"\n{3,}", "\n\n", content)
 
-    def _render_node(self, node: Node, result: List[str]) -> None:
+    def _render_node(self, node: Node, result: list[str]) -> None:
         """Render a node to Markdown"""
         if node.node_type == ElementType.DOCUMENT:
             for i, child in enumerate(node.children):
@@ -123,7 +122,7 @@ class MarkdownRenderer:
             ElementType.IMAGE,
         )
 
-    def _ensure_single_newline(self, result: List[str]) -> None:
+    def _ensure_single_newline(self, result: list[str]) -> None:
         """Ensure the output ends with exactly one newline"""
         if not result:
             return
@@ -135,7 +134,7 @@ class MarkdownRenderer:
             # Remove extra newlines
             result[-1] = last_str.rstrip("\n") + "\n"
 
-    def _ensure_blank_line(self, result: List[str]) -> None:
+    def _ensure_blank_line(self, result: list[str]) -> None:
         """Ensure there's a blank line (two consecutive newlines) at the end"""
         if not result:
             return

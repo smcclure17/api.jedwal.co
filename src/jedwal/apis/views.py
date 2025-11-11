@@ -1,8 +1,9 @@
-from fastapi import APIRouter, BackgroundTasks, Response, status
+from fastapi import APIRouter, status
 
 from jedwal.apis import service
 from jedwal.apis.models import (
     ApiCreate,
+    ApiCreateRead,
     ApiCreateRequest,
     ApiRead,
     ApiSpreadsheetDataRead,
@@ -10,10 +11,11 @@ from jedwal.apis.models import (
 )
 from jedwal.apis.worksheets.views import authenticated_worksheets_router
 from jedwal.auth.service import VerifiedAccount
+from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
 
-public_apis_router = APIRouter(prefix="/apis")
-authenticated_apis_router = APIRouter(prefix="/apis")
+public_apis_router = APIRouter(prefix="/apis", tags=["public"])
+authenticated_apis_router = APIRouter(prefix="/apis", tags=["apis"])
 
 # Include worksheets router as a sub-router of APIs
 authenticated_apis_router.include_router(
@@ -30,6 +32,8 @@ async def get_api_data(
 ):
     """Get data from a sheet API endpoint."""
     api = service.get_api(table=table, owner_id=account_id, api_id=api_id)
+    if api is None:
+        raise NotFoundException(detail=[{"msg": "API not found."}]) from None
     return service.get_api_data(table=table, api=api, worksheet_name=worksheet)
 
 
@@ -46,7 +50,7 @@ async def get_apis_for_account(
 
 
 @authenticated_apis_router.post(
-    "", response_model=ApiRead, status_code=status.HTTP_201_CREATED
+    "", response_model=ApiCreateRead, status_code=status.HTTP_201_CREATED
 )
 async def create_api(
     account_id: str,
@@ -59,7 +63,6 @@ async def create_api(
     The account_id from the path determines the owner of the API.
     User must have permissions to manage this account (self or org).
     """
-    # Build internal ApiCreate with refresh token from authenticated user
     api_create = ApiCreate(
         owner_id=account_id,  # Owner comes from path, not request body
         google_sheet_id=request.google_sheet_id,
@@ -68,18 +71,8 @@ async def create_api(
         refresh_token_info=verified_account.refresh_token_info,
     )
 
-    created_api, url = service.create_api(table=table, api_create=api_create)
-
-    return ApiRead(
-        api_key=created_api.api_key,
-        owner_id=created_api.owner_id,
-        google_sheet_id=created_api.google_sheet_id,
-        frozen=created_api.frozen,
-        cache_duration=created_api.cache_duration,
-        spreadsheet_title=created_api.spreadsheet_title,
-        created_at=created_api.created_at,
-        updated_at=created_api.updated_at,
-    )
+    created_api = service.create_api(table=table, api_create=api_create)
+    return {"api_key": created_api.api_key}
 
 
 @authenticated_apis_router.patch("/{api_id}", response_model=ApiRead)

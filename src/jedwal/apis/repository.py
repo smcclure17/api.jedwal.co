@@ -78,15 +78,13 @@ def create_api(*, table: Table, api: Api) -> Api:
         table.put_item(Item=item, ConditionExpression="attribute_not_exists(PK)")
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise ConflictException(f"API with key {api.api_key} already exists")
+            raise ConflictException(f"API with key {api.api_key} already exists") from e
         raise
 
     return api
 
 
-def update_api(
-    *, table: Table, owner_id: str, api_id: str, updates: dict
-) -> Api:
+def update_api(*, table: Table, owner_id: str, api_id: str, updates: dict) -> Api:
     """
     Update an existing API with partial updates.
 
@@ -105,7 +103,7 @@ def update_api(
     # First, get the existing API
     existing_api = get_api(table=table, owner_id=owner_id, api_id=api_id)
     if existing_api is None:
-        raise NotFoundException(f"API with key {api_id} not found")
+        raise NotFoundException(f"API with key {api_id} not found") from None
 
     # Build update expression dynamically
     update_expressions = []
@@ -135,7 +133,7 @@ def update_api(
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise NotFoundException(f"API with key {api_id} not found")
+            raise NotFoundException(f"API with key {api_id} not found") from e
         raise
 
     return from_item(item=response["Attributes"])
@@ -164,7 +162,7 @@ def delete_api(*, table: Table, owner_id: str, api_key: str) -> None:
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise NotFoundException(f"API with key {api_key} not found")
+            raise NotFoundException(f"API with key {api_key} not found") from e
         raise
 
 

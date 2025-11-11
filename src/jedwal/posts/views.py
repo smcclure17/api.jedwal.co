@@ -1,18 +1,20 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Response, status
 
 from jedwal.auth.service import VerifiedAccount
+from jedwal.common.exceptions import NotFoundException
+from jedwal.database.core import DbTable
 from jedwal.posts import service
 from jedwal.posts.categories.views import authenticated_categories_router
-from jedwal.database.core import DbTable
 from jedwal.posts.models import (
     PostCreate,
+    PostCreateRead,
     PostCreateRequest,
     PostDocumentDataRead,
     PostRead,
 )
 
-public_posts_router = APIRouter(prefix="/posts")
-authenticated_posts_router = APIRouter(prefix="/posts")
+public_posts_router = APIRouter(prefix="/posts", tags=["public"])
+authenticated_posts_router = APIRouter(prefix="/posts", tags=["posts"])
 
 authenticated_posts_router.include_router(
     authenticated_categories_router, prefix="/{post_key}"
@@ -28,15 +30,26 @@ async def get_post_data(
     """Get data from a sheet API endpoint."""
     post = service.get_post(table=table, owner_id=account_id, post_id=post_id)
     if post is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Post not found."
-        )
+        raise NotFoundException(detail=[{"msg": "Post not found"}])
     return service.get_post_data(table=table, post=post)
+
+
+@public_posts_router.head("/{post_id}")
+async def head_post_data(
+    account_id: str,
+    post_id: str,
+    table: DbTable,
+):
+    """Check if a post exists without returning its data."""
+    post = service.get_post(table=table, owner_id=account_id, post_id=post_id)
+    if post is None:
+        raise NotFoundException(detail=[{"msg": "Post not found"}])
+    return Response(status_code=status.HTTP_200_OK)
 
 
 # TODO: maybe de-dup public and private doc listing routes
 @public_posts_router.get("", response_model=list[PostRead])
-async def get_apis_for_account(
+async def get_public_posts_for_account(
     account_id: str,
     table: DbTable,
     categories: str | None = None,
@@ -70,7 +83,7 @@ async def refresh_post_data(account_id: str, post_id: str, table: DbTable):
 
 
 @authenticated_posts_router.get("", response_model=list[PostRead])
-async def get_apis_for_account(
+async def get_posts_for_account(
     account_id: str,
     table: DbTable,
 ):
@@ -79,9 +92,9 @@ async def get_apis_for_account(
 
 
 @authenticated_posts_router.post(
-    "", response_model=PostRead, status_code=status.HTTP_201_CREATED
+    "", response_model=PostCreateRead, status_code=status.HTTP_201_CREATED
 )
-async def create_api(
+async def create_post(
     account_id: str,
     request: PostCreateRequest,
     table: DbTable,
@@ -100,24 +113,18 @@ async def create_api(
         refresh_token_info=verified_account.refresh_token_info,
     )
 
-    created_post, _ = service.create_api(
+    account = service.create_post(
         table=table, post_create=post_create, image_handler=image_handler
     )
 
-    return PostRead(
-        post_key=created_post.post_key,
-        owner_id=created_post.owner_id,
-        title=created_post.title,
-        created_at=created_post.created_at,
-        updated_at=created_post.updated_at,
-    )
+    return {"post_key": account.post_key}
 
 
-@authenticated_posts_router.delete("", response_model=None)
+@authenticated_posts_router.delete("/{post_id}", response_model=None)
 async def delete_api(
     account_id: str,
-    post_key: str,
+    post_id: str,
     table: DbTable,
 ):
     """Delete an API endpoint."""
-    service.delete_post(table=table, owner_id=account_id, post_id=post_key)
+    service.delete_post(table=table, owner_id=account_id, post_id=post_id)

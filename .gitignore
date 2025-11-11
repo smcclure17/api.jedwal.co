@@ -6,6 +6,10 @@ dist/
 wheels/
 *.egg-info
 
+# Deploy scripts
+
+deploy-scripts/
+
 
 # Claude Code
 .claude

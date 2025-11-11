@@ -8,7 +8,7 @@ from jedwal.database.core import DbTable
 from .oauth import oauth
 from .service import CurrentAccount, authenticate
 
-auth_router = APIRouter()
+auth_router = APIRouter(tags=["auth"])
 
 
 @auth_router.get("/login")
@@ -37,3 +37,7 @@ async def logout(request: Request):
 async def get_me(current_account: CurrentAccount):
     """Get current authenticated account"""
     return AccountRead.from_account(current_account)
+
+
+# TODO: implement Google Picker Token routes if it
+# seems like they actually improve the UX at all

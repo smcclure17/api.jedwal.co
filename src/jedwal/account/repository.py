@@ -1,12 +1,12 @@
-
-
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
 from jedwal.account.models import Account, RefreshTokenInfo
 from jedwal.common.exceptions import ConflictException, NotFoundException
+from jedwal.organizations.models import Organization
+from jedwal.organizations.repository import to_organization
 
 
 def to_item(*, account: Account) -> dict:
@@ -25,10 +25,12 @@ def to_item(*, account: Account) -> dict:
         "account_status": account.account_status,
         "created_at": account.created_at.isoformat(),
         "updated_at": account.updated_at.isoformat(),
+        "do_not_email": account.do_not_email,
         # GSI3 for looking up accounts by email
         "GSI3PK": f"EMAIL#{account.email.lower()}",
         "GSI3SK": f"ACCOUNT#{account.account_id}",
     }
+
 
 def to_account(*, item: dict) -> Account:
     """Convert DynamoDB item to account model."""
@@ -44,8 +46,10 @@ def to_account(*, item: dict) -> Account:
         account_status=item["account_status"],
         refresh_token_info=RefreshTokenInfo(**item["refresh_token_info"]),
         created_at=datetime.fromisoformat(item["created_at"]),
-        updated_at=datetime.fromisoformat(updated_stamp)
+        updated_at=datetime.fromisoformat(updated_stamp),
+        do_not_email=item.get("do_not_email", False),
     )
+
 
 def create_account(*, table: Table, account: Account) -> Account:
     """
@@ -69,10 +73,11 @@ def create_account(*, table: Table, account: Account) -> Account:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise ConflictException(
                 f"Account with account_id {account.account_id} already exists"
-            )
+            ) from e
         raise
 
     return account
+
 
 def update_account(*, table: Table, account: Account) -> Account:
     """
@@ -89,7 +94,7 @@ def update_account(*, table: Table, account: Account) -> Account:
         NotFoundException: If account not found
     """
     # Update the updated_at timestamp
-    account.updated_at = datetime.now(timezone.utc)
+    account.updated_at = datetime.now(UTC)
 
     item = to_item(account=account)
 
@@ -99,10 +104,11 @@ def update_account(*, table: Table, account: Account) -> Account:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise NotFoundException(
                 f"Account with account_id {account.account_id} not found"
-            )
+            ) from e
         raise
 
     return account
+
 
 def delete_account(*, table: Table, account_id: str) -> None:
     """
@@ -125,18 +131,18 @@ def delete_account(*, table: Table, account_id: str) -> None:
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise NotFoundException(f"Account with id {account_id} not found")
+            raise NotFoundException(f"Account with id {account_id} not found") from e
         raise
 
-def get_account(*, table: Table, id: str) -> Account:
-    response = table.get_item(
-        Key={"PK": f"ACCOUNT#{id}", "SK": f"ACCOUNT#{id}"}
-    )
+
+def get_account(*, table: Table, id: str) -> Account | None:
+    response = table.get_item(Key={"PK": f"ACCOUNT#{id}", "SK": f"ACCOUNT#{id}"})
     item = response.get("Item", None)
     # TODO: we should prob pull apart accounts from orgs in the db
     if item is None or item["type"] != "user":
         return None
     return to_account(item=item)
+
 
 def get_account_by_email(*, table: Table, email: str) -> Account:
     response = table.query(
@@ -147,6 +153,21 @@ def get_account_by_email(*, table: Table, email: str) -> Account:
 
     items = response.get("Items", [])
     if not items:
-        raise NotFoundException(f"User with email {email} not found.")
+        raise NotFoundException(f"User with email {email} not found.") from None
 
     return to_account(item=items[0])
+
+
+def get_account_or_organization(
+    *, table: Table, id: str
+) -> Account | Organization | None:
+    response = table.get_item(Key={"PK": f"ACCOUNT#{id}", "SK": f"ACCOUNT#{id}"})
+    item = response.get("Item", None)
+    if item is None:
+        return None
+
+    if item["type"] == "user":
+        return to_account(item=item)
+    if item["type"] == "organization":
+        return to_organization(item=item)
+    raise ValueError(f"Unknown account type {item['type']}") from None

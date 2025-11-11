@@ -8,16 +8,14 @@ from jedwal.account import service as account_service
 from jedwal.apis import google_sheets, repository
 from jedwal.apis.models import Api, ApiCreate, ApiRead, ApiUpdate
 from jedwal.apis.worksheets import service as worksheet_service
-from jedwal.config.config import settings
 from jedwal.database.core import DbTable
 
 
-def get_api(*, table: DbTable, owner_id: str, api_id: str) -> Api:
+def get_api(*, table: DbTable, owner_id: str, api_id: str) -> Api | None:
     return repository.get_api(table=table, owner_id=owner_id, api_id=api_id)
 
 
 def get_api_spreadsheet(*, api: Api) -> gspread.Spreadsheet:
-
     gspread_client = google_sheets.gspread_from_refresh_token_info(
         refresh_token_info=api.refresh_token_info
     )
@@ -83,8 +81,7 @@ def get_apis_for_account(*, table: DbTable, owner_id: str) -> list[ApiRead]:
     return api_reads
 
 
-def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
-
+def create_api(*, table: DbTable, api_create: ApiCreate) -> Api:
     account = account_service.get_account(table=table, id=api_create.owner_id)
     free_account = account.account_status == "free"
 
@@ -95,7 +92,7 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             detail="Free accounts can only have 2 sheet APIs.",
-        )
+        ) from None
 
     google_sheet_id = _extract_sheet_id_from_url(api_create.google_sheet_id)
 
@@ -106,7 +103,7 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail=f"API already exists for this Google Sheet: {existing_api.api_key}",
-        )
+        ) from None
 
     gspread_client = google_sheets.gspread_from_refresh_token_info(
         refresh_token_info=api_create.refresh_token_info
@@ -116,16 +113,16 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
         spreadsheet = google_sheets.open_spreadsheet(
             gspread_client=gspread_client, sheet_id=google_sheet_id
         )
-    except google_sheets.InaccessibleDocument:
+    except google_sheets.InaccessibleDocument as e:
         raise HTTPException(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Invalid document type. Only Google Sheets are supported.",
-        )
-    except google_sheets.InsufficientPermissions:
+        ) from e
+    except google_sheets.InsufficientPermissions as e:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             detail="You don't have access to this Google Sheet. Please check your permissions in Google.",
-        )
+        ) from e
 
     # Generate unique API key and create the API
     api_key = _generate_unique_api_key(table=table, owner_id=api_create.owner_id)
@@ -143,9 +140,7 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> tuple[Api, str]:
         updated_at=now,
     )
 
-    created_api = repository.create_api(table=table, api=api)
-    url = f"{settings.api_base_url}/{api_create.owner_id}/api/{api_key}"
-    return created_api, url
+    return repository.create_api(table=table, api=api)
 
 
 def update_api(

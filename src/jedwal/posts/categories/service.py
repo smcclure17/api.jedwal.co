@@ -105,15 +105,12 @@ def get_categories_for_post(
     return [CategoryRead(category=cat) for cat in categories]
 
 
-def get_posts_for_category(
-    *, table: DbTable, owner_id: str, category: str
-) -> list:
+def get_posts_for_category(*, table: DbTable, owner_id: str, category: str) -> list:
     """Get all posts that have a specific category.
 
     Uses batch_get to efficiently fetch Post objects (avoids N+1).
     Returns full Post objects, not just keys.
     """
-    from jedwal.posts.models import Post
 
     # Get post keys from adjacency list (1 query)
     post_keys = repository.get_post_keys_for_category(

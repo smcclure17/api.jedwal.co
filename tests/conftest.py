@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import boto3
 import pytest
@@ -12,6 +12,7 @@ from mypy_boto3_dynamodb.service_resource import Table
 from jedwal.account.models import Account, RefreshTokenInfo
 from jedwal.apis.models import Api, ApiCreate
 from jedwal.apis.worksheets.models import Worksheet, WorksheetCreate
+from jedwal.billing.models import BillingInfo
 
 
 @pytest.fixture(scope="function")
@@ -42,6 +43,7 @@ def dynamodb_table(aws_credentials) -> Generator[Table]:
                 {"AttributeName": "GSI2SK", "AttributeType": "S"},
                 {"AttributeName": "GSI3PK", "AttributeType": "S"},
                 {"AttributeName": "GSI3SK", "AttributeType": "S"},
+                {"AttributeName": "GSI4PK", "AttributeType": "S"},
             ],
             GlobalSecondaryIndexes=[
                 {
@@ -57,6 +59,13 @@ def dynamodb_table(aws_credentials) -> Generator[Table]:
                     "KeySchema": [
                         {"AttributeName": "GSI3PK", "KeyType": "HASH"},
                         {"AttributeName": "GSI3SK", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"},
+                },
+                {
+                    "IndexName": "GSI4",
+                    "KeySchema": [
+                        {"AttributeName": "GSI4PK", "KeyType": "HASH"},
                     ],
                     "Projection": {"ProjectionType": "ALL"},
                 },
@@ -145,9 +154,9 @@ def sample_worksheet() -> Worksheet:
             {"name": "Alice", "age": 30},
             {"name": "Bob", "age": 25},
         ],
-        expires_at=datetime(2024, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
-        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        expires_at=datetime(2024, 12, 31, 23, 59, 59, tzinfo=UTC),
+        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
 
 
@@ -162,5 +171,19 @@ def sample_worksheet_create() -> WorksheetCreate:
             {"name": "Alice", "age": 30},
             {"name": "Bob", "age": 25},
         ],
-        expires_at=datetime(2030, 12, 31, 23, 59, 59, tzinfo=timezone.utc),  # Future date so cache is fresh
+        expires_at=datetime(
+            2030, 12, 31, 23, 59, 59, tzinfo=UTC
+        ),  # Future date so cache is fresh
+    )
+
+
+@pytest.fixture
+def sample_billing_info() -> BillingInfo:
+    """Create a sample BillingInfo for testing."""
+    return BillingInfo(
+        account_id="test-user-123",
+        billing_start=datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC),
+        billing_end=datetime(2025, 2, 1, 0, 0, 0, tzinfo=UTC),
+        stripe_customer_id="cus_test123",
+        stripe_subscription_id="sub_test456",
     )
