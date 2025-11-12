@@ -11,6 +11,9 @@ wheels/
 deploy-scripts/
 
 
+.DS_Store
+
+
 # Claude Code
 .claude
 
