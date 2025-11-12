@@ -4,6 +4,48 @@ import os
 from collections.abc import Generator
 from datetime import UTC, datetime
 
+# Set test environment variables BEFORE importing application code
+# This ensures Settings loads test values instead of requiring .env file
+os.environ.update(
+    {
+        # Application
+        "ENVIRONMENT": "test",
+        "DEBUG": "false",
+        # AWS Configuration
+        "AWS_REGION": "us-east-1",
+        # DynamoDB Tables
+        "SHEETS_API_TABLE": "test-table",
+        # Google OAuth
+        "GOOGLE_CLIENT_ID": "test-client-id",
+        "GOOGLE_CLIENT_SECRET": "test-client-secret",
+        "OAUTH_SECRET_TOKEN": "test-oauth-secret-token-for-sessions",
+        # Sentry (disabled in tests)
+        "SENTRY_DSN": "https://test@sentry.io/test",
+        # Stripe (test keys)
+        "STRIPE_SECRET_KEY": "sk_test_dummy",
+        "STRIPE_WEBHOOK_SECRET": "whsec_test_dummy",
+        "STRIPE_SUBSCRIPTION_PRICE_ID": "price_test_subscription",
+        "STRIPE_USAGE_BASED_PRICE_ID": "price_test_usage",
+        # URLs
+        "API_BASE_URL": "http://localhost:8000",
+        "CLIENT_BASE_URL": "http://localhost:3000",
+        "CLIENT_APP_BASE_URL": "http://localhost:3001",
+        # Cookies
+        "COOKIE_ALLOWED_DOMAIN": ".localhost",
+        # CloudFront
+        "CLOUDFRONT_DISTRIBUTION_ID": "TEST123456",
+        # Encryption
+        "ENCRYPTION_KEY_ID": "test-kms-key-id",
+        # Email (disabled in tests)
+        "EMAILS_ENABLED": "false",
+        # Webhooks & Queues
+        "WEBHOOK_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
+        # Image Storage
+        "IMAGE_STORAGE_BUCKET": "test-images-bucket",
+        "IMAGE_STORAGE_BUCKET_URL": "https://test-images-bucket.s3.us-east-1.amazonaws.com",
+    }
+)
+
 import boto3
 import pytest
 from moto import mock_aws
