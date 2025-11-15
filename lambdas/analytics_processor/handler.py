@@ -3,12 +3,18 @@
 import gzip
 import logging
 from datetime import datetime
+import os
 
 import boto3
 
 from jedwal.analytics import service as analytics_service
 from jedwal.analytics.models import AnalyticsLog
+from jedwal.common import sentry
 from jedwal.database.core import get_table
+
+IS_LAMBDA = os.getenv("LAMBDA_TASK_ROOT")
+if IS_LAMBDA:
+    sentry.init()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
