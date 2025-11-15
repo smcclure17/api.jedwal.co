@@ -1,6 +1,5 @@
 import time
 from datetime import datetime
-from typing import Any, Iterator, Optional
 
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
@@ -138,8 +137,8 @@ def stream_api_logs_for_account(
     *,
     table: Table,
     owner_id: str,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
 ):
     """
     Stream API request logs for an account using a generator.

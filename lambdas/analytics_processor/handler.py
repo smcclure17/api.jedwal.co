@@ -2,8 +2,8 @@
 
 import gzip
 import logging
-from datetime import datetime
 import os
+from datetime import datetime
 
 import boto3
 

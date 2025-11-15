@@ -1,8 +1,9 @@
 import logging
+
 import sentry_sdk
-from jedwal.config import settings
 from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
 
+from jedwal.config import settings
 
 logger = logging.getLogger(__name__)
 

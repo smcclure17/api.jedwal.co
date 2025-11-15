@@ -1,10 +1,9 @@
 """Lambda handler to report API usage to Stripe usage meters for billing."""
 
+import logging
 import os
 import uuid
-
 from datetime import datetime, timedelta
-import logging
 
 import boto3
 import stripe
@@ -14,8 +13,8 @@ from jedwal.analytics.service import stream_api_logs_for_account
 from jedwal.billing.models import BillingInfo
 from jedwal.billing.repository import get_accounts_by_billing_end_date
 from jedwal.common import sentry
-from jedwal.database.core import get_table
 from jedwal.config import settings
+from jedwal.database.core import get_table
 from jedwal.organizations.service import get_organization
 
 IS_LAMBDA = os.getenv("LAMBDA_TASK_ROOT")
@@ -74,8 +73,7 @@ def report_usage_to_stripe(stripe_customer_id, usage_quantity):
         f"{stripe_customer_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4()}"
     )
 
-    # Create the meter event
-    meter_event = stripe.billing.MeterEvent.create(
+    stripe.billing.MeterEvent.create(
         event_name="data_refreshes",  # hard-coded from Stripe meter
         payload={"stripe_customer_id": stripe_customer_id, "value": usage_quantity},
         timestamp=int(datetime.now().timestamp()),
