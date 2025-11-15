@@ -9,7 +9,10 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from jedwal.api import api_router
+from jedwal.common import sentry
 from jedwal.config import settings
+
+sentry.init()
 
 
 @asynccontextmanager
