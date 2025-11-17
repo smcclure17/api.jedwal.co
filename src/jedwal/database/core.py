@@ -57,6 +57,7 @@ __all__ = [
     "get_dynamodb_resource",
     "get_table",
     "DbTable",
+    "Table"
     "Key",
     "Attr",
 ]

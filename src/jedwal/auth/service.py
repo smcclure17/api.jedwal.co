@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, Request, status
 from jedwal.account.models import Account, RefreshTokenInfo
 from jedwal.account.service import create_account, get_account, get_account_by_email
 from jedwal.common.encryption import EnvelopeEncryption
+from jedwal.common.exceptions import ForbiddenException
 from jedwal.database.core import DbTable
 from jedwal.organizations.membership import service as membership_service
 
@@ -105,9 +106,8 @@ def verify_account_access(
     )
 
     if membership is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this account",
+        raise ForbiddenException(
+            detail=[{"msg": "Not authorized for this account"}]
         ) from None
     return current_account
 

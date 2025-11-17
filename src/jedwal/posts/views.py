@@ -5,6 +5,8 @@ from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
 from jedwal.posts import service
 from jedwal.posts.categories.views import authenticated_categories_router
+from jedwal.posts.webhooks.views import authenticated_webhooks_router
+
 from jedwal.posts.models import (
     PostCreate,
     PostCreateRead,
@@ -18,6 +20,9 @@ authenticated_posts_router = APIRouter(prefix="/posts", tags=["posts"])
 
 authenticated_posts_router.include_router(
     authenticated_categories_router, prefix="/{post_key}"
+)
+authenticated_posts_router.include_router(
+    authenticated_webhooks_router, prefix="/{post_key}"
 )
 
 
