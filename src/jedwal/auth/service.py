@@ -4,7 +4,7 @@ from typing import Annotated
 from authlib.integrations.starlette_client import OAuthError
 from fastapi import Depends, HTTPException, Request, status
 
-from jedwal.account.models import Account, RefreshTokenInfo
+from jedwal.account.models import Account, AccountId, RefreshTokenInfo
 from jedwal.account.service import create_account, get_account, get_account_by_email
 from jedwal.common.encryption import EnvelopeEncryption
 from jedwal.common.exceptions import ForbiddenException
@@ -95,7 +95,7 @@ CurrentAccount = Annotated[Account, Depends(get_current_account)]
 
 
 def verify_account_access(
-    *, table: DbTable, account_id: str, current_account: CurrentAccount
+    *, table: DbTable, account_id: AccountId, current_account: CurrentAccount
 ) -> Account:
     """Verify current account has permission to access the specified account."""
     if account_id == current_account.account_id:
@@ -116,7 +116,7 @@ VerifiedAccount = Annotated[Account, Depends(verify_account_access)]
 
 
 def verify_user_account(
-    *, table: DbTable, account_id: str, current_account: CurrentAccount
+    *, table: DbTable, account_id: AccountId, current_account: CurrentAccount
 ) -> Account:
     """Verify account_id is a USER account (not org) and current user has access."""
     verify_account_access(

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 
+from jedwal.account.models import AccountId
 from jedwal.analytics import service
 from jedwal.analytics.models import AnalyticsLogRead, ResourceType
 from jedwal.database.core import DbTable
@@ -11,7 +12,7 @@ authenticated_analytics_router = APIRouter(prefix="/analytics", tags=["analytics
     "/{resource_type}/{resource_id}", response_model=list[AnalyticsLogRead]
 )
 async def get_resource_analytics(
-    account_id: str,
+    account_id: AccountId,
     resource_type: ResourceType,
     resource_id: str,
     table: DbTable,

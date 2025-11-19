@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
+from jedwal.account.models import AccountId
 from jedwal.common.exceptions import ConflictException, NotFoundException
 from jedwal.organizations.models import Organization
 
@@ -80,7 +81,7 @@ def update_organization(*, table: Table, organization: Organization) -> Organiza
     return organization
 
 
-def delete_organization(*, table: Table, account_id: str) -> None:
+def delete_organization(*, table: Table, account_id: AccountId) -> None:
     try:
         table.delete_item(
             Key={

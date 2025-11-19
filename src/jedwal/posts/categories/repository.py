@@ -2,7 +2,9 @@
 
 from mypy_boto3_dynamodb.service_resource import Table
 
+from jedwal.account.models import AccountId
 from jedwal.posts.categories.models import CategoryPostRelationship
+from jedwal.posts.models import PostKey
 
 
 def to_items(*, relationship: CategoryPostRelationship) -> list[dict]:
@@ -40,7 +42,7 @@ def to_items(*, relationship: CategoryPostRelationship) -> list[dict]:
 
 
 def add_category_to_post(
-    *, table: Table, owner_id: str, post_key: str, category: str
+    *, table: Table, owner_id: AccountId, post_key: PostKey, category: str
 ) -> None:
     """Add a category to a post (creates bidirectional relationship)."""
     relationship = CategoryPostRelationship(
@@ -59,7 +61,7 @@ def add_category_to_post(
 
 
 def delete_category_from_post(
-    *, table: Table, owner_id: str, post_key: str, category: str
+    *, table: Table, owner_id: AccountId, post_key: PostKey, category: str
 ) -> None:
     """Remove a category from a post (deletes both relationship directions)."""
     keys_to_delete = [
@@ -81,7 +83,7 @@ def delete_category_from_post(
             batch.delete_item(Key=key)
 
 
-def get_categories_for_post(*, table: Table, owner_id: str, post_key: str) -> list[str]:
+def get_categories_for_post(*, table: Table, owner_id: AccountId, post_key: PostKey) -> list[str]:
     """Get all categories for a specific post using adjacency list pattern."""
     pk = f"API#{owner_id}#{post_key}"  # TODO: this should really be DOC, not api
 
@@ -102,7 +104,7 @@ def get_categories_for_post(*, table: Table, owner_id: str, post_key: str) -> li
 
 
 def get_post_keys_for_category(
-    *, table: Table, owner_id: str, category: str
+    *, table: Table, owner_id: AccountId, category: str
 ) -> list[str]:
     """Get all post keys for a specific category using adjacency list pattern.
 
@@ -128,7 +130,7 @@ def get_post_keys_for_category(
 
 
 def delete_all_categories_for_post(
-    *, table: Table, owner_id: str, post_key: str
+    *, table: Table, owner_id: AccountId, post_key: PostKey
 ) -> int:
     """Delete all category relationships for a post.
 

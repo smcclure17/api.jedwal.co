@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from fastapi import HTTPException, status
 
 from jedwal.account import service as account_service
-from jedwal.account.models import Account
+from jedwal.account.models import Account, AccountId
 from jedwal.common.exceptions import ConflictException
 from jedwal.database.core import DbTable
 from jedwal.organizations import repository
@@ -34,7 +34,7 @@ def get_accounts_for_organization(
 
 
 def get_organizations_for_account(
-    *, table: DbTable, account_id: str
+    *, table: DbTable, account_id: AccountId
 ) -> list[Organization]:
     """Get all organizations that an account is a member of."""
     memberships = membership_service.get_memberships_for_account(
@@ -53,7 +53,7 @@ def get_organizations_for_account(
 def create_organization(
     *,
     table: DbTable,
-    owner_account_id: str,
+    owner_account_id: AccountId,
     organization_name: str,
     membership_emails: list[str] | None = None,
 ):
@@ -116,7 +116,7 @@ def create_organization(
         ) from e
 
 
-def delete_organization(*, table: DbTable, organization_id: str, account_id: str):
+def delete_organization(*, table: DbTable, organization_id: str, account_id: AccountId):
     # for now, only owner can delete org
     member_type = membership_service.check_account_membership(
         table=table, organization_id=organization_id, account_id=account_id

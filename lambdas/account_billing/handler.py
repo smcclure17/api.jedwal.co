@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import boto3
 import stripe
 
+from jedwal.account.models import AccountId
 from jedwal.account.service import get_account
 from jedwal.analytics.service import stream_api_logs_for_account
 from jedwal.billing.models import BillingInfo
@@ -48,7 +49,7 @@ def handler(event, _context):
 
 
 def calculate_usage_cost(
-    billing_account_id: str,
+    billing_account_id: AccountId,
     start: str,
     end: str,
 ):

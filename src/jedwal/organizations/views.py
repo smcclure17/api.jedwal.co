@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, status
 
+from jedwal.account.models import AccountId
 from jedwal.auth.service import verify_user_account
 from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
@@ -24,14 +25,14 @@ authenticated_organization_router.include_router(
 
 
 @authenticated_organization_router.get("", response_model=list[Organization])
-async def get_organizations(account_id: str, table: DbTable):
+async def get_organizations(account_id: AccountId, table: DbTable):
     """Get all memberships for an org/account."""
     orgs = service.get_organizations_for_account(table=table, account_id=account_id)
     return orgs
 
 
 @authenticated_organization_router.get("/{org_id}", response_model=Organization)
-async def get_organization(account_id: str, org_id: str, table: DbTable):
+async def get_organization(account_id: AccountId, org_id: str, table: DbTable):
     """Get all memberships for an org/account."""
     org = service.get_organization(table=table, organization_id=org_id)
     if org is None:
@@ -40,7 +41,7 @@ async def get_organization(account_id: str, org_id: str, table: DbTable):
 
 
 @authenticated_organization_router.head("/{org_id}")
-async def head_organization(account_id: str, org_id: str, table: DbTable):
+async def head_organization(account_id: AccountId, org_id: str, table: DbTable):
     """Get all memberships for an org/account."""
     org = service.get_organization(table=table, organization_id=org_id)
     if org is None:
@@ -51,7 +52,7 @@ async def head_organization(account_id: str, org_id: str, table: DbTable):
     "", response_model=None, status_code=status.HTTP_201_CREATED
 )
 async def create_organization(
-    account_id: str,
+    account_id: AccountId,
     request: OrganizationCreateRequest,
     table: DbTable,
 ):
@@ -65,7 +66,7 @@ async def create_organization(
 
 @authenticated_organization_router.delete("/{org_id}", response_model=None)
 async def delete_organization(
-    account_id: str,
+    account_id: AccountId,
     org_id: str,
     table: DbTable,
 ):

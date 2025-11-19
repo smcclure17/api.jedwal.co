@@ -5,11 +5,12 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 
 from jedwal.account import service as account_service
+from jedwal.account.models import AccountId
 from jedwal.database.core import DbTable
 from jedwal.posts import repository
 from jedwal.posts.categories import service as categories_service
 from jedwal.posts.google_docs_client import DocAccessException, GoogleDocs
-from jedwal.posts.models import Post, PostCreate, PostRead
+from jedwal.posts.models import Post, PostCreate, PostKey, PostRead
 from jedwal.posts.parsers.doc_ast import (
     GoogleDocsParser,
     Node,
@@ -22,7 +23,7 @@ from jedwal.posts.parsers.image_handler import ImageHandler
 PostImageHandler = Annotated[ImageHandler, Depends(ImageHandler)]
 
 
-def get_post(*, table: DbTable, owner_id: str, post_id: str) -> Post:
+def get_post(*, table: DbTable, owner_id: AccountId, post_id: PostKey) -> Post:
     return repository.get_post(table=table, owner_id=owner_id, post_id=post_id)
 
 
@@ -39,7 +40,7 @@ def get_post_data(*, table: DbTable, post: Post):
     return {"content": output, "title": post.title, "document_id": post.google_doc_id}
 
 
-def get_posts_for_account(*, table: DbTable, owner_id: str) -> list[PostRead]:
+def get_posts_for_account(*, table: DbTable, owner_id: AccountId) -> list[PostRead]:
     """Get all Posts for an account"""
     posts = repository.get_posts_by_owner(table=table, owner_id=owner_id)
 
@@ -66,7 +67,7 @@ def get_posts_for_account(*, table: DbTable, owner_id: str) -> list[PostRead]:
     return post_reads
 
 
-def delete_post(*, table: DbTable, owner_id: str, post_id: str):
+def delete_post(*, table: DbTable, owner_id: AccountId, post_id: PostKey):
     """Delete a Post."""
     repository.delete_post(table=table, owner_id=owner_id, post_key=post_id)
 
@@ -125,7 +126,7 @@ def create_post(
 
 
 def refresh_post_data(
-    *, table: DbTable, owner_id: str, post_id: str, image_handler: PostImageHandler
+    *, table: DbTable, owner_id: AccountId, post_id: PostKey, image_handler: PostImageHandler
 ):
     from jedwal.posts.webhooks.service import trigger_webhooks_for_post
 

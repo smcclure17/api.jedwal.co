@@ -3,13 +3,14 @@ from typing import Literal
 
 from pydantic import EmailStr, Field
 
+from jedwal.account.models import AccountId
 from jedwal.common.schemas import BaseSchema
 
 MemberType = Literal["owner", "member"]
 
 
 class Membership(BaseSchema):
-    account_id: str = Field(..., description="The account in the org")
+    account_id: AccountId = Field(..., description="The account in the org")
     organization_id: str = Field(..., description="The org the account belongs to")
     member_type: MemberType = Field(..., description="Role the account has in the org.")
     joined_at: datetime = Field(..., description="When the account joined the org")

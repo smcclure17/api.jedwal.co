@@ -1,19 +1,20 @@
 from fastapi import APIRouter, Response, status
 
+from jedwal.account.models import AccountId
 from jedwal.auth.service import VerifiedAccount
 from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
 from jedwal.posts import service
 from jedwal.posts.categories.views import authenticated_categories_router
-from jedwal.posts.webhooks.views import authenticated_webhooks_router
-
 from jedwal.posts.models import (
     PostCreate,
     PostCreateRead,
     PostCreateRequest,
     PostDocumentDataRead,
+    PostKey,
     PostRead,
 )
+from jedwal.posts.webhooks.views import authenticated_webhooks_router
 
 public_posts_router = APIRouter(prefix="/posts", tags=["public"])
 authenticated_posts_router = APIRouter(prefix="/posts", tags=["posts"])
@@ -28,8 +29,8 @@ authenticated_posts_router.include_router(
 
 @public_posts_router.get("/{post_id}", response_model=PostDocumentDataRead)
 async def get_post_data(
-    account_id: str,
-    post_id: str,
+    account_id: AccountId,
+    post_id: PostKey,
     table: DbTable,
 ):
     """Get data from a sheet API endpoint."""
@@ -41,8 +42,8 @@ async def get_post_data(
 
 @public_posts_router.head("/{post_id}")
 async def head_post_data(
-    account_id: str,
-    post_id: str,
+    account_id: AccountId,
+    post_id: PostKey,
     table: DbTable,
 ):
     """Check if a post exists without returning its data."""
@@ -55,7 +56,7 @@ async def head_post_data(
 # TODO: maybe de-dup public and private doc listing routes
 @public_posts_router.get("", response_model=list[PostRead])
 async def get_public_posts_for_account(
-    account_id: str,
+    account_id: AccountId,
     table: DbTable,
     categories: str | None = None,
 ):
@@ -78,7 +79,7 @@ async def get_public_posts_for_account(
 
 
 @authenticated_posts_router.post("/{post_id}/refresh", response_model=None)
-async def refresh_post_data(account_id: str, post_id: str, table: DbTable):
+async def refresh_post_data(account_id: AccountId, post_id: PostKey, table: DbTable):
     service.refresh_post_data(
         table=table,
         owner_id=account_id,
@@ -89,7 +90,7 @@ async def refresh_post_data(account_id: str, post_id: str, table: DbTable):
 
 @authenticated_posts_router.get("", response_model=list[PostRead])
 async def get_posts_for_account(
-    account_id: str,
+    account_id: AccountId,
     table: DbTable,
 ):
     """Get all APIs for an account."""
@@ -100,7 +101,7 @@ async def get_posts_for_account(
     "", response_model=PostCreateRead, status_code=status.HTTP_201_CREATED
 )
 async def create_post(
-    account_id: str,
+    account_id: AccountId,
     request: PostCreateRequest,
     table: DbTable,
     verified_account: VerifiedAccount,
@@ -127,8 +128,8 @@ async def create_post(
 
 @authenticated_posts_router.delete("/{post_id}", response_model=None)
 async def delete_api(
-    account_id: str,
-    post_id: str,
+    account_id: AccountId,
+    post_id: PostKey,
     table: DbTable,
 ):
     """Delete an API endpoint."""

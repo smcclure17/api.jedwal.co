@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import EmailStr, Field
 
+from jedwal.account.models import AccountId
 from jedwal.common.schemas import BaseSchema, TimestampMixin
 
 AccountStatus = Literal["free", "premium"]
@@ -10,10 +11,10 @@ AccountStatus = Literal["free", "premium"]
 class Organization(BaseSchema, TimestampMixin):
     """Organization domain model"""
 
-    account_id: str = Field(..., description="Unique org/account identifier")
+    account_id: AccountId = Field(..., description="Unique org/account identifier")
     display_name: str = Field(..., description="User display name")
     account_status: AccountStatus = Field(..., description="Account status")
-    billing_account_id: str = Field(
+    billing_account_id: AccountId = Field(
         ..., description="ID of the account used for billing"
     )
 

@@ -1,10 +1,20 @@
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import Field
 
-from jedwal.account.models import RefreshTokenInfo
+from jedwal.account.models import AccountId, RefreshTokenInfo
 from jedwal.common.schemas import BaseSchema, TimestampMixin
+
+ApiKey = Annotated[
+    str,
+    Field(
+        pattern=r"^[a-zA-Z0-9-]+$",
+        description="The name/ID of the API (alphanumeric and hyphens only)",
+        min_length=3,
+        max_length=50,
+    ),
+]
 
 
 class ApiBase(BaseSchema):
@@ -29,7 +39,7 @@ class ApiCreateRequest(ApiBase):
 class ApiCreate(ApiBase):
     """Schema for creating a new API (internal)."""
 
-    owner_id: str = Field(..., description="Account ID of the owner")
+    owner_id: AccountId = Field(..., description="Account ID of the owner")
     refresh_token_info: RefreshTokenInfo = Field(
         ..., description="OAuth refresh token for accessing the sheet"
     )
@@ -38,8 +48,8 @@ class ApiCreate(ApiBase):
 class Api(ApiBase, TimestampMixin):
     """Full API domain model - internal use."""
 
-    api_key: str = Field(..., description="Unique API key identifier")
-    owner_id: str = Field(..., description="Account ID of the owner")
+    api_key: ApiKey = Field(..., description="Unique API key identifier")
+    owner_id: AccountId = Field(..., description="Account ID of the owner")
     refresh_token_info: RefreshTokenInfo = Field(
         ..., description="OAuth refresh token for accessing the sheet"
     )
@@ -51,15 +61,15 @@ class Api(ApiBase, TimestampMixin):
 class ApiRead(ApiBase, TimestampMixin):
     """Schema for returning API data to clients."""
 
-    api_key: str = Field(..., description="Unique API key identifier")
-    owner_id: str = Field(..., description="Account ID of the owner")
+    api_key: ApiKey = Field(..., description="Unique API key identifier")
+    owner_id: AccountId = Field(..., description="Account ID of the owner")
     spreadsheet_title: str | None = Field(
         None, description="Cached title of the Google Spreadsheet"
     )
 
 
 class ApiCreateRead(BaseSchema):
-    api_key: str = Field(..., description="ID of the newly created API.")
+    api_key: ApiKey = Field(..., description="ID of the newly created API.")
 
 
 class ApiUpdate(BaseSchema):

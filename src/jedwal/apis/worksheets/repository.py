@@ -2,6 +2,8 @@ from datetime import datetime
 
 from mypy_boto3_dynamodb.service_resource import Table
 
+from jedwal.account.models import AccountId
+from jedwal.apis.models import ApiKey
 from jedwal.apis.worksheets.models import Worksheet, WorksheetCreate
 
 
@@ -67,7 +69,7 @@ def save_worksheet(*, table: Table, worksheet_create: WorksheetCreate) -> Worksh
 
 
 def get_worksheet(
-    *, table: Table, owner_id: str, api_key: str, title: str
+    *, table: Table, owner_id: AccountId, api_key: ApiKey, title: str
 ) -> Worksheet | None:
     """
     Get a cached worksheet by its title.
@@ -94,7 +96,7 @@ def get_worksheet(
 
 
 def get_all_worksheets_for_api(
-    *, table: Table, owner_id: str, api_key: str
+    *, table: Table, owner_id: AccountId, api_key: ApiKey
 ) -> list[Worksheet]:
     """
     Get all cached worksheets for a specific API.
@@ -121,7 +123,7 @@ def get_all_worksheets_for_api(
     return [from_item(item=item) for item in items]
 
 
-def delete_worksheet(*, table: Table, owner_id: str, api_key: str, title: str) -> None:
+def delete_worksheet(*, table: Table, owner_id: AccountId, api_key: ApiKey, title: str) -> None:
     """
     Delete a specific worksheet cache entry.
 
@@ -139,7 +141,7 @@ def delete_worksheet(*, table: Table, owner_id: str, api_key: str, title: str) -
     table.delete_item(Key={"PK": sheet_key, "SK": ws_key})
 
 
-def delete_all_worksheets_for_api(*, table: Table, owner_id: str, api_key: str) -> int:
+def delete_all_worksheets_for_api(*, table: Table, owner_id: AccountId, api_key: ApiKey) -> int:
     """Delete all cached worksheets for a specific API."""
 
     sheet_key = f"SHEET#{owner_id}#{api_key}"

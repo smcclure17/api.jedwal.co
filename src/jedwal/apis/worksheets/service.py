@@ -4,8 +4,9 @@ from typing import Any
 import gspread
 from fastapi import HTTPException, status
 
+from jedwal.account.models import AccountId
 from jedwal.apis import google_sheets
-from jedwal.apis.models import Api
+from jedwal.apis.models import Api, ApiKey
 from jedwal.apis.repository import get_api
 from jedwal.apis.worksheets import repository
 from jedwal.apis.worksheets.models import WorksheetCreate
@@ -77,7 +78,7 @@ def get_worksheet_data(
 # TODO: these next functions should maybe accept an API object instead,
 # but the functions that use this don't have an API object at the moment,
 # so it's easier/faster to just pass the keys.
-def delete_all_worksheets_for_api(*, table: DbTable, owner_id: str, api_key: str):
+def delete_all_worksheets_for_api(*, table: DbTable, owner_id: AccountId, api_key: ApiKey):
     """Deletes all worksheets affiliated with an API"""
     return repository.delete_all_worksheets_for_api(
         table=table, owner_id=owner_id, api_key=api_key
@@ -85,7 +86,7 @@ def delete_all_worksheets_for_api(*, table: DbTable, owner_id: str, api_key: str
 
 
 def get_google_worksheets_for_api(
-    *, table: DbTable, owner_id: str, api_key: str
+    *, table: DbTable, owner_id: AccountId, api_key: ApiKey
 ) -> list[gspread.Worksheet]:
     """Get all live worksheet objects from Google Sheets for an API.
 

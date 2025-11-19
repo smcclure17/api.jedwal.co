@@ -1,13 +1,22 @@
 import json
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import EmailStr, Field
 
 from jedwal.common.schemas import BaseSchema, TimestampMixin
-from jedwal.organizations.models import Organization
 
 AccountStatus = Literal["free", "premium"]
 AccountType = Literal["user", "organization"]
+
+AccountId = Annotated[
+    str,
+    Field(
+        pattern=r"^[a-zA-Z0-9-]+$",
+        description="The name/ID of the account (alphanumeric and hyphens only)",
+        min_length=3,
+        max_length=50,
+    ),
+]
 
 
 class RefreshTokenInfo(BaseSchema):
@@ -28,7 +37,7 @@ class RefreshTokenInfo(BaseSchema):
 class Account(BaseSchema, TimestampMixin):
     """Account domain model"""
 
-    account_id: str = Field(..., description="Unique account identifier")
+    account_id: AccountId
     email: EmailStr = Field(..., description="User email address")
     display_name: str = Field(..., description="User display name")
     given_name: str | None = Field(None, description="User's first name")
@@ -51,7 +60,7 @@ class Account(BaseSchema, TimestampMixin):
 
 
 class AccountRead(BaseSchema):
-    id: str
+    id: AccountId
     account_status: str
     display_name: str
     email: EmailStr | None = Field(..., description="Email exists for users, not orgs.")
@@ -65,8 +74,10 @@ class AccountRead(BaseSchema):
             email=account.email,
         )
 
+    # TODO: account could also be org, but i ignore that for now
+    # due to circular import issue
     @classmethod
-    def from_account_or_org(cls, account: Account | Organization):
+    def from_account_or_org(cls, account: Account):
         try:
             email = account.email
         except AttributeError:

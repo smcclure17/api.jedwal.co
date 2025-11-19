@@ -2,14 +2,16 @@
 
 from fastapi import HTTPException, status
 
+from jedwal.account.models import AccountId
 from jedwal.database.core import DbTable
 from jedwal.posts import repository as posts_repository
 from jedwal.posts.categories import repository
 from jedwal.posts.categories.models import CategoryRead
+from jedwal.posts.models import PostKey
 
 
 def add_category_to_post(
-    *, table: DbTable, owner_id: str, post_key: str, category: str
+    *, table: DbTable, owner_id: AccountId, post_key: PostKey, category: str
 ) -> None:
     """Add a category to a post.
 
@@ -42,7 +44,7 @@ def add_category_to_post(
 
 
 def remove_category_from_post(
-    *, table: DbTable, owner_id: str, post_key: str, category: str
+    *, table: DbTable, owner_id: AccountId, post_key: PostKey, category: str
 ) -> None:
     """Remove a category from a post.
 
@@ -69,7 +71,7 @@ def remove_category_from_post(
 
 
 def get_categories_for_post(
-    *, table: DbTable, owner_id: str, post_key: str
+    *, table: DbTable, owner_id: AccountId, post_key: PostKey
 ) -> list[CategoryRead]:
     """Get all categories for a post.
 
@@ -105,7 +107,7 @@ def get_categories_for_post(
     return [CategoryRead(category=cat) for cat in categories]
 
 
-def get_posts_for_category(*, table: DbTable, owner_id: str, category: str) -> list:
+def get_posts_for_category(*, table: DbTable, owner_id: AccountId, category: str) -> list:
     """Get all posts that have a specific category.
 
     Uses batch_get to efficiently fetch Post objects (avoids N+1).
@@ -129,7 +131,7 @@ def get_posts_for_category(*, table: DbTable, owner_id: str, category: str) -> l
 
 
 def delete_all_categories_for_post(
-    *, table: DbTable, owner_id: str, post_key: str
+    *, table: DbTable, owner_id: AccountId, post_key: PostKey
 ) -> int:
     """Delete all categories for a post.
 

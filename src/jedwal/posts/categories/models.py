@@ -2,7 +2,9 @@
 
 from pydantic import Field
 
+from jedwal.account.models import AccountId
 from jedwal.common.schemas import BaseSchema
+from jedwal.posts.models import PostKey
 
 
 class CategoryPostRelationship(BaseSchema):
@@ -13,8 +15,8 @@ class CategoryPostRelationship(BaseSchema):
     2. Post -> Category: PK=POST#{owner_id}#{post_key}, SK=CATEGORY#{category}
     """
 
-    owner_id: str = Field(..., description="Owner account ID")
-    post_key: str = Field(..., description="Post key")
+    owner_id: AccountId = Field(..., description="Owner account ID")
+    post_key: PostKey = Field(..., description="Post key")
     category: str = Field(..., description="Category name")
     relationship_type: str = Field(
         ..., description="Either 'category_to_post' or 'post_to_category'"
