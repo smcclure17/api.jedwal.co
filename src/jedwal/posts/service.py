@@ -127,12 +127,15 @@ def create_post(
 def refresh_post_data(
     *, table: DbTable, owner_id: str, post_id: str, image_handler: PostImageHandler
 ):
+    from jedwal.posts.webhooks.service import trigger_webhooks_for_post
+
     post = get_post(table=table, owner_id=owner_id, post_id=post_id)
     google_docs = GoogleDocs.from_token_info(info=post.refresh_token_info)
     google_doc_payload = google_docs.get_document(post.google_doc_id)
     parser = GoogleDocsParser(docs_json=google_doc_payload, image_handler=image_handler)
 
-    # TODO: kick off webhooks ...
+
+    trigger_webhooks_for_post(table=table, owner_id=owner_id, post_id=post_id)
     # TODO: invalidate cache (CDN)
 
     return repository.update_post(

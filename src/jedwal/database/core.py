@@ -28,6 +28,16 @@ def get_dynamodb_resource():
     return boto3.resource("dynamodb", **config)
 
 
+@lru_cache
+def get_sqs_client():
+    """
+    Get cached SQS client.
+
+    In Lambda, credentials are automatically provided via IAM execution role.
+    """
+    return boto3.client("sqs", region_name=settings.aws_region)
+
+
 def get_table(table_name: str | None = None) -> Table:
     """
     Get a DynamoDB table instance.
@@ -55,9 +65,10 @@ DbTable = Annotated[Table, Depends(get_table)]
 # Export condition helpers for easy imports
 __all__ = [
     "get_dynamodb_resource",
+    "get_sqs_client",
     "get_table",
     "DbTable",
-    "Table"
+    "Table",
     "Key",
     "Attr",
 ]
