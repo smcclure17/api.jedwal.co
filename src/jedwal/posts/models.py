@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import Field
 
@@ -72,4 +72,7 @@ class PostRead(PostBase):
 class PostDocumentDataRead(PostBase):
     title: str
     document_id: str
+    frontmatter: dict[str, Any] | None = Field(
+        default=None, description="Frontmatter YAML fields."
+    )
     content: str = Field(..., description="The post data content.")

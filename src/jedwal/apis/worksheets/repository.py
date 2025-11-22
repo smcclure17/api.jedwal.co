@@ -123,7 +123,9 @@ def get_all_worksheets_for_api(
     return [from_item(item=item) for item in items]
 
 
-def delete_worksheet(*, table: Table, owner_id: AccountId, api_key: ApiKey, title: str) -> None:
+def delete_worksheet(
+    *, table: Table, owner_id: AccountId, api_key: ApiKey, title: str
+) -> None:
     """
     Delete a specific worksheet cache entry.
 
@@ -141,7 +143,9 @@ def delete_worksheet(*, table: Table, owner_id: AccountId, api_key: ApiKey, titl
     table.delete_item(Key={"PK": sheet_key, "SK": ws_key})
 
 
-def delete_all_worksheets_for_api(*, table: Table, owner_id: AccountId, api_key: ApiKey) -> int:
+def delete_all_worksheets_for_api(
+    *, table: Table, owner_id: AccountId, api_key: ApiKey
+) -> int:
     """Delete all cached worksheets for a specific API."""
 
     sheet_key = f"SHEET#{owner_id}#{api_key}"

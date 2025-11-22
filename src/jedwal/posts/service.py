@@ -6,21 +6,21 @@ from fastapi import Depends, HTTPException, status
 
 from jedwal.account import service as account_service
 from jedwal.account.models import AccountId
+from jedwal.common.exceptions import ConflictException, UnauthorizedException
 from jedwal.database.core import DbTable
 from jedwal.posts import repository
 from jedwal.posts.categories import service as categories_service
 from jedwal.posts.google_docs_client import DocAccessException, GoogleDocs
 from jedwal.posts.models import Post, PostCreate, PostKey, PostRead
-from jedwal.posts.parsers.doc_ast import (
-    GoogleDocsParser,
-    Node,
-    dict_to_node,
-    node_to_dict,
-)
-from jedwal.posts.parsers.doc_to_md import MarkdownRenderer
+from jedwal.posts.parsers import ast, google_docs_parser, markdown_renderer
 from jedwal.posts.parsers.image_handler import ImageHandler
 
-PostImageHandler = Annotated[ImageHandler, Depends(ImageHandler)]
+
+def get_image_handler():
+    return ImageHandler()
+
+
+PostImageHandler = Annotated[ImageHandler, Depends(get_image_handler)]
 
 
 def get_post(*, table: DbTable, owner_id: AccountId, post_id: PostKey) -> Post:
@@ -28,16 +28,31 @@ def get_post(*, table: DbTable, owner_id: AccountId, post_id: PostKey) -> Post:
 
 
 def get_post_data(*, table: DbTable, post: Post):
-    renderer = MarkdownRenderer()
+    renderer = markdown_renderer.MarkdownRenderer()
 
     if post.frozen:
         raise HTTPException(401, "Post is frozen. Re-upgrade to premium to unfreeze")
 
-    serialized_ast = json.loads(post.google_doc_ast)
-    ast: Node = dict_to_node(serialized_ast)
+    # TEMP: We changed the AST implementation, so old posts might not work with
+    # the new parser. If it fails, rebuild the AST from scratch
+    try:
+        serialized_ast = json.loads(post.google_doc_ast)
+        tree = ast.Root.model_validate(serialized_ast)
+    except Exception:
+        from jedwal.posts.parsers import google_docs_parser
 
-    output = renderer.render(ast)
-    return {"content": output, "title": post.title, "document_id": post.google_doc_id}
+        raw_docs_json = json.loads(post.google_doc_payload)
+        parser = google_docs_parser.GoogleDocsParser(image_handler=PostImageHandler)
+        tree = parser.parse(doc_json=raw_docs_json)
+
+    frontmatter = tree.frontmatter.model_dump(exclude=["value"])["data"]
+    output = renderer.render(tree)
+    return {
+        "content": output,
+        "title": post.title,
+        "document_id": post.google_doc_id,
+        "frontmatter": frontmatter,
+    }
 
 
 def get_posts_for_account(*, table: DbTable, owner_id: AccountId) -> list[PostRead]:
@@ -82,8 +97,7 @@ def create_post(
         table=table, owner_id=post_create.owner_id
     )
     if free_account and len(existing_posts) >= 2:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
+        raise UnauthorizedException(
             detail="Free accounts can only have 2 posts.",
         ) from None
 
@@ -93,8 +107,7 @@ def create_post(
         table=table, owner_id=post_create.owner_id, google_doc_id=google_doc_id
     )
     if existing_post:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
+        raise ConflictException(
             detail=f"Post already exists for this Google Doc: {existing_post.post_key}",
         ) from None
 
@@ -108,15 +121,16 @@ def create_post(
             detail="Could not open Document.",
         ) from e
 
-    ast_parser = GoogleDocsParser(google_doc_payload, image_handler=image_handler)
-    google_doc_ast_json = node_to_dict(ast_parser.parse())
+    parser = google_docs_parser.GoogleDocsParser()
+    google_doc_ast = parser.parse(google_doc_payload)
+    google_doc_ast_json = google_doc_ast.model_dump_json()
 
     post = Post(
         post_key=post_create.post_key,
         owner_id=post_create.owner_id,
         google_doc_id=post_create.google_doc_id,
         google_doc_payload=json.dumps(google_doc_payload),
-        google_doc_ast=json.dumps(google_doc_ast_json),
+        google_doc_ast=google_doc_ast_json,
         creator=account.display_name,
         refresh_token_info=post_create.refresh_token_info,
         title=google_doc_payload["title"],
@@ -126,15 +140,21 @@ def create_post(
 
 
 def refresh_post_data(
-    *, table: DbTable, owner_id: AccountId, post_id: PostKey, image_handler: PostImageHandler
+    *,
+    table: DbTable,
+    owner_id: AccountId,
+    post_id: PostKey,
+    image_handler: PostImageHandler,
 ):
     from jedwal.posts.webhooks.service import trigger_webhooks_for_post
 
     post = get_post(table=table, owner_id=owner_id, post_id=post_id)
     google_docs = GoogleDocs.from_token_info(info=post.refresh_token_info)
     google_doc_payload = google_docs.get_document(post.google_doc_id)
-    parser = GoogleDocsParser(docs_json=google_doc_payload, image_handler=image_handler)
 
+    parser = google_docs_parser.GoogleDocsParser(image_handler=image_handler)
+    google_doc_ast = parser.parse(google_doc_payload)
+    google_doc_ast_json = google_doc_ast.model_dump_json()
 
     trigger_webhooks_for_post(table=table, owner_id=owner_id, post_id=post_id)
     # TODO: invalidate cache (CDN)
@@ -145,7 +165,7 @@ def refresh_post_data(
         post_key=post.post_key,
         updates={
             "google_doc_payload": json.dumps(google_doc_payload),
-            "google_doc_ast": json.dumps(node_to_dict(parser.parse())),
+            "google_doc_ast": google_doc_ast_json,
             "title": google_doc_payload["title"],
             "updated_at": datetime.now(tz=UTC),
         },

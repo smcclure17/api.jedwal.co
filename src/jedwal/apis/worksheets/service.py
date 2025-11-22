@@ -78,7 +78,9 @@ def get_worksheet_data(
 # TODO: these next functions should maybe accept an API object instead,
 # but the functions that use this don't have an API object at the moment,
 # so it's easier/faster to just pass the keys.
-def delete_all_worksheets_for_api(*, table: DbTable, owner_id: AccountId, api_key: ApiKey):
+def delete_all_worksheets_for_api(
+    *, table: DbTable, owner_id: AccountId, api_key: ApiKey
+):
     """Deletes all worksheets affiliated with an API"""
     return repository.delete_all_worksheets_for_api(
         table=table, owner_id=owner_id, api_key=api_key

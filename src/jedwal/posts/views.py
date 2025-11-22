@@ -79,12 +79,17 @@ async def get_public_posts_for_account(
 
 
 @authenticated_posts_router.post("/{post_id}/refresh", response_model=None)
-async def refresh_post_data(account_id: AccountId, post_id: PostKey, table: DbTable):
+async def refresh_post_data(
+    account_id: AccountId,
+    post_id: PostKey,
+    table: DbTable,
+    image_handler: service.PostImageHandler,
+):
     service.refresh_post_data(
         table=table,
         owner_id=account_id,
         post_id=post_id,
-        image_handler=service.PostImageHandler,
+        image_handler=image_handler,
     )
 
 

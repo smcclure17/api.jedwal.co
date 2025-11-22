@@ -58,7 +58,9 @@ def delete_webhook_from_post(
     )
 
 
-def trigger_webhooks_for_post(*, table: DbTable, owner_id: AccountId, post_id: PostKey) -> int:
+def trigger_webhooks_for_post(
+    *, table: DbTable, owner_id: AccountId, post_id: PostKey
+) -> int:
     """
     Trigger all webhooks for a specific document API.
 

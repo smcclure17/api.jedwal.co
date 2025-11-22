@@ -84,7 +84,9 @@ def create_api(*, table: Table, api: Api) -> Api:
     return api
 
 
-def update_api(*, table: Table, owner_id: AccountId, api_id: ApiKey, updates: dict) -> Api:
+def update_api(
+    *, table: Table, owner_id: AccountId, api_id: ApiKey, updates: dict
+) -> Api:
     """
     Update an existing API with partial updates.
 

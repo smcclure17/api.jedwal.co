@@ -107,7 +107,9 @@ def get_categories_for_post(
     return [CategoryRead(category=cat) for cat in categories]
 
 
-def get_posts_for_category(*, table: DbTable, owner_id: AccountId, category: str) -> list:
+def get_posts_for_category(
+    *, table: DbTable, owner_id: AccountId, category: str
+) -> list:
     """Get all posts that have a specific category.
 
     Uses batch_get to efficiently fetch Post objects (avoids N+1).

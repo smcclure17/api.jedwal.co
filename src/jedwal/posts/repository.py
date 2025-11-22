@@ -99,7 +99,9 @@ def get_posts_by_owner(*, table: Table, owner_id: AccountId) -> list[Post]:
     return [from_item(item=item) for item in items]
 
 
-def batch_get_posts(*, table: Table, owner_id: AccountId, post_keys: list[str]) -> list[Post]:
+def batch_get_posts(
+    *, table: Table, owner_id: AccountId, post_keys: list[str]
+) -> list[Post]:
     """
     Get multiple Posts by their keys using batch_get_item.
 
@@ -192,7 +194,9 @@ def create_post(*, table: Table, post: Post) -> Post:
     return post
 
 
-def update_post(*, table: Table, owner_id: AccountId, post_key: PostKey, updates: dict) -> Post:
+def update_post(
+    *, table: Table, owner_id: AccountId, post_key: PostKey, updates: dict
+) -> Post:
     """Update an existing Post with partial updates."""
     # First, get the existing Post
     existing_post = get_post(table=table, owner_id=owner_id, post_id=post_key)

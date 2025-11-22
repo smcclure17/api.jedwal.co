@@ -39,7 +39,9 @@ def create_memberships_from_emails(
     return create_memberships(table=table, memberships=validated_memberships)
 
 
-def delete_membership(*, table: DbTable, account_id: AccountId, organization_id: str) -> None:
+def delete_membership(
+    *, table: DbTable, account_id: AccountId, organization_id: str
+) -> None:
     return repository.delete_membership(
         table=table, account_id=account_id, organization_id=organization_id
     )
@@ -61,7 +63,9 @@ def get_memberships_for_org(
     )
 
 
-def get_memberships_for_account(*, table: DbTable, account_id: AccountId) -> list[Membership]:
+def get_memberships_for_account(
+    *, table: DbTable, account_id: AccountId
+) -> list[Membership]:
     return repository.get_memberships_for_account(table=table, account_id=account_id)
 
 
@@ -74,7 +78,9 @@ def check_account_membership(
     return membership.member_type if membership else None
 
 
-def is_account_owner(*, table: DbTable, account_id: AccountId, organization_id: str) -> bool:
+def is_account_owner(
+    *, table: DbTable, account_id: AccountId, organization_id: str
+) -> bool:
     membership = get_membership(
         table=table, account_id=account_id, organization_id=organization_id
     )
