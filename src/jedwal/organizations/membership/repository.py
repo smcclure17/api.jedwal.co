@@ -3,6 +3,7 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
+from jedwal.account.models import AccountId
 from jedwal.common.exceptions import NotFoundException
 from jedwal.organizations.membership.models import Membership
 
@@ -39,7 +40,9 @@ def create_memberships(
     return memberships
 
 
-def delete_membership(*, table: Table, account_id: str, organization_id: str) -> None:
+def delete_membership(
+    *, table: Table, account_id: AccountId, organization_id: str
+) -> None:
     try:
         table.delete_item(
             Key={
@@ -57,7 +60,7 @@ def delete_membership(*, table: Table, account_id: str, organization_id: str) ->
 
 
 def get_membership(
-    *, table: Table, account_id: str, organization_id: str
+    *, table: Table, account_id: AccountId, organization_id: str
 ) -> Membership | None:
     response = table.get_item(
         Key={
@@ -83,7 +86,9 @@ def get_memberships_for_org(*, table: Table, organization_id: str) -> list[Membe
     return [to_membership(item=item) for item in items]
 
 
-def get_memberships_for_account(*, table: Table, account_id: str) -> list[Membership]:
+def get_memberships_for_account(
+    *, table: Table, account_id: AccountId
+) -> list[Membership]:
     response = table.query(
         IndexName="GSI1",
         KeyConditionExpression="GSI1PK = :membership_pk AND begins_with(GSI1SK, :account_prefix)",

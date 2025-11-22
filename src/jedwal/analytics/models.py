@@ -3,13 +3,14 @@ from typing import Literal
 
 from pydantic import Field
 
+from jedwal.account.models import AccountId
 from jedwal.common.schemas import BaseSchema
 
 ResourceType = Literal["api", "post"]
 
 
 class AnalyticsLog(BaseSchema):
-    owner_id: str = Field(
+    owner_id: AccountId = Field(
         ..., description="Account or organization ID that owns the resource"
     )
     resource_id: str = Field(..., description="API key or post key")
@@ -24,7 +25,7 @@ class AnalyticsLog(BaseSchema):
 
 
 class AnalyticsLogRead(BaseSchema):
-    owner_id: str
+    owner_id: AccountId
     resource_id: str
     resource_type: ResourceType
     status_code: int

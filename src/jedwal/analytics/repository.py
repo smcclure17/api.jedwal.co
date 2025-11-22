@@ -4,6 +4,7 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
+from jedwal.account.models import AccountId
 from jedwal.analytics.models import AnalyticsLog, ResourceType
 
 
@@ -64,7 +65,7 @@ def batch_write_logs(*, table: Table, logs: list[AnalyticsLog]) -> dict[str, int
 def get_logs_for_resource(
     *,
     table: Table,
-    owner_id: str,
+    owner_id: AccountId,
     resource_type: ResourceType,
     resource_id: str,
     start_time: str | None = None,
@@ -101,7 +102,7 @@ def get_logs_for_resource(
 
 
 def delete_logs_for_resource(
-    *, table: Table, owner_id: str, resource_type: ResourceType, resource_id: str
+    *, table: Table, owner_id: AccountId, resource_type: ResourceType, resource_id: str
 ) -> dict[str, int]:
     pk = f"ANALYTICS#{owner_id}#{resource_type}#{resource_id}"
 
@@ -136,7 +137,7 @@ def delete_logs_for_resource(
 def stream_api_logs_for_account(
     *,
     table: Table,
-    owner_id: str,
+    owner_id: AccountId,
     start_time: str | None = None,
     end_time: str | None = None,
 ):

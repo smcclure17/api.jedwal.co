@@ -3,9 +3,9 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
-from jedwal.account.models import RefreshTokenInfo
+from jedwal.account.models import AccountId, RefreshTokenInfo
 from jedwal.common.exceptions import ConflictException, NotFoundException
-from jedwal.posts.models import Post
+from jedwal.posts.models import Post, PostKey
 
 
 def to_item(*, post: Post) -> dict:
@@ -68,7 +68,7 @@ def from_item(*, item: dict) -> Post:
     )
 
 
-def get_post(*, table: Table, owner_id: str, post_id: str) -> Post | None:
+def get_post(*, table: Table, owner_id: AccountId, post_id: PostKey) -> Post | None:
     """Get an Post by its key."""
     sheet_key = f"DOC#{owner_id}#{post_id}"
     response = table.get_item(Key={"PK": sheet_key, "SK": sheet_key})
@@ -78,7 +78,7 @@ def get_post(*, table: Table, owner_id: str, post_id: str) -> Post | None:
     return from_item(item=item)
 
 
-def get_posts_by_owner(*, table: Table, owner_id: str) -> list[Post]:
+def get_posts_by_owner(*, table: Table, owner_id: AccountId) -> list[Post]:
     """
     Get all Posts owned by a specific account.
 
@@ -99,7 +99,9 @@ def get_posts_by_owner(*, table: Table, owner_id: str) -> list[Post]:
     return [from_item(item=item) for item in items]
 
 
-def batch_get_posts(*, table: Table, owner_id: str, post_keys: list[str]) -> list[Post]:
+def batch_get_posts(
+    *, table: Table, owner_id: AccountId, post_keys: list[str]
+) -> list[Post]:
     """
     Get multiple Posts by their keys using batch_get_item.
 
@@ -134,7 +136,7 @@ def batch_get_posts(*, table: Table, owner_id: str, post_keys: list[str]) -> lis
 
 
 def get_post_by_google_doc_id(
-    *, table: Table, owner_id: str, google_doc_id: str
+    *, table: Table, owner_id: AccountId, google_doc_id: str
 ) -> Post | None:
     """
     Find a Post by Google Doc ID for a specific owner.
@@ -159,7 +161,7 @@ def get_post_by_google_doc_id(
     return from_item(item=items[0])
 
 
-def delete_post(*, table: Table, owner_id: str, post_key: str) -> None:
+def delete_post(*, table: Table, owner_id: AccountId, post_key: PostKey) -> None:
     """Delete a Post from the db."""
     sheet_key = f"DOC#{owner_id}#{post_key}"
     try:
@@ -192,7 +194,9 @@ def create_post(*, table: Table, post: Post) -> Post:
     return post
 
 
-def update_post(*, table: Table, owner_id: str, post_key: str, updates: dict) -> Post:
+def update_post(
+    *, table: Table, owner_id: AccountId, post_key: PostKey, updates: dict
+) -> Post:
     """Update an existing Post with partial updates."""
     # First, get the existing Post
     existing_post = get_post(table=table, owner_id=owner_id, post_id=post_key)

@@ -3,6 +3,7 @@
 import logging
 
 from jedwal.account import service as account_service
+from jedwal.account.models import AccountId
 from jedwal.billing import repository, stripe_client
 from jedwal.billing.models import BillingInfo, CheckoutSession
 from jedwal.common.exceptions import NotFoundException
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_checkout_session(
-    *, table: DbTable, account_id: str, success_url: str, cancel_url: str
+    *, table: DbTable, account_id: AccountId, success_url: str, cancel_url: str
 ) -> CheckoutSession:
     """Create a Stripe checkout session for premium subscription.
 

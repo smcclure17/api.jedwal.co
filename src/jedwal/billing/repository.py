@@ -5,6 +5,7 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
+from jedwal.account.models import AccountId
 from jedwal.billing.models import BillingInfo
 from jedwal.common.exceptions import NotFoundException
 
@@ -57,7 +58,7 @@ def to_billing_info(*, item: dict) -> BillingInfo:
     )
 
 
-def get_billing_info(*, table: Table, account_id: str) -> BillingInfo | None:
+def get_billing_info(*, table: Table, account_id: AccountId) -> BillingInfo | None:
     """Get billing information for an account."""
     response = table.get_item(
         Key={"PK": f"ACCOUNT#{account_id}", "SK": f"ACCOUNT#{account_id}"}

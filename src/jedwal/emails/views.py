@@ -1,6 +1,9 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Query
 from fastapi.responses import RedirectResponse
 
+from jedwal.account.models import AccountId
 from jedwal.config import settings
 from jedwal.database.core import DbTable
 from jedwal.emails import service
@@ -9,7 +12,7 @@ public_email_router = APIRouter(prefix="/email", tags=["email"])
 
 
 @public_email_router.get("/unsubscribe")
-async def unsubscribe(table: DbTable, account_id: str = Query(...)):
+async def unsubscribe(table: DbTable, account_id: Annotated[AccountId, Query(...)]):
     try:
         service.unsubscribe_user(table=table, user_id=account_id)
     except Exception:

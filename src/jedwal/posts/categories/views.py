@@ -2,9 +2,11 @@
 
 from fastapi import APIRouter, status
 
+from jedwal.account.models import AccountId
 from jedwal.database.core import DbTable
 from jedwal.posts.categories import service
 from jedwal.posts.categories.models import CategoryCreate, CategoryRead
+from jedwal.posts.models import PostKey
 
 # Nested under posts routes: /manage/{account_id}/posts/{post_key}/categories
 authenticated_categories_router = APIRouter(
@@ -14,8 +16,8 @@ authenticated_categories_router = APIRouter(
 
 @authenticated_categories_router.get("", response_model=list[CategoryRead])
 async def get_categories_for_post(
-    account_id: str,
-    post_key: str,
+    account_id: AccountId,
+    post_key: PostKey,
     table: DbTable,
 ):
     """Get all categories for a specific post."""
@@ -28,8 +30,8 @@ async def get_categories_for_post(
     "", response_model=None, status_code=status.HTTP_201_CREATED
 )
 async def add_category_to_post(
-    account_id: str,
-    post_key: str,
+    account_id: AccountId,
+    post_key: PostKey,
     category_create: CategoryCreate,
     table: DbTable,
 ):
@@ -44,8 +46,8 @@ async def add_category_to_post(
 
 @authenticated_categories_router.delete("/{category}", response_model=None)
 async def remove_category_from_post(
-    account_id: str,
-    post_key: str,
+    account_id: AccountId,
+    post_key: PostKey,
     category: str,
     table: DbTable,
 ):

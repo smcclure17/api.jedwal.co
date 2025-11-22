@@ -1,3 +1,4 @@
+from jedwal.account.models import AccountId
 from jedwal.analytics import repository
 from jedwal.analytics.models import AnalyticsLog, ResourceType
 from jedwal.database.core import DbTable
@@ -10,7 +11,7 @@ def batch_write_logs(*, table: DbTable, logs: list[AnalyticsLog]) -> dict[str, i
 def get_logs_for_resource(
     *,
     table: DbTable,
-    owner_id: str,
+    owner_id: AccountId,
     resource_type: ResourceType,
     resource_id: str,
     start_time: str | None = None,
@@ -27,7 +28,7 @@ def get_logs_for_resource(
 
 
 def stream_api_logs_for_account(
-    *, table: DbTable, owner_id: str, start_time: str, end_time: str
+    *, table: DbTable, owner_id: AccountId, start_time: str, end_time: str
 ):
     yield from repository.stream_api_logs_for_account(
         table=table, owner_id=owner_id, start_time=start_time, end_time=end_time

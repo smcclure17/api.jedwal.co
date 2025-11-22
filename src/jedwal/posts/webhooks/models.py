@@ -8,7 +8,9 @@ from pydantic import (
     TypeAdapter,
 )
 
+from jedwal.account.models import AccountId
 from jedwal.common.schemas import BaseSchema
+from jedwal.posts.models import PostKey
 
 WebhookType = Literal["GET", "POST"]
 
@@ -40,8 +42,8 @@ class WebhookDeleteRequest(WebhookBase):
 
 
 class WebhooksRead(BaseSchema):
-    account_id: str = Field(..., description="The account owner of the post")
-    post_id: str = Field(..., description="The post ID")
+    account_id: AccountId = Field(..., description="The account owner of the post")
+    post_id: PostKey = Field(..., description="The post ID")
     webhooks: list[Webhook] = Field(
         ..., description="The webhook configs for this post"
     )

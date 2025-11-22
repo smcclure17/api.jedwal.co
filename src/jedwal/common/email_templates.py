@@ -1,5 +1,6 @@
 import pathlib
 
+from jedwal.account.models import AccountId
 from jedwal.config import settings
 from jedwal.emails.models import EmailData
 
@@ -29,7 +30,7 @@ def build_welcome_email(to_email: str, account_first_name: str, user_id) -> Emai
     )
 
 
-def build_owner_alert_email(email: str, display_name: str, account_id: str):
+def build_owner_alert_email(email: str, display_name: str, account_id: AccountId):
     return EmailData(
         subject=f"Alert: New sign-up from {email}",
         configuration_set="prod-sheetsapi-emails",

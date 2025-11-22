@@ -3,8 +3,8 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
-from jedwal.account.models import RefreshTokenInfo
-from jedwal.apis.models import Api
+from jedwal.account.models import AccountId, RefreshTokenInfo
+from jedwal.apis.models import Api, ApiKey
 from jedwal.common.exceptions import ConflictException, NotFoundException
 
 
@@ -84,7 +84,9 @@ def create_api(*, table: Table, api: Api) -> Api:
     return api
 
 
-def update_api(*, table: Table, owner_id: str, api_id: str, updates: dict) -> Api:
+def update_api(
+    *, table: Table, owner_id: AccountId, api_id: ApiKey, updates: dict
+) -> Api:
     """
     Update an existing API with partial updates.
 
@@ -139,7 +141,7 @@ def update_api(*, table: Table, owner_id: str, api_id: str, updates: dict) -> Ap
     return from_item(item=response["Attributes"])
 
 
-def delete_api(*, table: Table, owner_id: str, api_key: str) -> None:
+def delete_api(*, table: Table, owner_id: AccountId, api_key: ApiKey) -> None:
     """
     Delete an API from the db.
 
@@ -166,7 +168,7 @@ def delete_api(*, table: Table, owner_id: str, api_key: str) -> None:
         raise
 
 
-def get_api(*, table: Table, owner_id: str, api_id: str) -> Api | None:
+def get_api(*, table: Table, owner_id: AccountId, api_id: ApiKey) -> Api | None:
     """
     Get an API by its key.
 
@@ -186,7 +188,7 @@ def get_api(*, table: Table, owner_id: str, api_id: str) -> Api | None:
     return from_item(item=item)
 
 
-def get_apis_by_owner(*, table: Table, owner_id: str) -> list[Api]:
+def get_apis_by_owner(*, table: Table, owner_id: AccountId) -> list[Api]:
     """
     Get all APIs owned by a specific account.
 
@@ -208,7 +210,7 @@ def get_apis_by_owner(*, table: Table, owner_id: str) -> list[Api]:
 
 
 def get_api_by_google_sheet_id(
-    *, table: Table, owner_id: str, google_sheet_id: str
+    *, table: Table, owner_id: AccountId, google_sheet_id: str
 ) -> Api | None:
     """
     Find an API by Google Sheet ID for a specific owner.

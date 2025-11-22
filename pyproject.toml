@@ -21,6 +21,7 @@ dependencies = [
     "stripe>=13.2.0",
     "mangum>=0.19.0",
     "sentry-sdk[fastapi]>=2.44.0",
+    "orjson>=3.11.4",
 ]
 
 [project.optional-dependencies]

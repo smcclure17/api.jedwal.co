@@ -1,10 +1,12 @@
 from fastapi import APIRouter, status
 
+from jedwal.account.models import AccountId
 from jedwal.apis import service
 from jedwal.apis.models import (
     ApiCreate,
     ApiCreateRead,
     ApiCreateRequest,
+    ApiKey,
     ApiRead,
     ApiSpreadsheetDataRead,
     ApiUpdate,
@@ -25,8 +27,8 @@ authenticated_apis_router.include_router(
 
 @public_apis_router.get("/{api_id}", response_model=ApiSpreadsheetDataRead)
 async def get_api_data(
-    account_id: str,
-    api_id: str,
+    account_id: AccountId,
+    api_id: ApiKey,
     table: DbTable,
     worksheet: str | None = None,
 ):
@@ -39,7 +41,7 @@ async def get_api_data(
 
 @authenticated_apis_router.get("", response_model=list[ApiRead])
 async def get_apis_for_account(
-    account_id: str,
+    account_id: AccountId,
     table: DbTable,
 ):
     """Get all APIs for an account."""
@@ -53,7 +55,7 @@ async def get_apis_for_account(
     "", response_model=ApiCreateRead, status_code=status.HTTP_201_CREATED
 )
 async def create_api(
-    account_id: str,
+    account_id: AccountId,
     request: ApiCreateRequest,
     table: DbTable,
     verified_account: VerifiedAccount,
@@ -77,8 +79,8 @@ async def create_api(
 
 @authenticated_apis_router.patch("/{api_id}", response_model=ApiRead)
 async def update_api(
-    account_id: str,
-    api_id: str,
+    account_id: AccountId,
+    api_id: ApiKey,
     updates: ApiUpdate,
     table: DbTable,
 ):
@@ -106,8 +108,8 @@ async def update_api(
 
 @authenticated_apis_router.delete("/{api_id}", response_model=None)
 async def delete_api(
-    account_id: str,
-    api_id: str,
+    account_id: AccountId,
+    api_id: ApiKey,
     table: DbTable,
 ):
     """Delete an API endpoint."""
@@ -118,8 +120,8 @@ async def delete_api(
 
 @authenticated_apis_router.post("/{api_id}/refresh-title", response_model=ApiRead)
 async def refresh_spreadsheet_title(
-    account_id: str,
-    api_id: str,
+    account_id: AccountId,
+    api_id: ApiKey,
     table: DbTable,
 ):
     """Manually refresh the spreadsheet title from Google Sheets."""

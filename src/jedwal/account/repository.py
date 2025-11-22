@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
-from jedwal.account.models import Account, RefreshTokenInfo
+from jedwal.account.models import Account, AccountId, RefreshTokenInfo
 from jedwal.common.exceptions import ConflictException, NotFoundException
 from jedwal.organizations.models import Organization
 from jedwal.organizations.repository import to_organization
@@ -110,7 +110,7 @@ def update_account(*, table: Table, account: Account) -> Account:
     return account
 
 
-def delete_account(*, table: Table, account_id: str) -> None:
+def delete_account(*, table: Table, account_id: AccountId) -> None:
     """
     Delete an account from the db.
 

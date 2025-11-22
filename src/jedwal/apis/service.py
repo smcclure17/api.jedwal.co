@@ -5,13 +5,14 @@ import randomname
 from fastapi import HTTPException, status
 
 from jedwal.account import service as account_service
+from jedwal.account.models import AccountId
 from jedwal.apis import google_sheets, repository
-from jedwal.apis.models import Api, ApiCreate, ApiRead, ApiUpdate
+from jedwal.apis.models import Api, ApiCreate, ApiKey, ApiRead, ApiUpdate
 from jedwal.apis.worksheets import service as worksheet_service
 from jedwal.database.core import DbTable
 
 
-def get_api(*, table: DbTable, owner_id: str, api_id: str) -> Api | None:
+def get_api(*, table: DbTable, owner_id: AccountId, api_id: ApiKey) -> Api | None:
     return repository.get_api(table=table, owner_id=owner_id, api_id=api_id)
 
 
@@ -50,7 +51,7 @@ def get_api_data(
     }
 
 
-def get_apis_for_account(*, table: DbTable, owner_id: str) -> list[ApiRead]:
+def get_apis_for_account(*, table: DbTable, owner_id: AccountId) -> list[ApiRead]:
     """Get all APIs for an account with cached spreadsheet titles.
 
     Spreadsheet titles are cached on API creation and can be refreshed manually.
@@ -144,7 +145,7 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> Api:
 
 
 def update_api(
-    *, table: DbTable, owner_id: str, api_id: str, updates: ApiUpdate
+    *, table: DbTable, owner_id: AccountId, api_id: ApiKey, updates: ApiUpdate
 ) -> Api:
     """Update an API. If cache_duration is changed, all worksheet caches are invalidated."""
     # Only update fields that were explicitly provided
@@ -167,7 +168,7 @@ def update_api(
     )
 
 
-def delete_api(*, table: DbTable, owner_id: str, api_id: str):
+def delete_api(*, table: DbTable, owner_id: AccountId, api_id: ApiKey):
     """
     Delete an API and all its associated worksheet caches.
 
@@ -182,7 +183,9 @@ def delete_api(*, table: DbTable, owner_id: str, api_id: str):
     repository.delete_api(table=table, owner_id=owner_id, api_key=api_id)
 
 
-def refresh_spreadsheet_title(*, table: DbTable, owner_id: str, api_id: str) -> Api:
+def refresh_spreadsheet_title(
+    *, table: DbTable, owner_id: AccountId, api_id: ApiKey
+) -> Api:
     """
     Refresh the cached spreadsheet title from Google Sheets.
 
@@ -205,7 +208,7 @@ def refresh_spreadsheet_title(*, table: DbTable, owner_id: str, api_id: str) -> 
     )
 
 
-def _generate_unique_api_key(*, table: DbTable, owner_id: str) -> str:
+def _generate_unique_api_key(*, table: DbTable, owner_id: AccountId) -> str:
     def key_exists(key: str) -> bool:
         api = repository.get_api(table=table, owner_id=owner_id, api_id=key)
         return api is not None

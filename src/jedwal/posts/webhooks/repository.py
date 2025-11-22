@@ -1,9 +1,12 @@
-from datetime import timezone
+from datetime import UTC, datetime
+
+from botocore.exceptions import ClientError
+
+from jedwal.account.models import AccountId
 from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import Table
+from jedwal.posts.models import PostKey
 from jedwal.posts.webhooks.models import Webhook
-from datetime import datetime
-from botocore.exceptions import ClientError
 
 
 def to_item(*, webhook: Webhook):
@@ -24,7 +27,7 @@ def from_item(*, item: dict):
     )
 
 
-def get_webhooks_for_post(*, table: Table, account_id: str, post_key: str):
+def get_webhooks_for_post(*, table: Table, account_id: AccountId, post_key: PostKey):
     """Get a Post by its key with limited fields."""
     sheet_key = f"DOC#{account_id}#{post_key}"
 
@@ -45,12 +48,12 @@ def get_webhooks_for_post(*, table: Table, account_id: str, post_key: str):
 
 
 def update_post_webhooks(
-    *, table: Table, account_id: str, post_key: str, webhooks: list[Webhook]
+    *, table: Table, account_id: AccountId, post_key: PostKey, webhooks: list[Webhook]
 ):
     webhook_data = [to_item(webhook=webhook) for webhook in webhooks]
 
     post_pk = f"DOC#{account_id}#{post_key}"
-    updated_at = datetime.now(tz=timezone.utc).isoformat()
+    updated_at = datetime.now(tz=UTC).isoformat()
 
     try:
         table.update_item(

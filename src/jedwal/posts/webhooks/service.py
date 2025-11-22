@@ -1,18 +1,20 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from botocore.exceptions import ClientError
 
+from jedwal.account.models import AccountId
 from jedwal.config import settings
 from jedwal.database.core import DbTable, get_sqs_client
+from jedwal.posts.models import PostKey
 from jedwal.posts.webhooks import repository
 from jedwal.posts.webhooks.models import Webhook, WebhooksRead
 
 logger = logging.getLogger(__name__)
 
 
-def get_webhooks_for_post(*, table: DbTable, account_id: str, post_key: str):
+def get_webhooks_for_post(*, table: DbTable, account_id: AccountId, post_key: PostKey):
     webhooks = repository.get_webhooks_for_post(
         table=table, account_id=account_id, post_key=post_key
     )
@@ -24,7 +26,7 @@ def get_webhooks_for_post(*, table: DbTable, account_id: str, post_key: str):
 
 
 def create_webhook_for_post(
-    *, table: DbTable, account_id: str, post_key: str, webhook: Webhook
+    *, table: DbTable, account_id: AccountId, post_key: PostKey, webhook: Webhook
 ):
     webhook_read = get_webhooks_for_post(
         table=table, account_id=account_id, post_key=post_key
@@ -37,7 +39,7 @@ def create_webhook_for_post(
 
 
 def delete_webhook_from_post(
-    *, table: DbTable, account_id: str, post_key: str, webhook: Webhook
+    *, table: DbTable, account_id: AccountId, post_key: PostKey, webhook: Webhook
 ):
     webhook_read = get_webhooks_for_post(
         table=table, account_id=account_id, post_key=post_key
@@ -56,7 +58,9 @@ def delete_webhook_from_post(
     )
 
 
-def trigger_webhooks_for_post(*, table: DbTable, owner_id: str, post_id: str) -> int:
+def trigger_webhooks_for_post(
+    *, table: DbTable, owner_id: AccountId, post_id: PostKey
+) -> int:
     """
     Trigger all webhooks for a specific document API.
 
@@ -79,7 +83,7 @@ def trigger_webhooks_for_post(*, table: DbTable, owner_id: str, post_id: str) ->
             "event": "post.republished",
             "owner_id": owner_id,
             "post_id": post_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         successful_queues = 0
@@ -111,7 +115,7 @@ def _create_webhook_event(
     method: str,
     payload: dict,
     user_id: str,
-    post_id: str,
+    post_id: PostKey,
     retry_count: int = 0,
 ) -> bool:
     """Send a webhook event to the SQS queue for processing."""
@@ -124,10 +128,10 @@ def _create_webhook_event(
             "userId": user_id,
             "postId": post_id,
             "retryCount": retry_count,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
-        response = sqs.send_message(
+        sqs.send_message(
             QueueUrl=settings.webhook_queue_url, MessageBody=json.dumps(message_body)
         )
         return True

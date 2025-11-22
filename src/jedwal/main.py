@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import mangum
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, ORJSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from jedwal.api import api_router
@@ -33,6 +33,9 @@ app = FastAPI(
     version=settings.app_version,
     debug=settings.debug,
     lifespan=lifespan,
+    # This produces faster JSON serialization and keeps UTF-8 by default.
+    # For example, code snippets like <Image.../> are kept intact.
+    default_response_class=ORJSONResponse,
 )
 
 

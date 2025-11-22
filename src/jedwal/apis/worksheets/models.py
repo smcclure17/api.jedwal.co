@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import Field
 
+from jedwal.account.models import AccountId
+from jedwal.apis.models import ApiKey
 from jedwal.common.schemas import BaseSchema, TimestampMixin
 
 
@@ -15,8 +17,8 @@ class WorksheetBase(BaseSchema):
 class WorksheetCreate(WorksheetBase):
     """Schema for creating a worksheet cache entry."""
 
-    owner_id: str = Field(..., description="Owner of the parent API")
-    api_key: str = Field(..., description="Parent API key")
+    owner_id: AccountId = Field(..., description="Owner of the parent API")
+    api_key: ApiKey = Field(..., description="Parent API key")
     data: list[dict[str, Any]] = Field(..., description="Cached worksheet data")
     expires_at: datetime = Field(..., description="When cache expires (UTC)")
 
@@ -28,8 +30,8 @@ class Worksheet(WorksheetBase, TimestampMixin):
     When cache_duration changes on the API, all worksheet caches are invalidated.
     """
 
-    owner_id: str = Field(..., description="Owner of the parent API")
-    api_key: str = Field(..., description="Parent API key")
+    owner_id: AccountId = Field(..., description="Owner of the parent API")
+    api_key: ApiKey = Field(..., description="Parent API key")
     data: list[dict[str, Any]] = Field(..., description="Cached worksheet data")
     expires_at: datetime = Field(..., description="When cache expires (UTC)")
 
