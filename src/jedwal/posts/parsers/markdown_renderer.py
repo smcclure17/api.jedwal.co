@@ -119,9 +119,9 @@ class MarkdownRenderer:
 
     def _escape_markdown(self, text: str) -> str:
         """Escape characters that could create surprise markdown formatting"""
-        text = text.replace('\\', '\\\\')  # Backslash first
-        text = text.replace('*', '\\*')
-        text = text.replace('_', '\\_')
-        text = text.replace('`', '\\`')
-        text = text.replace('[', '\\[')
+        text = text.replace("\\", "\\\\")  # Backslash first
+        text = text.replace("*", "\\*")
+        text = text.replace("_", "\\_")
+        text = text.replace("`", "\\`")
+        text = text.replace("[", "\\[")
         return text

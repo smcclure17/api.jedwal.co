@@ -35,7 +35,7 @@ app = FastAPI(
     lifespan=lifespan,
     # This produces faster JSON serialization and keeps UTF-8 by default.
     # For example, code snippets like <Image.../> are kept intact.
-    default_response_class=ORJSONResponse
+    default_response_class=ORJSONResponse,
 )
 
 
