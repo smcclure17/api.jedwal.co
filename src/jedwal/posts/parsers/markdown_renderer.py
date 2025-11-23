@@ -30,7 +30,7 @@ class MarkdownRenderer:
         return f"```{lang}\n{node.value}\n```"
 
     def render_text(self, node: ast.Text) -> str:
-        return self._escape_markdown(node.value)
+        return node.value
 
     def render_strong(self, node: ast.Strong) -> str:
         text = "".join(self.render(child) for child in node.children)
@@ -117,11 +117,3 @@ class MarkdownRenderer:
         marker = f"{number}." if is_ordered else "-"
         return f"{indent}{marker} {content}"
 
-    def _escape_markdown(self, text: str) -> str:
-        """Escape characters that could create surprise markdown formatting"""
-        text = text.replace("\\", "\\\\")  # Backslash first
-        text = text.replace("*", "\\*")
-        text = text.replace("_", "\\_")
-        text = text.replace("`", "\\`")
-        text = text.replace("[", "\\[")
-        return text

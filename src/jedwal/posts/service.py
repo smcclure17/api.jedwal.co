@@ -45,7 +45,11 @@ def get_post_data(*, table: DbTable, post: Post):
         parser = google_docs_parser.GoogleDocsParser(image_handler=PostImageHandler)
         tree = parser.parse(doc_json=raw_docs_json)
 
-    frontmatter = tree.frontmatter.model_dump(exclude=["value"])["data"]
+    if tree.frontmatter is not None:
+        frontmatter = tree.frontmatter.model_dump(exclude=["value"])["data"]
+    else:
+        frontmatter = None
+
     output = renderer.render(tree)
     return {
         "content": output,
