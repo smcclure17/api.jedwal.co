@@ -44,7 +44,7 @@ app.add_middleware(
     secret_key=settings.oauth_secret_token,
     same_site="none",
     https_only=True,
-    domain="jedwal.co",
+    domain="jedwal.co" if settings.environment == "production" else None,
 )
 
 app.add_middleware(

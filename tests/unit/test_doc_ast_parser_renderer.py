@@ -28,9 +28,76 @@ def test_google_doc_to_markdown():
     google_doc_json_path = base_path / "test_google_document.json"
     markdown_path = base_path / "test_markdown_output.md"
 
-    google_doc_json_path = json.loads(google_doc_json_path.read_text())
+    google_doc_json = json.loads(google_doc_json_path.read_text())
     parser = google_docs_parser.GoogleDocsParser()
-    ast_tree = parser.parse(google_doc_json_path)
+    ast_tree = parser.parse(google_doc_json)
 
     renderer = markdown_renderer.MarkdownRenderer()
     assert renderer.render(ast_tree) == markdown_path.read_text()
+
+
+def test_jsx_in_source_doc():
+    ast_impl = ast.Root(
+        children=[
+            ast.Paragraph(
+                children=[
+                    ast.Text(
+                        value='<Image src="/bgmp.png" alt="BGMP Logo" width={1200} height={630} />'
+                    ),
+                ]
+            )
+        ]
+    )
+
+    renderer = markdown_renderer.MarkdownRenderer()
+    output = '<Image src="/bgmp.png" alt="BGMP Logo" width={1200} height={630} />'
+    assert renderer.render(ast_impl) == output
+
+
+def test_jsx_in_google_doc():
+    # fmt: off
+    source_doc = {
+        "body": {
+            "content": [
+                {
+                    "startIndex": 230,
+                    "endIndex": 298,
+                    "paragraph": {
+                        "elements": [
+                            {
+                                "startIndex": 230,
+                                "endIndex": 298,
+                                "textRun": {
+                                    "content": "<Image src=\"/bgmp.png\" alt=\"BGMP Logo\" width={1200} height={630} />\n",
+                                    "textStyle": {}
+                                }
+                            }
+                        ],
+                        "paragraphStyle": {
+                            "namedStyleType": "NORMAL_TEXT",
+                            "direction": "LEFT_TO_RIGHT",
+                        },
+                    },
+                }
+            ]
+        }
+    }
+    # fmt: on
+
+    parser = google_docs_parser.GoogleDocsParser()
+    ast_tree = parser.parse(source_doc)
+
+    expected = ast.Root(
+        children=[
+            ast.Paragraph(
+                type="paragraph",
+                children=[
+                    ast.Text(
+                        type="text",
+                        value='<Image src="/bgmp.png" alt="BGMP Logo" width={1200} height={630} />',
+                    )
+                ],
+            )
+        ]
+    )
+    ast_tree == expected
