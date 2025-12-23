@@ -13,7 +13,11 @@ from jedwal.emails.views import public_email_router
 from jedwal.organizations.views import authenticated_organization_router
 from jedwal.posts.views import authenticated_posts_router, public_posts_router
 
-api_router = APIRouter()
+# Public router (no authentication, permissive CORS)
+public_router = APIRouter()
+
+# Authenticated router (requires auth, restrictive CORS)
+authenticated_router = APIRouter()
 
 authenticated_account_router = APIRouter(
     dependencies=[Depends(verify_account_access)], prefix="/manage/{account_id}"
@@ -29,14 +33,18 @@ public_account_router.include_router(public_apis_router)
 public_account_router.include_router(public_posts_router)
 
 
-@api_router.get("/health", tags=["health"])
+@public_router.get("/health", tags=["health"])
 async def health_check():
     """Health check endpoint."""
-    return {"status": settings.app_version}
+    return {"status": "okay"}
 
 
-api_router.include_router(auth_router)
-api_router.include_router(public_email_router)
-api_router.include_router(authenticated_account_router)
-api_router.include_router(public_account_router)
-api_router.include_router(billing_router)
+# Include routes in their respective routers
+# Public routes (accessible from any origin)
+public_router.include_router(public_email_router)
+public_router.include_router(public_account_router)
+
+# Authenticated routes (restricted CORS)
+authenticated_router.include_router(auth_router)
+authenticated_router.include_router(authenticated_account_router)
+authenticated_router.include_router(billing_router)

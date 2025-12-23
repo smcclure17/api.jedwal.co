@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from jedwal.api import api_router
+from jedwal.api import authenticated_account_router, public_account_router
 from jedwal.common import sentry
 from jedwal.config import settings
 
@@ -39,13 +39,21 @@ app = FastAPI(
 )
 
 
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.oauth_secret_token,
-    same_site="none",
-    https_only=True,
-    domain="jedwal.co" if settings.environment == "production" else None,
+public_app = FastAPI(
+    title=f"{settings.app_name} - Public API",
+    version=settings.app_version,
+    debug=settings.debug,
+    default_response_class=ORJSONResponse,
 )
+
+public_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for public read API
+    allow_credentials=False,  # Must be False when allow_origins is "*"
+    allow_methods=["GET", "HEAD", "OPTIONS"],  # Only allow read operations
+    allow_headers=["*"],
+)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,6 +65,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.oauth_secret_token,
+    same_site="none",
+    https_only=True,
+    domain="jedwal.co" if settings.environment == "production" else None,
 )
 
 
@@ -72,7 +88,24 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-app.include_router(api_router)
+@public_app.exception_handler(Exception)
+async def public_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for public routes."""
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal server error",
+            "error": str(exc) if settings.debug else None,
+        },
+    )
+
+
+# Include routers
+public_app.include_router(public_account_router)
+app.include_router(authenticated_account_router)
+
+# Mount public app to allow cross-origin access
+app.mount("/", public_app)
 
 
 @app.get("/")
