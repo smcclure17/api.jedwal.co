@@ -26,7 +26,6 @@ class ApiWatchChannelBase(BaseSchema):
     def create_channel_id(owner_id: AccountId, api_key: ApiKey, webhook_url: str):
         webhook_hash = hashlib.sha256(webhook_url.encode()).hexdigest()[:10]
         return f"api_watch_channel_{owner_id}_{api_key}_{webhook_hash}"
-    
 
     @staticmethod
     def create_channel_expiration(hours=24):

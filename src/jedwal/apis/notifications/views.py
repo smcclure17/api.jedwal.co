@@ -5,7 +5,6 @@ from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import service
 from jedwal.apis.notifications.models import ApiWatchChannel, ApiWatchChannelCreate
 from jedwal.auth.service import VerifiedAccount
-from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
 
 authenticated_notifications_router = APIRouter(prefix="/notifications")

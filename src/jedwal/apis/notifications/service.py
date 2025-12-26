@@ -1,5 +1,4 @@
 import json
-import time
 from datetime import UTC, datetime
 
 from jedwal.account.models import AccountId
@@ -32,7 +31,6 @@ def get_watch_channel(
 def create_watch_channel(
     *, table: DbTable, watch_channel: ApiWatchChannelCreate, account: VerifiedAccount
 ):
-
     existing_channel = get_watch_channel(
         table=table,
         owner_id=watch_channel.owner_id,
