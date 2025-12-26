@@ -75,6 +75,8 @@ async def delete_watch_channel(
     )
 
 
+# If we change the path/signature for this make sure to update the
+# "api_watch_channel_callback_url" config variable to match the new route.
 @public_api_notifications_router.post("")
 async def watch(table: DbTable, request: Request):
     """Receive Google Drive watch notifications and fan out to user webhooks."""

@@ -1,6 +1,5 @@
 import requests
-
-WATCH_CENTRAL_CALLBACK_URL = "https://api.jedwal.co/notifications"
+from jedwal.config import settings
 
 
 def register(
@@ -9,6 +8,7 @@ def register(
     google_drive_file_id: str,
     channel_id: str,
     expiration: int | None = None,
+    callback_url=settings.api_watch_channel_callback_url,
 ):
     """Register a watch channel to start collecting notifications for a file"""
     response = requests.post(
@@ -20,7 +20,7 @@ def register(
         json={
             "id": channel_id,
             "type": "webhook",
-            "address": WATCH_CENTRAL_CALLBACK_URL,
+            "address": callback_url,
             "expiration": expiration,
         },
     )

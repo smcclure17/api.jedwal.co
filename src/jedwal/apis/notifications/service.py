@@ -22,19 +22,10 @@ def get_watch_channels(*, table: DbTable, owner_id: AccountId, api_key: ApiKey):
 def get_watch_channel(
     *, table: DbTable, owner_id: AccountId, api_key: ApiKey, webhook_url: str
 ) -> ApiWatchChannel | None:
-    # im tired and don't want to figure out how to query this directly or change the PKs.
-    channels = repository.list_channels_for_api(
-        table=table, owner_id=owner_id, api_key=api_key
+    channel_id = ApiWatchChannel.create_channel_id(
+        owner_id=owner_id, api_key=api_key, webhook_url=webhook_url
     )
-    for channel in channels:
-        if channel.webhook_url == webhook_url:
-            return channel
-
-    return None
-
-
-def update_watch_channel(*, table: DbTable, watch_channel: ApiWatchChannel):
-    return repository.update(table=table, watch_channel=watch_channel)
+    return repository.read_by_channel_id(table=table, channel_id=channel_id)
 
 
 def create_watch_channel(

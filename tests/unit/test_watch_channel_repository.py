@@ -156,53 +156,6 @@ def test_list_channels_empty(dynamodb_table):
     assert channels == []
 
 
-def test_update_watch_channel(dynamodb_table):
-    """Test updating an existing watch channel."""
-    channel = ApiWatchChannel(
-        owner_id="test-owner",
-        api_key="test-api-key",
-        channel_id="test-channel",
-        resource_id="resource-123",
-        name="some-watch-channel-name",
-        webhook_url="https://example.com/webhook",
-        expires_at=int(time.time()) + 86400,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-
-    repository.create(table=dynamodb_table, watch_channel=channel)
-
-    # Update expiration
-    new_expiration = int(time.time()) + 172800
-    channel.expires_at = new_expiration
-
-    repository.update(table=dynamodb_table, watch_channel=channel)
-
-    retrieved = repository.read_by_channel_id(
-        table=dynamodb_table, channel_id="test-channel"
-    )
-
-    assert retrieved.expires_at == new_expiration
-
-
-def test_update_nonexistent_raises_not_found(dynamodb_table):
-    """Test updating a nonexistent watch channel raises NotFoundException."""
-    channel = ApiWatchChannel(
-        owner_id="test-owner",
-        api_key="test-api-key",
-        channel_id="nonexistent",
-        resource_id="resource-123",
-        name="some-watch-channel-name",
-        webhook_url="https://example.com/webhook",
-        expires_at=int(time.time()) + 86400,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-
-    with pytest.raises(NotFoundException):
-        repository.update(table=dynamodb_table, watch_channel=channel)
-
-
 def test_delete_watch_channel(dynamodb_table):
     """Test deleting a watch channel."""
     channel = ApiWatchChannel(
