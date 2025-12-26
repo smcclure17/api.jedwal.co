@@ -38,6 +38,7 @@ class ApiWatchChannelBase(BaseSchema):
         """Generates a (secret) token used to verify incoming messages are not spoofed."""
         return secrets.token_urlsafe(32)
 
+
 class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):
     """Main model of a watch channel"""
 
@@ -48,7 +49,9 @@ class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):
     resource_id: str = Field(
         ..., description="Google's resource ID for the watched file (from API response)"
     )
-    channel_token: str = Field(..., description="The secret token used to verify requests for this channel")
+    channel_token: str = Field(
+        ..., description="The secret token used to verify requests for this channel"
+    )
 
 
 class ApiWatchChannelRead(ApiWatchChannelBase, TimestampMixin):

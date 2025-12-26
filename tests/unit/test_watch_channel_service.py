@@ -11,6 +11,7 @@ from jedwal.apis.notifications import repository, service
 from jedwal.apis.notifications.models import ApiWatchChannel
 from jedwal.common.exceptions import BadRequestException
 
+
 # We should think about injecting the SQS client or abstracting over it
 # so we don't need to mock as much, but eh.
 @patch("jedwal.apis.notifications.service.get_sqs_client")

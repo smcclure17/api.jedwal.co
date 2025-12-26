@@ -1,8 +1,7 @@
 import json
 import pathlib
-from jedwal.posts.parsers import ast
-from jedwal.posts.parsers import google_docs_parser
-from jedwal.posts.parsers import markdown_renderer
+
+from jedwal.posts.parsers import ast, google_docs_parser, markdown_renderer
 
 
 def test_construct_simple_ast():
