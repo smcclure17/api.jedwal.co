@@ -75,5 +75,6 @@ async def watch(table: DbTable, request: Request):
         channel_id=channel_id,
         resource_state=resource_state or "unknown",
         resource_id=resource_id or "",
+        channel_token=channel_token
     )
     return {"ok": True}
