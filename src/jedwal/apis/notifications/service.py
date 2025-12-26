@@ -146,6 +146,7 @@ def renew_watch_channel(
         google_drive_file_id=api.google_sheet_id,
         channel_id=channel.channel_id,
         expiration=new_expiration,
+        channel_token=channel.channel_token,
     )
 
     # Update channel with new expiration and resource_id
