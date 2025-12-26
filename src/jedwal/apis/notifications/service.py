@@ -7,7 +7,11 @@ from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import repository, watch_api
 from jedwal.apis.notifications.models import ApiWatchChannel, ApiWatchChannelCreate
 from jedwal.auth.service import VerifiedAccount
-from jedwal.common.exceptions import ConflictException, NotFoundException
+from jedwal.common.exceptions import (
+    BadRequestException,
+    ConflictException,
+    NotFoundException,
+)
 from jedwal.common.google_auth_fields import GoogleOauthFields
 from jedwal.config import settings
 from jedwal.database.core import DbTable, get_sqs_client
@@ -55,11 +59,13 @@ def create_watch_channel(
         raise NotFoundException(detail="Could not find API to create notifications for")
 
     access_token = _get_refreshed_access_token(account=account)
+    channel_token = ApiWatchChannel.create_channel_token()
     google_channel = watch_api.register(
         bearer_token=access_token,
         google_drive_file_id=api.google_sheet_id,
         channel_id=channel_id,
         expiration=ApiWatchChannel.create_channel_expiration(),
+        channel_token=channel_token,
     )
 
     try:
@@ -68,6 +74,7 @@ def create_watch_channel(
             owner_id=watch_channel.owner_id,
             api_key=watch_channel.api_key,
             name=watch_channel.name,
+            channel_token=channel_token,
             expires_at=google_channel["expiration"],  # check this
             resource_id=google_channel["resourceId"],
             webhook_url=watch_channel.webhook_url,
@@ -141,6 +148,7 @@ def renew_watch_channel(
         google_drive_file_id=api.google_sheet_id,
         channel_id=channel.channel_id,
         expiration=new_expiration,
+        channel_token=channel.channel_token,
     )
 
     # Update channel with new expiration and resource_id
@@ -156,7 +164,12 @@ def get_soon_to_expire_channels(*, table: DbTable, expires_before: int):
 
 
 def handle_watch_notification(
-    *, table: DbTable, channel_id: str | None, resource_state: str, resource_id: str
+    *,
+    table: DbTable,
+    channel_id: str | None,
+    resource_state: str,
+    resource_id: str,
+    channel_token: str | None = None,
 ):
     """Handle incoming Google Drive watch notification and fan out to user webhook."""
 
@@ -169,6 +182,9 @@ def handle_watch_notification(
     channel = repository.read_by_channel_id(table=table, channel_id=channel_id)
     if not channel:
         raise NotFoundException("Channel to notify not found")
+
+    if channel.channel_token != channel_token:
+        raise BadRequestException(detail="Channel token did not match expected value")
 
     payload = {
         "event": f"spreadsheet.{resource_state}",
