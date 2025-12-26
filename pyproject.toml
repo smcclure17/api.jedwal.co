@@ -46,6 +46,9 @@ addopts = [
     "--strict-markers",
     "-v",
 ]
+markers = [
+    "integration: marks tests as integration tests (require real external services)",
+]
 
 [tool.ruff]
 line-length = 88
