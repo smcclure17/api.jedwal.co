@@ -798,8 +798,18 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      Policies:
+        - PolicyName: KMSEncryptionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                Resource: !GetAtt EncryptionKey.Arn
 
-  LambdaApiWatchRenewerFunctionDailyRule:
+  LambdaApiWatchRenewerFunctionCronRule:
     Type: AWS::Events::Rule
     Properties:
       Name: !Sub "${Environment}-api-watch-renewer-lambda-trigger"
@@ -815,7 +825,7 @@ Resources:
       FunctionName: !Ref LambdaApiWatchRenewerFunction
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
-      SourceArn: !GetAtt LambdaApiWatchRenewerFunctionDailyRule.Arn
+      SourceArn: !GetAtt LambdaApiWatchRenewerFunctionCronRule.Arn
 
 
   WebhookProcessorFunction:

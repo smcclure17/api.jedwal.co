@@ -1,8 +1,8 @@
 """Google Drive Watch API expires every 24 hours.
 
-This lambda runs every ~12 hours, looks for api watch channels expiring in the next 8 hours, and renews them
-
-Renews by deleting the old record and re-creating a new one.
+This lambda runs every ~12 hours,
+looks for api watch channels expiring in the next 12 hours,
+and renews them
 """
 
 import time
@@ -22,12 +22,17 @@ def handler(event, context):
     """
 
     # Get channels expiring in next 12 hours
-    expires_before = int(time.time()) + (12 * 3600)
+    expires_before = int(time.time() * 1000) + (12 * 3600 * 1000)
     channels = service.get_soon_to_expire_channels(
         table=table, expires_before=expires_before
     )
 
-    results = {"total": len(channels), "renewed": 0, "failed": 0, "errors": []}
+    results = {
+        "total": len(channels),
+        "renewed": 0,
+        "failed": 0,
+        "errors": [],
+    }
 
     for channel in channels:
         try:

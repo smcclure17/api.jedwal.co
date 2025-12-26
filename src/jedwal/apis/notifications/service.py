@@ -160,14 +160,14 @@ def handle_watch_notification(
     """Handle incoming Google Drive watch notification and fan out to user webhook."""
 
     if resource_state == "sync":
-        return {"ok": True, "message": "Sync/registration notification ignored"}
+        return  # skip initial registration message
 
     channel = repository.read_by_channel_id(table=table, channel_id=channel_id)
     if not channel:
         raise NotFoundException("Channel to notify not found")
 
     payload = {
-        "event": "spreadsheet.updated",  # TODO: are there other types?
+        "event": f"spreadsheet.{resource_state}",
         "channel_id": channel_id,
         "resource_id": resource_id,
         "resource_state": resource_state,
