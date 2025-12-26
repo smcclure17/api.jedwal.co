@@ -31,11 +31,9 @@ class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):
     """Main model of a watch channel"""
 
     channel_id: str = Field(..., description="The unique id of the watch channel")
-
     expires_at: int = Field(
         ..., description="The timestamp of when this watch channel expires"
     )
-
     resource_id: str = Field(
         ..., description="Google's resource ID for the watched file (from API response)"
     )
