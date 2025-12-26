@@ -5,8 +5,7 @@ from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import service
 from jedwal.apis.notifications.models import ApiWatchChannel, ApiWatchChannelCreate
 from jedwal.auth.service import VerifiedAccount
-from jedwal.common.exceptions import ConflictException, NotFoundException
-from jedwal.common.google_auth_fields import GoogleOauthFields
+from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
 
 authenticated_notifications_router = APIRouter(prefix="/notifications")
@@ -34,22 +33,9 @@ async def create_watch_channel(
     verified_account: VerifiedAccount,
 ):
     """Create or update a new watch channel for an API"""
-    existing_channel = service.get_watch_channel(
-        table=table,
-        owner_id=account_id,
-        api_key=request.api_key,
-        webhook_url=request.webhook_url,
+    return service.create_watch_channel(
+        table=table, watch_channel=request, account=verified_account
     )
-
-    if existing_channel:
-        raise ConflictException(detail="Watch channel already exists.")
-
-    auth = GoogleOauthFields.from_tokens(
-        access_token="SOME PLACEHOLDER TO FORCE REFRESH",
-        refresh_token_info=verified_account.refresh_token_info,
-    )
-    auth = auth.refresh_access_token()
-    return service.create_watch_channel(table=table, watch_channel=request, auth=auth)
 
 
 @authenticated_notifications_router.delete("/{channel_id}")
@@ -60,18 +46,12 @@ async def delete_watch_channel(
     table: DbTable,
     verified_account: VerifiedAccount,
 ):
-    auth = GoogleOauthFields.from_tokens(
-        access_token="SOME PLACEHOLDER TO FORCE REFRESH",
-        refresh_token_info=verified_account.refresh_token_info,
-    )
-    auth = auth.refresh_access_token()
-
     service.delete_watch_channel(
         table=table,
         owner_id=account_id,
         api_key=api_id,
         channel_id=channel_id,
-        auth=auth,
+        account=verified_account,
     )
 
 
@@ -85,9 +65,6 @@ async def watch(table: DbTable, request: Request):
     channel_id = request.headers.get("X-Goog-Channel-ID")
     resource_state = request.headers.get("X-Goog-Resource-State")
     resource_id = request.headers.get("X-Goog-Resource-ID")
-
-    if not channel_id:
-        raise NotFoundException("Channel not found.")
 
     service.handle_watch_notification(
         table=table,

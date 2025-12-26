@@ -7,7 +7,8 @@ from jedwal.apis import service as apis_service
 from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import repository, watch_api
 from jedwal.apis.notifications.models import ApiWatchChannel, ApiWatchChannelCreate
-from jedwal.common.exceptions import NotFoundException
+from jedwal.auth.service import VerifiedAccount
+from jedwal.common.exceptions import ConflictException, NotFoundException
 from jedwal.common.google_auth_fields import GoogleOauthFields
 from jedwal.config import settings
 from jedwal.database.core import DbTable, get_sqs_client
@@ -29,8 +30,25 @@ def get_watch_channel(
 
 
 def create_watch_channel(
-    *, table: DbTable, watch_channel: ApiWatchChannelCreate, auth: GoogleOauthFields
+    *, table: DbTable, watch_channel: ApiWatchChannelCreate, account: VerifiedAccount
 ):
+
+    existing_channel = get_watch_channel(
+        table=table,
+        owner_id=watch_channel.owner_id,
+        api_key=watch_channel.api_key,
+        webhook_url=watch_channel.webhook_url,
+    )
+
+    if existing_channel:
+        raise ConflictException(detail="Watch channel already exists.")
+
+    auth = GoogleOauthFields.from_tokens(
+        access_token="SOME PLACEHOLDER TO FORCE REFRESH",
+        refresh_token_info=account.refresh_token_info,
+    )
+    auth = auth.refresh_access_token()
+
     channel_id = ApiWatchChannel.create_channel_id(
         owner_id=watch_channel.owner_id,
         api_key=watch_channel.api_key,
@@ -87,8 +105,14 @@ def delete_watch_channel(
     owner_id: AccountId,
     api_key: ApiKey,
     channel_id: str,
-    auth: GoogleOauthFields,
+    account: VerifiedAccount,
 ):
+    auth = GoogleOauthFields.from_tokens(
+        access_token="SOME PLACEHOLDER TO FORCE REFRESH",
+        refresh_token_info=account.refresh_token_info,
+    )
+    auth = auth.refresh_access_token()
+
     watch_channel = read_by_channel_id(table=table, channel_id=channel_id)
     if watch_channel is None:
         raise NotFoundException("Could not find watch channel to delete")
@@ -146,9 +170,12 @@ def get_soon_to_expire_channels(*, table: DbTable, expires_before: int):
 
 
 def handle_watch_notification(
-    *, table: DbTable, channel_id: str, resource_state: str, resource_id: str
+    *, table: DbTable, channel_id: str | None, resource_state: str, resource_id: str
 ):
     """Handle incoming Google Drive watch notification and fan out to user webhook."""
+
+    if not channel_id:
+        raise NotFoundException("Channel not found.")
 
     if resource_state == "sync":
         return  # skip initial registration message
