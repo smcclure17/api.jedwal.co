@@ -28,7 +28,7 @@ async def get_watch_channels(
     return [ApiWatchChannelRead(**channel.model_dump()) for channel in channels]
 
 
-@authenticated_notifications_router.post("", response_model=ApiWatchChannel)
+@authenticated_notifications_router.post("", response_model=ApiWatchChannelRead)
 async def create_watch_channel(
     account_id: AccountId,
     request: ApiWatchChannelCreate,
@@ -36,9 +36,10 @@ async def create_watch_channel(
     verified_account: VerifiedAccount,
 ):
     """Create or update a new watch channel for an API"""
-    return service.create_watch_channel(
+    channel = service.create_watch_channel(
         table=table, watch_channel=request, account=verified_account
     )
+    return ApiWatchChannelRead(**channel.model_dump())
 
 
 @authenticated_notifications_router.delete("/{channel_id}")

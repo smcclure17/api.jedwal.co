@@ -59,11 +59,13 @@ def create_watch_channel(
         raise NotFoundException(detail="Could not find API to create notifications for")
 
     access_token = _get_refreshed_access_token(account=account)
+    channel_token = ApiWatchChannel.create_channel_token()
     google_channel = watch_api.register(
         bearer_token=access_token,
         google_drive_file_id=api.google_sheet_id,
         channel_id=channel_id,
         expiration=ApiWatchChannel.create_channel_expiration(),
+        channel_token=channel_token,
     )
 
     try:
@@ -72,7 +74,7 @@ def create_watch_channel(
             owner_id=watch_channel.owner_id,
             api_key=watch_channel.api_key,
             name=watch_channel.name,
-            channel_token=ApiWatchChannel.create_channel_token(),
+            channel_token=channel_token,
             expires_at=google_channel["expiration"],  # check this
             resource_id=google_channel["resourceId"],
             webhook_url=watch_channel.webhook_url,
