@@ -1,4 +1,5 @@
 import hashlib
+import time
 
 from pydantic import Field
 
@@ -25,6 +26,12 @@ class ApiWatchChannelBase(BaseSchema):
     def create_channel_id(owner_id: AccountId, api_key: ApiKey, webhook_url: str):
         webhook_hash = hashlib.sha256(webhook_url.encode()).hexdigest()[:10]
         return f"api_watch_channel_{owner_id}_{api_key}_{webhook_hash}"
+    
+
+    @staticmethod
+    def create_channel_expiration(hours=24):
+        """Generate a new expiration timestamp (in ms) for a watch channel"""
+        return int(time.time() * 1000) + (hours * 3600 * 1000)
 
 
 class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):

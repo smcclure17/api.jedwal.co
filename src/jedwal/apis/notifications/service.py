@@ -43,12 +43,6 @@ def create_watch_channel(
     if existing_channel:
         raise ConflictException(detail="Watch channel already exists.")
 
-    auth = GoogleOauthFields.from_tokens(
-        access_token="SOME PLACEHOLDER TO FORCE REFRESH",
-        refresh_token_info=account.refresh_token_info,
-    )
-    auth = auth.refresh_access_token()
-
     channel_id = ApiWatchChannel.create_channel_id(
         owner_id=watch_channel.owner_id,
         api_key=watch_channel.api_key,
@@ -62,12 +56,12 @@ def create_watch_channel(
     if api is None:
         raise NotFoundException(detail="Could not find API to create notifications for")
 
-    expiration = int(time.time() * 1000) + (24 * 3600 * 1000)
+    access_token = _get_refreshed_access_token(account=account)
     google_channel = watch_api.register(
-        bearer_token=auth.access_token,
+        bearer_token=access_token,
         google_drive_file_id=api.google_sheet_id,
         channel_id=channel_id,
-        expiration=expiration,
+        expiration=ApiWatchChannel.create_channel_expiration(),
     )
 
     try:
@@ -88,7 +82,7 @@ def create_watch_channel(
     except Exception as e:
         # rollback watch api registry if persisting fails
         watch_api.stop(
-            bearer_token=auth.access_token,
+            bearer_token=access_token,
             channel_id=channel_id,
             resource_id=google_channel["resourceId"],
         )
@@ -107,18 +101,12 @@ def delete_watch_channel(
     channel_id: str,
     account: VerifiedAccount,
 ):
-    auth = GoogleOauthFields.from_tokens(
-        access_token="SOME PLACEHOLDER TO FORCE REFRESH",
-        refresh_token_info=account.refresh_token_info,
-    )
-    auth = auth.refresh_access_token()
-
     watch_channel = read_by_channel_id(table=table, channel_id=channel_id)
     if watch_channel is None:
         raise NotFoundException("Could not find watch channel to delete")
 
     watch_api.stop(
-        bearer_token=auth.access_token,
+        bearer_token=_get_refreshed_access_token(account=account),
         channel_id=channel_id,
         resource_id=watch_channel.resource_id,
     )
@@ -206,3 +194,11 @@ def handle_watch_notification(
     sqs.send_message(
         QueueUrl=settings.webhook_queue_url, MessageBody=json.dumps(message_body)
     )
+
+
+def _get_refreshed_access_token(account: VerifiedAccount):
+    auth = GoogleOauthFields.from_tokens(
+        access_token="SOME PLACEHOLDER TO FORCE REFRESH",
+        refresh_token_info=account.refresh_token_info,
+    )
+    return auth.refresh_access_token().access_token
