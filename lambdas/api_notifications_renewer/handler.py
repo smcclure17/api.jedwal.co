@@ -1,6 +1,6 @@
 """Google Drive Watch API expires every 24 hours.
 
-This lambda runs every ~8 hours, looks for api watch channels expiring in the next 8 hours, and renews them
+This lambda runs every ~12 hours, looks for api watch channels expiring in the next 8 hours, and renews them
 
 Renews by deleting the old record and re-creating a new one.
 """
@@ -21,8 +21,8 @@ def handler(event, context):
     This handler is triggered by EventBridge cron (daily).
     """
 
-    # Get channels expiring in next 8 hours
-    expires_before = int(time.time()) + (8 * 3600)
+    # Get channels expiring in next 12 hours
+    expires_before = int(time.time()) + (12 * 3600)
     channels = service.get_soon_to_expire_channels(
         table=table, expires_before=expires_before
     )
