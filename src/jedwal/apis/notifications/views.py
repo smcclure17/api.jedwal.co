@@ -3,11 +3,7 @@ from fastapi import APIRouter, Request
 from jedwal.account.models import AccountId
 from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import service
-from jedwal.apis.notifications.models import (
-    ApiWatchChannel,
-    ApiWatchChannelCreate,
-    ApiWatchChannelRead,
-)
+from jedwal.apis.notifications.models import ApiWatchChannelCreate, ApiWatchChannelRead
 from jedwal.auth.service import VerifiedAccount
 from jedwal.database.core import DbTable
 
