@@ -32,6 +32,11 @@ Parameters:
     Description: ECR Image URI for the webhook processor function
     NoEcho: true
 
+  ApiWatchRenewerImageUri:
+    Type: String
+    Description: ECR Image URI for the API watch renewer lambda
+    NoEcho: true
+
   Environment:
     Type: String
     Description: Environment
@@ -742,6 +747,76 @@ Resources:
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt BillingLambdaDailyRule.Arn
+
+
+  # Watch API Renewer Function
+  LambdaApiWatchRenewerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref ApiWatchRenewerImageUri
+      Role: !GetAtt LambdaApiWatchRenewerFunctionExecutionRole.Arn
+      FunctionName: !Sub "${Environment}-sheetsapi-api-watch-renewer-lambda"
+      Timeout: 30
+      Environment:
+        Variables:
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
+          OAUTH_SECRET_TOKEN: !Ref OAuthSecretToken
+          ENVIRONMENT: !Ref Environment
+          SHEETS_API_TABLE: !Ref DynamoDBTableV2
+          SENTRY_DSN: !Ref SentryDSN
+          API_BASE_URL: !Ref ApiBaseUrl
+          CLIENT_BASE_URL: !Ref ClientBaseUrl
+          CLIENT_APP_BASE_URL: !Ref ClientAppBaseUrl
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          STRIPE_SUBSCRIPTION_PRICE_ID: !Ref StripeSubscriptionPriceId
+          STRIPE_USAGE_BASED_PRICE_ID: !Ref StripeUsageBasedPriceId
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CloudFrontDistributionId
+          COOKIE_ALLOWED_DOMAIN: !Ref CookieAllowedDomain
+          ENCRYPTION_KEY_ID: !Ref EncryptionKey
+          EMAILS_ENABLED: "true"
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          SES_DEFAULT_FROM_EMAIL: "hello@jedwal.co"
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+          IMAGE_STORAGE_BUCKET_URL: !Sub "https://${ImageStorageBucket}.s3.${AWS::Region}.amazonaws.com"
+          IMAGE_STORAGE_BUCKET: !Ref ImageStorageBucket
+
+
+  LambdaApiWatchRenewerFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+
+  LambdaApiWatchRenewerFunctionDailyRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${Environment}-api-watch-renewer-lambda-trigger"
+      Description: "Triggers API watch renewer Lambda every 12 hours"
+      ScheduleExpression: "cron(0 0/12 * * ? *)"  # Run every 12 hours (00:00 and 12:00 UTC)
+      Targets:
+        - Arn: !GetAtt LambdaApiWatchRenewerFunction.Arn
+          Id: "ApiWatchRenewerLambdaTarget"
+
+  LambdaApiWatchRenewerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaApiWatchRenewerFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt LambdaApiWatchRenewerFunctionDailyRule.Arn
+
 
   WebhookProcessorFunction:
     Type: AWS::Serverless::Function
