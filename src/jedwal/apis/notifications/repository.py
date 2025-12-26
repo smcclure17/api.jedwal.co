@@ -1,13 +1,12 @@
 from datetime import datetime
 
+from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb.service_resource import Table
 
 from jedwal.account.models import AccountId
 from jedwal.apis.models import ApiKey
-from botocore.exceptions import ClientError
-from jedwal.common.exceptions import ConflictException, NotFoundException
-
 from jedwal.apis.notifications.models import ApiWatchChannel
+from jedwal.common.exceptions import ConflictException, NotFoundException
 
 
 def to_item(*, watch_channel: ApiWatchChannel) -> dict:

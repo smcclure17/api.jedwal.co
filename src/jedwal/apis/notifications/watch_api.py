@@ -1,6 +1,5 @@
 import requests
 
-
 WATCH_CENTRAL_CALLBACK_URL = "https://api.jedwal.co/notifications"
 
 

@@ -1,17 +1,16 @@
-import time
 import json
+import time
 from datetime import UTC, datetime
+
 from jedwal.account.models import AccountId
+from jedwal.apis import service as apis_service
 from jedwal.apis.models import ApiKey
+from jedwal.apis.notifications import repository, watch_api
 from jedwal.apis.notifications.models import ApiWatchChannel, ApiWatchChannelCreate
 from jedwal.common.exceptions import NotFoundException
 from jedwal.common.google_auth_fields import GoogleOauthFields
-from jedwal.database.core import DbTable
 from jedwal.config import settings
-from jedwal.database.core import get_sqs_client
-from jedwal.apis.notifications import repository
-from jedwal.apis.notifications import watch_api
-from jedwal.apis import service as apis_service
+from jedwal.database.core import DbTable, get_sqs_client
 
 
 def get_watch_channels(*, table: DbTable, owner_id: AccountId, api_key: ApiKey):
@@ -41,7 +40,6 @@ def update_watch_channel(*, table: DbTable, watch_channel: ApiWatchChannel):
 def create_watch_channel(
     *, table: DbTable, watch_channel: ApiWatchChannelCreate, auth: GoogleOauthFields
 ):
-
     channel_id = ApiWatchChannel.create_channel_id(
         owner_id=watch_channel.owner_id,
         api_key=watch_channel.api_key,
@@ -100,7 +98,6 @@ def delete_watch_channel(
     channel_id: str,
     auth: GoogleOauthFields,
 ):
-
     watch_channel = read_by_channel_id(table=table, channel_id=channel_id)
     if watch_channel is None:
         raise NotFoundException("Could not find watch channel to delete")

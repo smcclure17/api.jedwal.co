@@ -10,10 +10,7 @@ import time
 from jedwal.apis import service as api_service
 from jedwal.apis.notifications import service
 from jedwal.common.google_auth_fields import GoogleOauthFields
-from jedwal.config import settings
-
 from jedwal.database.core import get_table
-
 
 table = get_table()
 

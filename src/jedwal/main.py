@@ -104,6 +104,7 @@ async def public_exception_handler(request: Request, exc: Exception):
 public_app.include_router(public_router)
 app.include_router(authenticated_router)
 
+
 @public_app.get("/")
 async def root():
     """Root endpoint."""
