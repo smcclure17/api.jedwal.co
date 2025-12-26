@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends
 
 from jedwal.account.views import account_router
 from jedwal.analytics.views import authenticated_analytics_router
+from jedwal.apis.notifications.views import public_api_notifications_router
 from jedwal.apis.views import authenticated_apis_router, public_apis_router
 from jedwal.auth.service import verify_account_access
 from jedwal.auth.views import auth_router
 from jedwal.billing.views import billing_router
-from jedwal.config.config import settings
 from jedwal.emails.views import public_email_router
 from jedwal.organizations.views import authenticated_organization_router
 from jedwal.posts.views import authenticated_posts_router, public_posts_router
@@ -43,6 +43,9 @@ async def health_check():
 # Public routes (accessible from any origin)
 public_router.include_router(public_email_router)
 public_router.include_router(public_account_router)
+# Add API notification/callback URL to the public router so
+# Google can hit it.
+public_router.include_router(public_api_notifications_router)
 
 # Authenticated routes (restricted CORS)
 authenticated_router.include_router(auth_router)

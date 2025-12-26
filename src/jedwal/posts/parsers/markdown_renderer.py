@@ -116,4 +116,3 @@ class MarkdownRenderer:
         indent = "    " * node.indent_level  # 4 spaces for indent level
         marker = f"{number}." if is_ordered else "-"
         return f"{indent}{marker} {content}"
-

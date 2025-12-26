@@ -11,6 +11,7 @@ from jedwal.apis.models import (
     ApiSpreadsheetDataRead,
     ApiUpdate,
 )
+from jedwal.apis.notifications.views import authenticated_notifications_router
 from jedwal.apis.worksheets.views import authenticated_worksheets_router
 from jedwal.auth.service import VerifiedAccount
 from jedwal.common.exceptions import NotFoundException
@@ -22,6 +23,9 @@ authenticated_apis_router = APIRouter(prefix="/apis", tags=["apis"])
 # Include worksheets router as a sub-router of APIs
 authenticated_apis_router.include_router(
     authenticated_worksheets_router, prefix="/{api_id}"
+)
+authenticated_apis_router.include_router(
+    authenticated_notifications_router, prefix="/{api_id}"
 )
 
 

@@ -70,6 +70,7 @@ class Settings(BaseSettings):
 
     # Webhooks & Queues
     webhook_queue_url: str
+    api_watch_channel_callback_url: str = "https://api.jedwal.co/notifications"
 
     # Image Storage
     image_storage_bucket: str

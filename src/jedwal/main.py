@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from jedwal.api import authenticated_account_router, public_account_router
+from jedwal.api import authenticated_router, public_router
 from jedwal.common import sentry
 from jedwal.config import settings
 
@@ -101,14 +101,11 @@ async def public_exception_handler(request: Request, exc: Exception):
 
 
 # Include routers
-public_app.include_router(public_account_router)
-app.include_router(authenticated_account_router)
-
-# Mount public app to allow cross-origin access
-app.mount("/", public_app)
+public_app.include_router(public_router)
+app.include_router(authenticated_router)
 
 
-@app.get("/")
+@public_app.get("/")
 async def root():
     """Root endpoint."""
     return {
@@ -116,6 +113,10 @@ async def root():
         "version": settings.app_version,
         "docs": "/docs",
     }
+
+
+# Mount public app to allow cross-origin access
+app.mount("/", public_app)
 
 
 mangumHandler = mangum.Mangum(app, lifespan="off")
