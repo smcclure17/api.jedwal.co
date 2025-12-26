@@ -10,6 +10,7 @@ def register(
     channel_id: str,
     expiration: int | None = None,
     callback_url=settings.api_watch_channel_callback_url,
+    channel_token: str | None = None
 ):
     """Register a watch channel to start collecting notifications for a file"""
     response = requests.post(
@@ -23,6 +24,7 @@ def register(
             "type": "webhook",
             "address": callback_url,
             "expiration": expiration,
+            "token": channel_token
         },
     )
     response.raise_for_status()

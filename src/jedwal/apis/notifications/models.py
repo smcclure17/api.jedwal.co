@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 import time
 
 from pydantic import Field
@@ -32,6 +33,10 @@ class ApiWatchChannelBase(BaseSchema):
         """Generate a new expiration timestamp (in ms) for a watch channel"""
         return int(time.time() * 1000) + (hours * 3600 * 1000)
 
+    @staticmethod
+    def create_channel_token():
+        """Generates a (secret) token used to verify incoming messages are not spoofed."""
+        return secrets.token_urlsafe(32)
 
 class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):
     """Main model of a watch channel"""
@@ -43,6 +48,13 @@ class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):
     resource_id: str = Field(
         ..., description="Google's resource ID for the watched file (from API response)"
     )
+    channel_token: str = Field(..., description="The secret token used to verify requests for this channel")
+
+
+class ApiWatchChannelRead(ApiWatchChannelBase, TimestampMixin):
+    """Response model of a watch channel"""
+
+    channel_id: str = Field(..., description="The unique id of the watch channel")
 
 
 class ApiWatchChannelCreate(ApiWatchChannelBase):

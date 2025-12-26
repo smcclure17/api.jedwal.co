@@ -3,7 +3,11 @@ from fastapi import APIRouter, Request
 from jedwal.account.models import AccountId
 from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import service
-from jedwal.apis.notifications.models import ApiWatchChannel, ApiWatchChannelCreate
+from jedwal.apis.notifications.models import (
+    ApiWatchChannel,
+    ApiWatchChannelCreate,
+    ApiWatchChannelRead,
+)
 from jedwal.auth.service import VerifiedAccount
 from jedwal.database.core import DbTable
 
@@ -11,7 +15,7 @@ authenticated_notifications_router = APIRouter(prefix="/notifications")
 public_api_notifications_router = APIRouter(prefix="/notifications")
 
 
-@authenticated_notifications_router.get("", response_model=list[ApiWatchChannel])
+@authenticated_notifications_router.get("", response_model=list[ApiWatchChannelRead])
 async def get_watch_channels(
     account_id: AccountId,
     api_id: ApiKey,
@@ -21,7 +25,7 @@ async def get_watch_channels(
     channels = service.get_watch_channels(
         table=table, owner_id=account_id, api_key=api_id
     )
-    return channels
+    return [ApiWatchChannelRead(**channel.model_dump()) for channel in channels]
 
 
 @authenticated_notifications_router.post("", response_model=ApiWatchChannel)
@@ -64,6 +68,7 @@ async def watch(table: DbTable, request: Request):
     channel_id = request.headers.get("X-Goog-Channel-ID")
     resource_state = request.headers.get("X-Goog-Resource-State")
     resource_id = request.headers.get("X-Goog-Resource-ID")
+    channel_token = request.headers.get("X-Goog-Channel-Token")
 
     service.handle_watch_notification(
         table=table,
