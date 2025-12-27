@@ -12,7 +12,9 @@ from jedwal.api import authenticated_router, public_router
 from jedwal.common import sentry
 from jedwal.config import settings
 
-sentry.init()
+
+if settings.environment == "prod":
+    sentry.init()
 
 
 @asynccontextmanager
