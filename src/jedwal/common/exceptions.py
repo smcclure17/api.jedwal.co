@@ -15,7 +15,7 @@ class NotFoundException(HTTPException):
 class BadRequestException(HTTPException):
     """Bad request exception."""
 
-    def __init__(self, detail: str = "Bad request"):
+    def __init__(self, detail: str | list = "Bad request"):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
@@ -40,3 +40,24 @@ class ConflictException(HTTPException):
         if detail is None:
             detail = [{"msg": "Resource already exist"}]
         super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+class QuotaExceededException(HTTPException):
+    """Account exceeded allowed quota exception"""
+
+    def __init__(self, detail: str = "Quota exceeded"):
+        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+
+class UnsupportedMediaTypeException(HTTPException):
+    def __init__(self, detail: str | list = "Unsupported media type"):
+        super().__init__(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=detail
+        )
+
+
+class UnprocessableContentException(HTTPException):
+    def __init__(self, detail: str | list = "Unsupported media type"):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail
+        )

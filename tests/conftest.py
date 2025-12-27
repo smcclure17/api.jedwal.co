@@ -127,6 +127,16 @@ def dynamodb_table(aws_credentials) -> Generator[Table]:
         yield table
 
 
+@pytest.fixture(scope="function")
+def sqs_client(aws_credentials):
+    """Create a mock SQS client for testing."""
+    with mock_aws():
+        sqs = boto3.client("sqs", region_name="us-east-1")
+        # Create the queue that's configured in test settings
+        queue_url = sqs.create_queue(QueueName="test-queue")["QueueUrl"]
+        yield sqs
+
+
 @pytest.fixture
 def sample_refresh_token_info() -> RefreshTokenInfo:
     """Create a sample RefreshTokenInfo for testing."""

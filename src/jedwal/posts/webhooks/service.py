@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 
 from jedwal.account.models import AccountId
 from jedwal.config import settings
-from jedwal.database.core import DbTable, get_sqs_client
+from jedwal.database.core import DbTable, SqSClient, get_sqs_client
 from jedwal.posts.models import PostKey
 from jedwal.posts.webhooks import repository
 from jedwal.posts.webhooks.models import Webhook, WebhooksRead
@@ -59,7 +59,7 @@ def delete_webhook_from_post(
 
 
 def trigger_webhooks_for_post(
-    *, table: DbTable, owner_id: AccountId, post_id: PostKey
+    *, table: DbTable, queue: SqSClient, owner_id: AccountId, post_id: PostKey
 ) -> int:
     """
     Trigger all webhooks for a specific document API.
@@ -90,6 +90,7 @@ def trigger_webhooks_for_post(
 
         for webhook in webhooks:
             success = _create_webhook_event(
+                queue=queue,
                 webhook_url=webhook.url,
                 method=webhook.method,
                 payload=event_payload,
@@ -111,6 +112,7 @@ def trigger_webhooks_for_post(
 
 
 def _create_webhook_event(
+    queue: SqSClient,
     webhook_url: str,
     method: str,
     payload: dict,
@@ -120,7 +122,6 @@ def _create_webhook_event(
 ) -> bool:
     """Send a webhook event to the SQS queue for processing."""
     try:
-        sqs = get_sqs_client()
         message_body = {
             "webhookUrl": webhook_url,
             "method": method,
@@ -131,7 +132,7 @@ def _create_webhook_event(
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
-        sqs.send_message(
+        queue.send_message(
             QueueUrl=settings.webhook_queue_url, MessageBody=json.dumps(message_body)
         )
         return True

@@ -548,6 +548,7 @@ dependencies = [
     { name = "httpx" },
     { name = "itsdangerous" },
     { name = "mangum" },
+    { name = "mypy-boto3-sqs" },
     { name = "orjson" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-settings" },
@@ -581,6 +582,7 @@ requires-dist = [
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "mangum", specifier = ">=0.19.0" },
     { name = "moto", extras = ["dynamodb"], marker = "extra == 'dev'", specifier = ">=5.0.0" },
+    { name = "mypy-boto3-sqs", specifier = ">=1.42.3" },
     { name = "orjson", specifier = ">=3.11.4" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.9.0" },
     { name = "pydantic-settings", specifier = ">=2.5.0" },
@@ -714,6 +716,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8a/20/b543f76de1e5744b32d9051716ce464e595765b5aadac7ac36e24363a986/mypy_boto3_dynamodb-1.40.56.tar.gz", hash = "sha256:576dd12fe1125754066e7fa480f92c123220970a9d69f7663a56d701f2978ac5", size = 47972, upload-time = "2025-10-21T20:35:02.447Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/32/93/2bb83680398a28cbc729e120c4ae745adf76d7a20f31499189cce2a46485/mypy_boto3_dynamodb-1.40.56-py3-none-any.whl", hash = "sha256:3bf3f541a0d21c249109dd65f18c61b3e6a0fe7124b3afe989877d5cca42b65a", size = 56996, upload-time = "2025-10-21T20:34:54.187Z" },
+]
+
+[[package]]
+name = "mypy-boto3-sqs"
+version = "1.42.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/e4/e326b1072218996c5cb4c3969eb4bbf1fb67a89937974febdebe7bf9d98a/mypy_boto3_sqs-1.42.3.tar.gz", hash = "sha256:699995b9a6f69a97c6d3e9126a76f06751e3b405640174fe7c20fe71d9ddc82a", size = 23267, upload-time = "2025-12-04T21:13:27.326Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/fb/216fe53352b7f4abfafe25bb38a1cdba224b0280d552c789da592aa21bd2/mypy_boto3_sqs-1.42.3-py3-none-any.whl", hash = "sha256:a1f4ddf8f84112931a4814f0b5ff63e3ec026a07fbbc68e60bf15fa697dc214e", size = 33507, upload-time = "2025-12-04T21:13:23.725Z" },
 ]
 
 [[package]]

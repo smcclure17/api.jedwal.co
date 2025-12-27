@@ -3,7 +3,7 @@ from fastapi import APIRouter, Response, status
 from jedwal.account.models import AccountId
 from jedwal.auth.service import VerifiedAccount
 from jedwal.common.exceptions import NotFoundException
-from jedwal.database.core import DbTable
+from jedwal.database.core import DbTable, SqSClient
 from jedwal.posts import service
 from jedwal.posts.categories.views import authenticated_categories_router
 from jedwal.posts.models import (
@@ -83,9 +83,11 @@ async def refresh_post_data(
     account_id: AccountId,
     post_id: PostKey,
     table: DbTable,
+    queue: SqSClient,
     image_handler: service.PostImageHandler,
 ):
     service.refresh_post_data(
+        queue=queue,
         table=table,
         owner_id=account_id,
         post_id=post_id,
@@ -124,10 +126,7 @@ async def create_post(
         refresh_token_info=verified_account.refresh_token_info,
     )
 
-    account = service.create_post(
-        table=table, post_create=post_create, image_handler=image_handler
-    )
-
+    account = service.create_post(table=table, post_create=post_create, image_handler=image_handler)
     return {"post_key": account.post_key}
 
 

@@ -1,8 +1,7 @@
 """Service layer for category operations."""
 
-from fastapi import HTTPException, status
-
 from jedwal.account.models import AccountId
+from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
 from jedwal.posts import repository as posts_repository
 from jedwal.posts.categories import repository
@@ -21,8 +20,7 @@ def add_category_to_post(
     # Verify post exists and get current categories
     post = posts_repository.get_post(table=table, owner_id=owner_id, post_id=post_key)
     if post is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+        raise NotFoundException(
             detail=f"Post with key {post_key} not found",
         )
 
@@ -81,10 +79,7 @@ def get_categories_for_post(
     # Get post with denormalized categories
     post = posts_repository.get_post(table=table, owner_id=owner_id, post_id=post_key)
     if post is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Post with key {post_key} not found",
-        )
+        raise NotFoundException(detail=f"Post with key {post_key} not found")
 
     # Try denormalized categories first (fast path)
     if post.categories is not None:

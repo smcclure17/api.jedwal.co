@@ -67,6 +67,7 @@ class PostRead(PostBase):
     title: str
     google_doc_id: str
     categories: list[str] | None = Field(default=None, description="Post categories")
+    frozen: bool = Field(default=False, description="Whether post is frozen/disabled")
 
 
 class PostDocumentDataRead(PostBase):

@@ -5,7 +5,7 @@ from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import service
 from jedwal.apis.notifications.models import ApiWatchChannelCreate, ApiWatchChannelRead
 from jedwal.auth.service import VerifiedAccount
-from jedwal.database.core import DbTable
+from jedwal.database.core import DbTable, SqSClient
 
 authenticated_notifications_router = APIRouter(prefix="/notifications")
 public_api_notifications_router = APIRouter(prefix="/notifications")
@@ -58,7 +58,7 @@ async def delete_watch_channel(
 # If we change the path/signature for this make sure to update the
 # "api_watch_channel_callback_url" config variable to match the new route.
 @public_api_notifications_router.post("")
-async def watch(table: DbTable, request: Request):
+async def watch(table: DbTable, queue: SqSClient, request: Request):
     """Receive Google Drive watch notifications and fan out to user webhooks."""
 
     # Google sends channel info in headers
@@ -69,6 +69,7 @@ async def watch(table: DbTable, request: Request):
 
     service.handle_watch_notification(
         table=table,
+        queue=queue,
         channel_id=channel_id,
         resource_state=resource_state or "unknown",
         resource_id=resource_id or "",

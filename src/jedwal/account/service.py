@@ -1,9 +1,9 @@
-from fastapi import HTTPException, status
 from pydantic import EmailStr
 
 from jedwal.account import repository
 from jedwal.account.models import Account, AccountRead
 from jedwal.common.email_templates import build_owner_alert_email, build_welcome_email
+from jedwal.common.exceptions import BadRequestException, NotFoundException
 from jedwal.config import settings
 from jedwal.database.core import DbTable
 from jedwal.emails import service as email_service
@@ -22,9 +22,7 @@ def get_account(*, table: DbTable, id: str) -> Account | None:
 def get_account_or_organization_read(*, table: DbTable, id: str) -> AccountRead:
     account = repository.get_account_or_organization(table=table, id=id)
     if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=[{"msg": "Account not found"}]
-        ) from None
+        raise NotFoundException(detail="Account not found") from None
     return AccountRead.from_account_or_org(account=account)
 
 
@@ -52,9 +50,7 @@ def create_account(*, table: DbTable, account: Account):
 def get_account_read(*, table: DbTable, id: str) -> AccountRead:
     account = repository.get_account(table=table, id=id)
     if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=[{"msg": "Account not found"}]
-        ) from None
+        raise NotFoundException(detail="Account not found") from None
     return AccountRead.from_account(account)
 
 
@@ -63,8 +59,7 @@ def delete_account(*, table: DbTable, id: str) -> None:
 
     account = repository.get_account(table=table, id=id)
     if account is None:
-        raise HTTPException(
-            status_code=400,
+        raise BadRequestException(
             detail=[
                 {
                     "msg": "Cannot delete organization from this endpoint. "
