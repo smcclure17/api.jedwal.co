@@ -53,7 +53,7 @@ for key, value in test_overrides.items():
 test_defaults = {
     "GOOGLE_CLIENT_ID": "test-client-id",
     "GOOGLE_CLIENT_SECRET": "test-client-secret",
-    "TEST_DATA_REFRESH_INFO": "{'some': 'data'}"
+    "TEST_DATA_REFRESH_INFO": "{'some': 'data'}",
 }
 for key, value in test_defaults.items():
     os.environ.setdefault(key, value)
