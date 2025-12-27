@@ -5,24 +5,24 @@ looks for api watch channels expiring in the next 12 hours,
 and renews them
 """
 
-import time
-
 from jedwal.apis import service as api_service
 from jedwal.apis.notifications import service
+from jedwal.apis.notifications.models import ApiWatchChannel
+from jedwal.common.encryption import service as encryption_service
 from jedwal.common.google_auth_fields import GoogleOauthFields
 from jedwal.database.core import get_table
 
 table = get_table()
+encryption = encryption_service.get_encryption_service()
 
 
 def handler(event, context):
     """Renew all watch channels expiring in the next 12 hours.
 
-    This handler is triggered by EventBridge cron (daily).
+    This handler is triggered by EventBridge cron (every 12 hours).
     """
 
-    # Get channels expiring in next 12 hours
-    expires_before = int(time.time() * 1000) + (12 * 3600 * 1000)
+    expires_before = ApiWatchChannel.create_channel_expiration(hours=12)
     channels = service.get_soon_to_expire_channels(
         table=table, expires_before=expires_before
     )
@@ -45,17 +45,17 @@ def handler(event, context):
 
             # Refresh OAuth token
             auth = GoogleOauthFields.from_tokens(
-                access_token="placeholder", refresh_token_info=api.refresh_token_info
+                access_token="placeholder",
+                refresh_token_info=api.refresh_token_info,
+                encryption=encryption,
             )
             auth = auth.refresh_access_token()
 
-            # Calculate new expiration (24 hours from now, in milliseconds)
-            new_expiration = int(time.time() * 1000) + (24 * 3600 * 1000)
             service.renew_watch_channel(
                 table=table,
                 channel=channel,
                 auth=auth,
-                new_expiration=new_expiration,
+                new_expiration=ApiWatchChannel.create_channel_expiration(),
             )
 
             results["renewed"] += 1

@@ -8,6 +8,7 @@ from jedwal.account import service as account_service
 from jedwal.account.models import AccountId
 from jedwal.common.encryption.service import Encryption
 from jedwal.common.exceptions import ConflictException, UnsupportedMediaTypeException
+from jedwal.config import settings
 from jedwal.database.core import DbTable, SqSClient
 from jedwal.entitlements import service as entitlements_service
 from jedwal.posts import repository
@@ -18,10 +19,12 @@ from jedwal.posts.parsers.image_handler import ImageHandler
 
 
 def get_image_handler():
-    return ImageHandler()
+    if settings.enable_internal_image_hosting:
+        return ImageHandler()
+    return None  # don't re-host images, keep google storage urls
 
 
-PostImageHandler = Annotated[ImageHandler, Depends(get_image_handler)]
+PostImageHandler = Annotated[ImageHandler | None, Depends(get_image_handler)]
 
 
 def get_post(*, table: DbTable, owner_id: AccountId, post_id: PostKey) -> Post:
@@ -65,7 +68,7 @@ def create_post(
     table: DbTable,
     encryption: Encryption,
     post_create: PostCreate,
-    image_handler: ImageHandler,
+    image_handler: PostImageHandler,
 ) -> Post:
     account = account_service.get_account(table=table, id=post_create.owner_id)
     existing_posts = repository.get_posts_by_owner(
