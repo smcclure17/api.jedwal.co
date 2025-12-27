@@ -4,6 +4,8 @@ import os
 from collections.abc import Generator
 from datetime import UTC, datetime
 
+from jedwal.posts.models import Post
+
 # Set test environment variables BEFORE importing application code.
 # This ensures Settings loads test values instead of requiring .env file.
 # Some values we want to load real values from the environment, others
@@ -260,4 +262,23 @@ def sample_billing_info() -> BillingInfo:
         billing_end=datetime(2025, 2, 1, 0, 0, 0, tzinfo=UTC),
         stripe_customer_id="cus_test123",
         stripe_subscription_id="sub_test456",
+    )
+
+
+@pytest.fixture
+def sample_post(sample_refresh_token_info) -> Post:
+    """Create a sample post for testing."""
+    return Post(
+        post_key="test-post-key",
+        owner_id="test-user-123",
+        google_doc_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+        refresh_token_info=sample_refresh_token_info,
+        frozen=False,
+        created_at=datetime(2024, 1, 1, 12, 0, 0),
+        updated_at=datetime(2024, 1, 1, 12, 0, 0),
+        google_doc_ast="{'root': node}",
+        google_doc_payload="{'raw': 'json from google'}",
+        title="fake title",
+        categories=[],
+        creator="me",
     )

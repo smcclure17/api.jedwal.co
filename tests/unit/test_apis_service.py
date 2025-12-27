@@ -1,5 +1,6 @@
 """Unit tests for APIs service layer."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 from jedwal.apis import service
@@ -171,3 +172,57 @@ def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account
         )
         assert retrieved is not None
         assert retrieved.api_key == "test-generated-key"
+
+
+def test_freeze_apis_for_account(dynamodb_table, sample_api):
+    from jedwal.apis import repository
+
+    account_id = sample_api.owner_id
+    limit = 2
+
+    # setup/create sample apis
+    for i, char in enumerate(["a", "b", "c", "d"]):
+        new_api = sample_api.model_copy(
+            update={
+                "api_key": sample_api.api_key + char,
+                "google_sheet_id": sample_api.google_sheet_id + char,
+                "created_at": datetime(2025, 1, 1, tzinfo=UTC) + timedelta(days=i),
+            }
+        )
+        repository.create_api(table=dynamodb_table, api=new_api)
+    service.freeze_apis_for_account(
+        table=dynamodb_table, owner_id=account_id, limit=limit
+    )
+
+    # now check they froze the correct ones
+    apis = repository.get_apis_by_owner(table=dynamodb_table, owner_id=account_id)
+    sorted_apis = sorted(apis, key=lambda api: api.created_at, reverse=True)
+
+    frozen = sorted_apis[:limit]
+    unfrozen = sorted_apis[limit:]
+    assert all(api.frozen for api in frozen)
+    assert all(not api.frozen for api in unfrozen)
+
+
+def test_unfreeze_apis_for_account(dynamodb_table, sample_api):
+    from jedwal.apis import repository
+
+    account_id = sample_api.owner_id
+
+    # setup/create sample apis. Some frozen, some not
+    for i, api in enumerate([("a", True), ("b", True), ("c", True), ("d", False)]):
+        char, frozen = api
+        new_api = sample_api.model_copy(
+            update={
+                "api_key": sample_api.api_key + char,
+                "google_sheet_id": sample_api.google_sheet_id + char,
+                "created_at": datetime(2025, 1, 1, tzinfo=UTC) + timedelta(days=i),
+                "frozen": frozen,
+            }
+        )
+        repository.create_api(table=dynamodb_table, api=new_api)
+    service.unfreeze_apis_for_account(table=dynamodb_table, owner_id=account_id)
+
+    # make sure all are unfrozen
+    apis = repository.get_apis_by_owner(table=dynamodb_table, owner_id=account_id)
+    assert all(not api.frozen for api in apis)
