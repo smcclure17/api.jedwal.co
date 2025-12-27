@@ -38,7 +38,11 @@ class GoogleDocs:
             refresh_token_info=info,
         )
         auth = auth.refresh_access_token()  # eventually we should fix/skip this
-        return GoogleDocs(creds=auth.google_oauth_creds, session=requests.Session())
+        return GoogleDocs(
+            creds=auth.google_oauth_creds,
+            session=requests.Session(),
+            encryption=encryption,
+        )
 
     @classmethod
     def from_auth(cls, auth: GoogleOauthFields):

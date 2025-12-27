@@ -84,7 +84,7 @@ def delete_all_worksheets_for_api(
 
 
 def get_google_worksheets_for_api(
-    *, table: DbTable, owner_id: AccountId, api_key: ApiKey
+    *, table: DbTable, encryption: Encryption, owner_id: AccountId, api_key: ApiKey
 ) -> list[gspread.Worksheet]:
     """Get all live worksheet objects from Google Sheets for an API.
 
@@ -95,7 +95,7 @@ def get_google_worksheets_for_api(
     if api is None:
         raise NotFoundException(detail=[{"msg": "Api Not Found"}]) from None
     gspread_client = google_sheets.gspread_from_refresh_token_info(
-        refresh_token_info=api.refresh_token_info
+        refresh_token_info=api.refresh_token_info, encryption=encryption
     )
     spreadsheet = google_sheets.open_spreadsheet(
         gspread_client=gspread_client, sheet_id=api.google_sheet_id

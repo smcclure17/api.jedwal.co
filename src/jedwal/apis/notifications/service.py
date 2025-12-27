@@ -7,6 +7,7 @@ from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import repository, watch_api
 from jedwal.apis.notifications.models import ApiWatchChannel, ApiWatchChannelCreate
 from jedwal.auth.service import VerifiedAccount
+from jedwal.common.encryption.service import Encryption, EncryptionService
 from jedwal.common.exceptions import (
     BadRequestException,
     ConflictException,
@@ -33,7 +34,11 @@ def get_watch_channel(
 
 
 def create_watch_channel(
-    *, table: DbTable, watch_channel: ApiWatchChannelCreate, account: VerifiedAccount
+    *,
+    table: DbTable,
+    encryption: Encryption,
+    watch_channel: ApiWatchChannelCreate,
+    account: VerifiedAccount,
 ):
     existing_channel = get_watch_channel(
         table=table,
@@ -58,7 +63,7 @@ def create_watch_channel(
     if api is None:
         raise NotFoundException(detail="Could not find API to create notifications for")
 
-    access_token = _get_refreshed_access_token(account=account)
+    access_token = _get_refreshed_access_token(account=account, encryption=encryption)
     channel_token = ApiWatchChannel.create_channel_token()
     google_channel = watch_api.register(
         bearer_token=access_token,
@@ -105,13 +110,16 @@ def delete_watch_channel(
     api_key: ApiKey,
     channel_id: str,
     account: VerifiedAccount,
+    encryption: Encryption,
 ):
     watch_channel = read_by_channel_id(table=table, channel_id=channel_id)
     if watch_channel is None:
         raise NotFoundException("Could not find watch channel to delete")
 
     watch_api.stop(
-        bearer_token=_get_refreshed_access_token(account=account),
+        bearer_token=_get_refreshed_access_token(
+            account=account, encryption=encryption
+        ),
         channel_id=channel_id,
         resource_id=watch_channel.resource_id,
     )
@@ -210,9 +218,12 @@ def handle_watch_notification(
     )
 
 
-def _get_refreshed_access_token(account: VerifiedAccount):
+def _get_refreshed_access_token(
+    account: VerifiedAccount, encryption: EncryptionService
+):
     auth = GoogleOauthFields.from_tokens(
         access_token="SOME PLACEHOLDER TO FORCE REFRESH",
         refresh_token_info=account.refresh_token_info,
+        encryption=encryption,
     )
     return auth.refresh_access_token().access_token

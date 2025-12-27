@@ -98,6 +98,7 @@ class GoogleOauthFields:
         new_access_token = token_response["access_token"]
 
         return GoogleOauthFields(
+            encryption=self.encryption,
             access_token=new_access_token,
             refresh_token_info=self.refresh_token_info,
             token_uri=self.token_uri,
