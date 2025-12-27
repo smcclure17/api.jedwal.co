@@ -12,10 +12,7 @@ authenticated_worksheets_router = APIRouter(prefix="/worksheets")
 
 @authenticated_worksheets_router.get("", response_model=WorksheetNamesRead)
 async def get_worksheets_for_api(
-    account_id: AccountId,
-    api_id: ApiKey,
-    table: DbTable,
-    encryption: Encryption
+    account_id: AccountId, api_id: ApiKey, table: DbTable, encryption: Encryption
 ):
     """Get all worksheet names for an API from cache.
 
