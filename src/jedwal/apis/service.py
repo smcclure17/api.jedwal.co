@@ -8,6 +8,7 @@ from jedwal.account.models import AccountId
 from jedwal.apis import google_sheets, repository
 from jedwal.apis.models import Api, ApiCreate, ApiKey, ApiRead, ApiUpdate
 from jedwal.apis.worksheets import service as worksheet_service
+from jedwal.common.encryption.service import Encryption, EncryptionService
 from jedwal.common.exceptions import (
     ConflictException,
     ForbiddenException,
@@ -21,9 +22,11 @@ def get_api(*, table: DbTable, owner_id: AccountId, api_id: ApiKey) -> Api | Non
     return repository.get_api(table=table, owner_id=owner_id, api_id=api_id)
 
 
-def get_api_spreadsheet(*, api: Api) -> gspread.Spreadsheet:
+def get_api_spreadsheet(
+    *, api: Api, encryption: EncryptionService
+) -> gspread.Spreadsheet:
     gspread_client = google_sheets.gspread_from_refresh_token_info(
-        refresh_token_info=api.refresh_token_info
+        refresh_token_info=api.refresh_token_info, encryption=encryption
     )
     return google_sheets.open_spreadsheet(
         gspread_client=gspread_client, sheet_id=api.google_sheet_id
@@ -31,7 +34,11 @@ def get_api_spreadsheet(*, api: Api) -> gspread.Spreadsheet:
 
 
 def get_api_data(
-    *, table: DbTable, api: Api, worksheet_name: str | None = None
+    *,
+    table: DbTable,
+    encryption: Encryption,
+    api: Api,
+    worksheet_name: str | None = None,
 ) -> dict:
     """Get data from a sheet API with caching."""
     from jedwal.apis.worksheets import service as worksheet_service
@@ -43,11 +50,15 @@ def get_api_data(
     # along to get_worksheet_data to avoid double fetching
     spreadsheet = None
     if worksheet_name is None:
-        spreadsheet = get_api_spreadsheet(api=api)
+        spreadsheet = get_api_spreadsheet(api=api, encryption=encryption)
         worksheet_name = spreadsheet.sheet1.title
 
     data, expires_at = worksheet_service.get_worksheet_data(
-        table=table, api=api, worksheet_name=worksheet_name, spreadsheet=spreadsheet
+        table=table,
+        api=api,
+        worksheet_name=worksheet_name,
+        spreadsheet=spreadsheet,
+        encryption=encryption,
     )
 
     return {
@@ -68,7 +79,7 @@ def get_apis_for_account(*, table: DbTable, owner_id: AccountId) -> list[ApiRead
     return [ApiRead(**api.model_dump()) for api in apis]
 
 
-def create_api(*, table: DbTable, api_create: ApiCreate) -> Api:
+def create_api(*, table: DbTable, encryption: Encryption, api_create: ApiCreate) -> Api:
     account = account_service.get_account(table=table, id=api_create.owner_id)
     existing_apis = repository.get_apis_by_owner(
         table=table, owner_id=api_create.owner_id
@@ -87,7 +98,7 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> Api:
         ) from None
 
     gspread_client = google_sheets.gspread_from_refresh_token_info(
-        refresh_token_info=api_create.refresh_token_info
+        refresh_token_info=api_create.refresh_token_info, encryption=encryption
     )
 
     try:
@@ -162,7 +173,7 @@ def delete_api(*, table: DbTable, owner_id: AccountId, api_id: ApiKey):
 
 
 def refresh_spreadsheet_title(
-    *, table: DbTable, owner_id: AccountId, api_id: ApiKey
+    *, table: DbTable, encryption: Encryption, owner_id: AccountId, api_id: ApiKey
 ) -> Api:
     """
     Refresh the cached spreadsheet title from Google Sheets.
@@ -176,7 +187,7 @@ def refresh_spreadsheet_title(
         Updated Api with fresh spreadsheet title
     """
     api = get_api(table=table, owner_id=owner_id, api_id=api_id)
-    spreadsheet = get_api_spreadsheet(api=api)
+    spreadsheet = get_api_spreadsheet(api=api, encryption=encryption)
 
     return repository.update_api(
         table=table,

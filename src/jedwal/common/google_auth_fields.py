@@ -6,7 +6,7 @@ import requests
 from google.oauth2.credentials import Credentials
 
 from jedwal.account.models import RefreshTokenInfo
-from jedwal.common.encryption import EnvelopeEncryption
+from jedwal.common.encryption.service import EncryptionService
 from jedwal.config import settings
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class GoogleOauthFields:
         client_secret: Auth app client secret.
     """
 
+    encryption: EncryptionService
     access_token: str
     refresh_token_info: RefreshTokenInfo
     token_uri: str
@@ -32,9 +33,9 @@ class GoogleOauthFields:
 
     @cached_property
     def google_oauth_creds(self):
-        refresh_token = EnvelopeEncryption.decrypt(
-            encrypted_data_b64=self.refresh_token_info.encrypted_refresh_token,
-            encrypted_key_b64=self.refresh_token_info.data_encryption_key,
+        refresh_token = self.encryption.decrypt(
+            encrypted_data=self.refresh_token_info.encrypted_refresh_token,
+            encrypted_key=self.refresh_token_info.data_encryption_key,
             context=self.refresh_token_info.context,
         )
 
@@ -48,7 +49,10 @@ class GoogleOauthFields:
 
     @classmethod
     def from_tokens(
-        cls, access_token: str, refresh_token_info: RefreshTokenInfo
+        cls,
+        encryption: EncryptionService,
+        access_token: str,
+        refresh_token_info: RefreshTokenInfo,
     ) -> "GoogleOauthFields":
         """Create instance from access and refresh tokens and other default values.
 
@@ -61,6 +65,7 @@ class GoogleOauthFields:
         """
 
         return cls(
+            encryption=encryption,
             access_token=access_token,
             refresh_token_info=refresh_token_info,
             token_uri="https://oauth2.googleapis.com/token",
@@ -70,9 +75,9 @@ class GoogleOauthFields:
 
     def refresh_access_token(self) -> "GoogleOauthFields":
         """Refresh the access token using the stored refresh token."""
-        refresh_token = EnvelopeEncryption.decrypt(
-            encrypted_data_b64=self.refresh_token_info.encrypted_refresh_token,
-            encrypted_key_b64=self.refresh_token_info.data_encryption_key,
+        refresh_token = self.encryption.decrypt(
+            encrypted_data=self.refresh_token_info.encrypted_refresh_token,
+            encrypted_key=self.refresh_token_info.data_encryption_key,
             context=self.refresh_token_info.context,
         )
 

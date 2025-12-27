@@ -12,7 +12,7 @@ from jedwal.apis.worksheets.models import WorksheetCreate
 
 
 def test_get_worksheet_data_cache_hit(
-    dynamodb_table, sample_api, sample_worksheet_create
+    dynamodb_table, sample_api, sample_worksheet_create, sample_passthrough_encryption
 ):
     """Test that get_worksheet_data returns cached data when cache is fresh."""
     # Save fresh worksheet to cache
@@ -26,7 +26,10 @@ def test_get_worksheet_data_cache_hit(
         "jedwal.apis.service.get_api_spreadsheet", return_value=mock_spreadsheet
     ):
         data, expires_at = service.get_worksheet_data(
-            table=dynamodb_table, api=sample_api, worksheet_name="Sheet1"
+            table=dynamodb_table,
+            api=sample_api,
+            worksheet_name="Sheet1",
+            encryption=sample_passthrough_encryption,
         )
 
     # Should return cached data
@@ -37,7 +40,9 @@ def test_get_worksheet_data_cache_hit(
     mock_spreadsheet.worksheet.assert_not_called()
 
 
-def test_get_worksheet_data_cache_miss(dynamodb_table, sample_api):
+def test_get_worksheet_data_cache_miss(
+    dynamodb_table, sample_api, sample_passthrough_encryption
+):
     """Test that get_worksheet_data fetches from Google when cache is missing."""
     # Mock Google Sheets API
     mock_worksheet = Mock()
@@ -50,7 +55,10 @@ def test_get_worksheet_data_cache_miss(dynamodb_table, sample_api):
         "jedwal.apis.service.get_api_spreadsheet", return_value=mock_spreadsheet
     ):
         data, expires_at = service.get_worksheet_data(
-            table=dynamodb_table, api=sample_api, worksheet_name="Sheet1"
+            table=dynamodb_table,
+            api=sample_api,
+            worksheet_name="Sheet1",
+            encryption=sample_passthrough_encryption,
         )
 
     # Should return fresh data from Google
@@ -73,7 +81,9 @@ def test_get_worksheet_data_cache_miss(dynamodb_table, sample_api):
     assert abs((cached.expires_at - expected_expiry).total_seconds()) < 5
 
 
-def test_get_worksheet_data_cache_expired(dynamodb_table, sample_api):
+def test_get_worksheet_data_cache_expired(
+    dynamodb_table, sample_api, sample_passthrough_encryption
+):
     """Test that get_worksheet_data refetches when cache is expired."""
     # Save expired worksheet to cache
     expired_worksheet = WorksheetCreate(
@@ -96,7 +106,10 @@ def test_get_worksheet_data_cache_expired(dynamodb_table, sample_api):
         "jedwal.apis.service.get_api_spreadsheet", return_value=mock_spreadsheet
     ):
         data, expires_at = service.get_worksheet_data(
-            table=dynamodb_table, api=sample_api, worksheet_name="Sheet1"
+            table=dynamodb_table,
+            api=sample_api,
+            worksheet_name="Sheet1",
+            encryption=sample_passthrough_encryption,
         )
 
     # Should return fresh data (not expired cache)
@@ -113,7 +126,9 @@ def test_get_worksheet_data_cache_expired(dynamodb_table, sample_api):
     assert not cached.is_expired
 
 
-def test_get_worksheet_data_with_provided_spreadsheet(dynamodb_table, sample_api):
+def test_get_worksheet_data_with_provided_spreadsheet(
+    dynamodb_table, sample_api, sample_passthrough_encryption
+):
     """Test passing a pre-fetched spreadsheet to avoid duplicate API calls."""
     # Mock worksheet
     mock_worksheet = Mock()
@@ -130,6 +145,7 @@ def test_get_worksheet_data_with_provided_spreadsheet(dynamodb_table, sample_api
             api=sample_api,
             worksheet_name="Sheet1",
             spreadsheet=mock_spreadsheet,  # Pre-fetched
+            encryption=sample_passthrough_encryption,
         )
 
     # Should use provided spreadsheet
@@ -139,7 +155,9 @@ def test_get_worksheet_data_with_provided_spreadsheet(dynamodb_table, sample_api
     mock_get_spreadsheet.assert_not_called()
 
 
-def test_get_worksheet_data_worksheet_not_found(dynamodb_table, sample_api):
+def test_get_worksheet_data_worksheet_not_found(
+    dynamodb_table, sample_api, sample_passthrough_encryption
+):
     """Test that WorksheetNotFound raises HTTP 404."""
     mock_spreadsheet = Mock()
     mock_spreadsheet.worksheet.side_effect = gspread.exceptions.WorksheetNotFound(
@@ -151,14 +169,19 @@ def test_get_worksheet_data_worksheet_not_found(dynamodb_table, sample_api):
     ):
         with pytest.raises(HTTPException) as exc_info:
             service.get_worksheet_data(
-                table=dynamodb_table, api=sample_api, worksheet_name="NonexistentSheet"
+                table=dynamodb_table,
+                api=sample_api,
+                worksheet_name="NonexistentSheet",
+                encryption=sample_passthrough_encryption,
             )
 
     assert exc_info.value.status_code == 404
     assert "Worksheet not found" in str(exc_info.value.detail)
 
 
-def test_get_worksheet_data_non_unique_columns(dynamodb_table, sample_api):
+def test_get_worksheet_data_non_unique_columns(
+    dynamodb_table, sample_api, sample_passthrough_encryption
+):
     """Test that NonUniqueColumnsError raises HTTP 422."""
     from jedwal.apis import google_sheets
 
@@ -175,7 +198,10 @@ def test_get_worksheet_data_non_unique_columns(dynamodb_table, sample_api):
     ):
         with pytest.raises(HTTPException) as exc_info:
             service.get_worksheet_data(
-                table=dynamodb_table, api=sample_api, worksheet_name="Sheet1"
+                table=dynamodb_table,
+                api=sample_api,
+                worksheet_name="Sheet1",
+                encryption=sample_passthrough_encryption,
             )
 
     assert exc_info.value.status_code == 422
