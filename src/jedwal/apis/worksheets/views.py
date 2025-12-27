@@ -4,6 +4,7 @@ from jedwal.account.models import AccountId
 from jedwal.apis.models import ApiKey
 from jedwal.apis.worksheets import service
 from jedwal.apis.worksheets.models import WorksheetNamesRead
+from jedwal.common.encryption.service import Encryption
 from jedwal.database.core import DbTable
 
 authenticated_worksheets_router = APIRouter(prefix="/worksheets")
@@ -14,6 +15,7 @@ async def get_worksheets_for_api(
     account_id: AccountId,
     api_id: ApiKey,
     table: DbTable,
+    encryption: Encryption
 ):
     """Get all worksheet names for an API from cache.
 
@@ -21,6 +23,6 @@ async def get_worksheets_for_api(
     For a complete list including never-accessed sheets, fetch directly from Google.
     """
     worksheets = service.get_google_worksheets_for_api(
-        table=table, owner_id=account_id, api_key=api_id
+        table=table, owner_id=account_id, api_key=api_id, encryption=encryption
     )
     return {"worksheets": [worksheet.title for worksheet in worksheets]}

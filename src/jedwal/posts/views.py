@@ -2,6 +2,7 @@ from fastapi import APIRouter, Response, status
 
 from jedwal.account.models import AccountId
 from jedwal.auth.service import VerifiedAccount
+from jedwal.common.encryption.service import Encryption
 from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable, SqSClient
 from jedwal.posts import service
@@ -84,6 +85,7 @@ async def refresh_post_data(
     post_id: PostKey,
     table: DbTable,
     queue: SqSClient,
+    encryption: Encryption,
     image_handler: service.PostImageHandler,
 ):
     service.refresh_post_data(
@@ -92,6 +94,7 @@ async def refresh_post_data(
         owner_id=account_id,
         post_id=post_id,
         image_handler=image_handler,
+        encryption=encryption,
     )
 
 
@@ -111,6 +114,7 @@ async def create_post(
     account_id: AccountId,
     request: PostCreateRequest,
     table: DbTable,
+    encryption: Encryption,
     verified_account: VerifiedAccount,
     image_handler: service.PostImageHandler,
 ):
@@ -127,7 +131,10 @@ async def create_post(
     )
 
     account = service.create_post(
-        table=table, post_create=post_create, image_handler=image_handler
+        table=table,
+        post_create=post_create,
+        image_handler=image_handler,
+        encryption=encryption,
     )
     return {"post_key": account.post_key}
 

@@ -5,6 +5,7 @@ from jedwal.apis.models import ApiKey
 from jedwal.apis.notifications import service
 from jedwal.apis.notifications.models import ApiWatchChannelCreate, ApiWatchChannelRead
 from jedwal.auth.service import VerifiedAccount
+from jedwal.common.encryption.service import Encryption
 from jedwal.database.core import DbTable, SqSClient
 
 authenticated_notifications_router = APIRouter(prefix="/notifications")
@@ -29,11 +30,15 @@ async def create_watch_channel(
     account_id: AccountId,
     request: ApiWatchChannelCreate,
     table: DbTable,
+    encryption: Encryption,
     verified_account: VerifiedAccount,
 ):
     """Create or update a new watch channel for an API"""
     channel = service.create_watch_channel(
-        table=table, watch_channel=request, account=verified_account
+        table=table,
+        watch_channel=request,
+        account=verified_account,
+        encryption=encryption,
     )
     return ApiWatchChannelRead(**channel.model_dump())
 
@@ -45,6 +50,7 @@ async def delete_watch_channel(
     channel_id: str,
     table: DbTable,
     verified_account: VerifiedAccount,
+    encryption: Encryption,
 ):
     service.delete_watch_channel(
         table=table,
@@ -52,6 +58,7 @@ async def delete_watch_channel(
         api_key=api_id,
         channel_id=channel_id,
         account=verified_account,
+        encryption=encryption,
     )
 
 

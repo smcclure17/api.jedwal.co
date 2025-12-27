@@ -66,6 +66,7 @@ async def create_api(
     account_id: AccountId,
     request: ApiCreateRequest,
     table: DbTable,
+    encryption: Encryption,
     verified_account: VerifiedAccount,
 ):
     """Create a new API endpoint for a Google Sheet.
@@ -81,7 +82,9 @@ async def create_api(
         refresh_token_info=verified_account.refresh_token_info,
     )
 
-    created_api = service.create_api(table=table, api_create=api_create)
+    created_api = service.create_api(
+        table=table, api_create=api_create, encryption=encryption
+    )
     return {"api_key": created_api.api_key}
 
 
