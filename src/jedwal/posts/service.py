@@ -4,11 +4,11 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from jedwal.config import settings
 from jedwal.account import service as account_service
 from jedwal.account.models import AccountId
 from jedwal.common.encryption.service import Encryption
 from jedwal.common.exceptions import ConflictException, UnsupportedMediaTypeException
+from jedwal.config import settings
 from jedwal.database.core import DbTable, SqSClient
 from jedwal.entitlements import service as entitlements_service
 from jedwal.posts import repository

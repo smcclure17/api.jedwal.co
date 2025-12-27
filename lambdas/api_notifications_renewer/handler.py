@@ -5,10 +5,10 @@ looks for api watch channels expiring in the next 12 hours,
 and renews them
 """
 
-from jedwal.apis.notifications.models import ApiWatchChannel
-from jedwal.common.encryption import service as encryption_service
 from jedwal.apis import service as api_service
 from jedwal.apis.notifications import service
+from jedwal.apis.notifications.models import ApiWatchChannel
+from jedwal.common.encryption import service as encryption_service
 from jedwal.common.google_auth_fields import GoogleOauthFields
 from jedwal.database.core import get_table
 
