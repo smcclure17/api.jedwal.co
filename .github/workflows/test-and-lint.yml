@@ -7,6 +7,7 @@ jobs:
   lint:
     name: Lint with Ruff
     runs-on: ubuntu-latest
+    environment: prod
 
     steps:
       - name: Checkout code
@@ -52,5 +53,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run unit tests
+        run: uv run pytest -m "not integration"
+
+      - name: Run integration tests
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: uv run pytest -m integration
