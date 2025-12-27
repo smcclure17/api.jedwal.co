@@ -60,4 +60,5 @@ jobs:
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TEST_DATA_REFRESH_INFO: ${{ secrets.TEST_DATA_REFRESH_INFO }}
         run: uv run pytest -m integration
