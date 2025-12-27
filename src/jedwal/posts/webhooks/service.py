@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 
 from jedwal.account.models import AccountId
 from jedwal.config import settings
-from jedwal.database.core import DbTable, SqSClient, get_sqs_client
+from jedwal.database.core import DbTable, SqSClient
 from jedwal.posts.models import PostKey
 from jedwal.posts.webhooks import repository
 from jedwal.posts.webhooks.models import Webhook, WebhooksRead

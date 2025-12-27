@@ -2,12 +2,13 @@
 
 import json
 import time
+
 import pytest
 
-from jedwal.config import settings
 from jedwal.apis.notifications import repository, service
 from jedwal.apis.notifications.models import ApiWatchChannel
 from jedwal.common.exceptions import BadRequestException
+from jedwal.config import settings
 
 
 def test_handle_watch_notification_success(dynamodb_table, sqs_client):

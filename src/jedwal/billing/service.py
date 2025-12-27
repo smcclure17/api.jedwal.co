@@ -54,8 +54,8 @@ def handle_checkout_completed(
         customer_id: Stripe customer ID
         subscription_id: Stripe subscription ID
     """
-    from jedwal.posts import service as posts_service
     from jedwal.apis import service as apis_service
+    from jedwal.posts import service as posts_service
 
     # Get subscription period from Stripe
     start, end = stripe_client.get_subscription_period(subscription_id=subscription_id)
@@ -117,8 +117,8 @@ def handle_subscription_deleted(*, table: DbTable, customer_id: str) -> None:
         table: DynamoDB table
         customer_id: Stripe customer ID
     """
-    from jedwal.posts import service as posts_service
     from jedwal.apis import service as apis_service
+    from jedwal.posts import service as posts_service
 
     customer = stripe_client.get_customer(customer_id=customer_id)
     account = account_service.get_account_by_email(table=table, email=customer.email)
@@ -129,7 +129,6 @@ def handle_subscription_deleted(*, table: DbTable, customer_id: str) -> None:
     )
     posts_service.freeze_posts_for_account(table=table, owner_id=account.account_id)
     apis_service.freeze_apis_for_account(table=table, owner_id=account.account_id)
-
 
 
 def get_accounts_by_billing_end_date(*, table: DbTable, end_date: str):

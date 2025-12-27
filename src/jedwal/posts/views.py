@@ -126,7 +126,9 @@ async def create_post(
         refresh_token_info=verified_account.refresh_token_info,
     )
 
-    account = service.create_post(table=table, post_create=post_create, image_handler=image_handler)
+    account = service.create_post(
+        table=table, post_create=post_create, image_handler=image_handler
+    )
     return {"post_key": account.post_key}
 
 

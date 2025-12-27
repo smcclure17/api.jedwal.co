@@ -14,7 +14,7 @@ from jedwal.common.exceptions import (
 )
 from jedwal.common.google_auth_fields import GoogleOauthFields
 from jedwal.config import settings
-from jedwal.database.core import DbTable, SqSClient, get_sqs_client
+from jedwal.database.core import DbTable, SqSClient
 
 
 def get_watch_channels(*, table: DbTable, owner_id: AccountId, api_key: ApiKey):

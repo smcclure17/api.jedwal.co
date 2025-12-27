@@ -8,8 +8,8 @@ from jedwal.account import service as account_service
 from jedwal.account.models import AccountId
 from jedwal.common.exceptions import ConflictException, UnsupportedMediaTypeException
 from jedwal.database.core import DbTable, SqSClient
-from jedwal.posts import repository
 from jedwal.entitlements import service as entitlements_service
+from jedwal.posts import repository
 from jedwal.posts.google_docs_client import DocAccessException, GoogleDocs
 from jedwal.posts.models import Post, PostCreate, PostKey, PostRead
 from jedwal.posts.parsers import ast, google_docs_parser, markdown_renderer
