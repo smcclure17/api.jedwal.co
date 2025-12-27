@@ -7,7 +7,7 @@ jobs:
   lint:
     name: Lint with Ruff
     runs-on: ubuntu-latest
-    environment: prod
+    environment: integration-tests
 
     steps:
       - name: Checkout code
@@ -60,5 +60,5 @@ jobs:
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          TEST_DATA_REFRESH_INFO: ${{ secrets.TEST_DATA_REFRESH_INFO }}
+          TEST_DATA_REFRESH_TOKEN: ${{ secrets.TEST_DATA_REFRESH_TOKEN }}
         run: uv run pytest -m integration

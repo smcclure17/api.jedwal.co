@@ -5,34 +5,42 @@ These tests interact with a real Google Sheet and require valid credentials.
 
 import time
 import pytest
+import requests
 
 from jedwal.config import settings
-from jedwal.account.models import RefreshTokenInfo
 from jedwal.apis.notifications import watch_api
-from jedwal.common.google_auth_fields import GoogleOauthFields
 
 # This spreadsheet has already been selected/opened in the app on the account
-# corresponding to test_data_refresh_info. If this were any random spreadsheet,
+# corresponding to test_data_refresh_token. If this were any random spreadsheet,
 # the requests would fail as the credentials would not be able to read/see the file.
-# test_data_refresh_info belongs to jedwal.testing.email@gmail.com
+# test_data_refresh_token belongs to jedwal.testing.email@gmail.com
 TEST_SHEET_ID = "1IyPUd8hmNC0VsB4aLfsiYSDPZi_XILoMvexQ-8sA_7U"
-REFRESH_TOKEN_INFO = RefreshTokenInfo.from_dict_str(settings.test_data_refresh_info)
+
+
+def fetch_access_token_from_refresh_token():
+    """Fetch an access token for our stored test refresh token."""
+    payload = {
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
+        "refresh_token": settings.test_data_refresh_token,
+        "grant_type": "refresh_token",
+    }
+    response = requests.post("https://oauth2.googleapis.com/token", data=payload)
+    response.raise_for_status()
+    return response.json()["access_token"]
 
 
 @pytest.mark.integration
 def test_watch_api_e2e():
     """Test registering a watch channel on a real Google Sheet."""
-    auth = GoogleOauthFields.from_tokens(
-        access_token="Some token Value", refresh_token_info=REFRESH_TOKEN_INFO
-    )
-    auth = auth.refresh_access_token()
+    access_token = fetch_access_token_from_refresh_token()
 
     # set very short expiration in case cleanup fails (10 seconds)
     expiration = int(time.time() * 1000) + (10 * 1000)
-    channel_id_name = "my-jedwal-channel-api-test-1"
+    channel_id_name = "my-jedwal-channel-api-test-2"
 
     response = watch_api.register(
-        bearer_token=auth.access_token,
+        bearer_token=access_token,
         google_drive_file_id=TEST_SHEET_ID,
         channel_id=channel_id_name,
         expiration=expiration,
@@ -44,7 +52,7 @@ def test_watch_api_e2e():
     assert response["id"] == channel_id_name
 
     watch_api.stop(
-        bearer_token=auth.access_token,
+        bearer_token=access_token,
         channel_id=channel_id_name,
         resource_id=response["resourceId"],
     )
