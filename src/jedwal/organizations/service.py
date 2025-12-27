@@ -1,12 +1,11 @@
 import re
 from datetime import UTC, datetime
 
-from fastapi import HTTPException, status
-
 from jedwal.account import service as account_service
 from jedwal.account.models import Account, AccountId
 from jedwal.common.exceptions import ConflictException
 from jedwal.database.core import DbTable
+from jedwal.entitlements import service as entitlements_service
 from jedwal.organizations import repository
 from jedwal.organizations.membership import service as membership_service
 from jedwal.organizations.membership.models import Membership, MembershipCreate
@@ -57,15 +56,11 @@ def create_organization(
     organization_name: str,
     membership_emails: list[str] | None = None,
 ):
+    owner_account = account_service.get_account(table=table, id=owner_account_id)
+    entitlements_service.check_can_create_organization(account=owner_account)
+
     if membership_emails is None:
         member_memberships = []
-
-    owner_account = account_service.get_account(table=table, id=owner_account_id)
-    if owner_account.account_status == "free":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=[{"msg": "Free accounts cannot create organizations"}],
-        ) from None
 
     org_id = re.sub(r"\s+", "-", organization_name).lower()
     org = Organization(
@@ -108,31 +103,17 @@ def create_organization(
         except Exception:
             repository.delete_organization(table=table, account_id=org_id)
             raise
-
     except ConflictException as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+        raise ConflictException(
             detail="Organization with this name already exists",
         ) from e
 
 
 def delete_organization(*, table: DbTable, organization_id: str, account_id: AccountId):
-    # for now, only owner can delete org
     member_type = membership_service.check_account_membership(
         table=table, organization_id=organization_id, account_id=account_id
     )
-    if member_type != "owner":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=[
-                {
-                    "msg": (
-                        "Only owners can delete organization. "
-                        f"Account {account_id} has member type {member_type} for org {organization_id}."
-                    )
-                }
-            ],
-        )
+    entitlements_service.check_can_delete_organization(member_status=member_type)
 
     memberships = membership_service.get_memberships_for_org(
         table=table, organization_id=organization_id

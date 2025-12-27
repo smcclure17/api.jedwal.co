@@ -2,14 +2,19 @@ from datetime import datetime
 
 import gspread
 import randomname
-from fastapi import HTTPException, status
 
 from jedwal.account import service as account_service
 from jedwal.account.models import AccountId
 from jedwal.apis import google_sheets, repository
 from jedwal.apis.models import Api, ApiCreate, ApiKey, ApiRead, ApiUpdate
 from jedwal.apis.worksheets import service as worksheet_service
+from jedwal.common.exceptions import (
+    ConflictException,
+    ForbiddenException,
+    UnsupportedMediaTypeException,
+)
 from jedwal.database.core import DbTable
+from jedwal.entitlements import service as entitlements_service
 
 
 def get_api(*, table: DbTable, owner_id: AccountId, api_id: ApiKey) -> Api | None:
@@ -30,6 +35,8 @@ def get_api_data(
 ) -> dict:
     """Get data from a sheet API with caching."""
     from jedwal.apis.worksheets import service as worksheet_service
+
+    entitlements_service.check_can_access_api(api=api)
 
     # If no worksheet specified, get the first sheet's name
     # and keep spreadsheet so that we can (optionally) pass it
@@ -58,51 +65,24 @@ def get_apis_for_account(*, table: DbTable, owner_id: AccountId) -> list[ApiRead
     Worksheet names can be fetched separately via the worksheets endpoint.
     """
     apis = repository.get_apis_by_owner(table=table, owner_id=owner_id)
-    api_reads = []
-
-    for api in apis:
-        # TEMP: update spreadsheet_title if it's empty
-        if api.spreadsheet_title is None:
-            refresh_spreadsheet_title(
-                table=table, owner_id=api.owner_id, api_id=api.api_key
-            )
-
-        api_reads.append(
-            ApiRead(
-                api_key=api.api_key,
-                owner_id=api.owner_id,
-                cache_duration=api.cache_duration,
-                frozen=api.frozen,
-                created_at=api.created_at,
-                updated_at=api.updated_at,
-                google_sheet_id=api.google_sheet_id,
-                spreadsheet_title=api.spreadsheet_title,
-            )
-        )
-    return api_reads
+    return [ApiRead(**api.model_dump()) for api in apis]
 
 
 def create_api(*, table: DbTable, api_create: ApiCreate) -> Api:
     account = account_service.get_account(table=table, id=api_create.owner_id)
-    free_account = account.account_status == "free"
-
     existing_apis = repository.get_apis_by_owner(
         table=table, owner_id=api_create.owner_id
     )
-    if free_account and len(existing_apis) >= 2:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
-            detail="Free accounts can only have 2 sheet APIs.",
-        ) from None
+    entitlements_service.check_can_create_api(
+        account=account, current_count=len(existing_apis)
+    )
 
     google_sheet_id = _extract_sheet_id_from_url(api_create.google_sheet_id)
-
     existing_api = repository.get_api_by_google_sheet_id(
         table=table, owner_id=api_create.owner_id, google_sheet_id=google_sheet_id
     )
     if existing_api:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
+        raise ConflictException(
             detail=f"API already exists for this Google Sheet: {existing_api.api_key}",
         ) from None
 
@@ -115,13 +95,11 @@ def create_api(*, table: DbTable, api_create: ApiCreate) -> Api:
             gspread_client=gspread_client, sheet_id=google_sheet_id
         )
     except google_sheets.InaccessibleDocument as e:
-        raise HTTPException(
-            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        raise UnsupportedMediaTypeException(
             detail="Invalid document type. Only Google Sheets are supported.",
         ) from e
     except google_sheets.InsufficientPermissions as e:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
+        raise ForbiddenException(
             detail="You don't have access to this Google Sheet. Please check your permissions in Google.",
         ) from e
 
@@ -206,6 +184,36 @@ def refresh_spreadsheet_title(
         api_id=api_id,
         updates={"spreadsheet_title": spreadsheet.title},
     )
+
+
+def freeze_apis_for_account(*, table: DbTable, owner_id: AccountId, limit=2):
+    """Freeze all but the limit oldest APIs"""
+    apis = get_apis_for_account(table=table, owner_id=owner_id)
+    sorted_apis = sorted(apis, key=lambda api: api.created_at)
+    apis_to_freeze = sorted_apis[limit:]
+
+    for api in apis_to_freeze:
+        if not api.frozen:
+            repository.update_api(
+                table=table,
+                owner_id=owner_id,
+                api_id=api.api_key,
+                updates={"frozen": True},
+            )
+
+
+def unfreeze_apis_for_account(*, table: DbTable, owner_id: AccountId):
+    """Unfreeze all APIs"""
+    apis = get_apis_for_account(table=table, owner_id=owner_id)
+
+    for api in apis:
+        if api.frozen:
+            repository.update_api(
+                table=table,
+                owner_id=owner_id,
+                api_id=api.api_key,
+                updates={"frozen": False},
+            )
 
 
 def _generate_unique_api_key(*, table: DbTable, owner_id: AccountId) -> str:

@@ -2,12 +2,16 @@ import logging
 from typing import Annotated
 
 from authlib.integrations.starlette_client import OAuthError
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request
 
 from jedwal.account.models import Account, AccountId, RefreshTokenInfo
 from jedwal.account.service import create_account, get_account, get_account_by_email
 from jedwal.common.encryption import EnvelopeEncryption
-from jedwal.common.exceptions import ForbiddenException
+from jedwal.common.exceptions import (
+    BadRequestException,
+    ForbiddenException,
+    UnauthorizedException,
+)
 from jedwal.database.core import DbTable
 from jedwal.organizations.membership import service as membership_service
 
@@ -24,15 +28,12 @@ async def authenticate(*, table: DbTable, request: Request):
     except OAuthError as e:
         request.session.pop("account", None)
         log.error(f"Error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Something went wrong {e.error}",
-        ) from e
+        raise ValueError(f"Something went wrong {e.error}") from e
 
     user_token = token.get("userinfo")
     if not user_token:
-        raise HTTPException(
-            status_code=500, detail="User data unexpectedly not found in auth token"
+        raise BadRequestException(
+            status_code=400, detail="User data unexpectedly not found in auth token"
         ) from None
 
     # access tokens are short-lived and never persisted, no need to encrypt
@@ -46,8 +47,7 @@ async def authenticate(*, table: DbTable, request: Request):
 
     if existing_account is None:
         if refresh_token is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+            raise BadRequestException(
                 detail="No refresh token found but no account exists for user. "
                 "Is it possible a user with a deleted account is trying to create a new one?",
             ) from None
@@ -81,12 +81,12 @@ def get_current_account(*, table: DbTable, request: Request) -> Account:
     session_user = request.session.get("account")
 
     if session_user is None:
-        raise HTTPException(status_code=401, detail="Not authenticated") from None
+        raise UnauthorizedException(detail="Not authenticated") from None
 
     account = get_account_by_email(table=table, email=session_user["email"])
 
     if account is None:
-        raise HTTPException(status_code=401, detail="Account not found") from None
+        raise UnauthorizedException(detail="Account not found") from None
 
     return account
 
@@ -126,8 +126,7 @@ def verify_user_account(
     # Then verify it's actually a user
     account = get_account(table=table, id=account_id)
     if account is None:
-        raise HTTPException(
-            status_code=400,
+        raise BadRequestException(
             detail="This operation requires a user account, not an organization",
         ) from None
 

@@ -22,6 +22,7 @@ dependencies = [
     "mangum>=0.19.0",
     "sentry-sdk[fastapi]>=2.44.0",
     "orjson>=3.11.4",
+    "mypy-boto3-sqs>=1.42.3",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,7 @@ dev = [
     "httpx>=0.27.0",
     "ruff>=0.7.0",
     "moto[dynamodb]>=5.0.0",
+    "pytest-dotenv>=0.5.2",
 ]
 
 [build-system]
@@ -46,6 +48,7 @@ addopts = [
     "--strict-markers",
     "-v",
 ]
+env_files = [".env"]
 markers = [
     "integration: marks tests as integration tests (require real external services)",
 ]

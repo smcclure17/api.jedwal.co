@@ -14,7 +14,7 @@ from jedwal.common.exceptions import (
 )
 from jedwal.common.google_auth_fields import GoogleOauthFields
 from jedwal.config import settings
-from jedwal.database.core import DbTable, get_sqs_client
+from jedwal.database.core import DbTable, SqSClient
 
 
 def get_watch_channels(*, table: DbTable, owner_id: AccountId, api_key: ApiKey):
@@ -166,6 +166,7 @@ def get_soon_to_expire_channels(*, table: DbTable, expires_before: int):
 def handle_watch_notification(
     *,
     table: DbTable,
+    queue: SqSClient,
     channel_id: str | None,
     resource_state: str,
     resource_id: str,
@@ -196,7 +197,6 @@ def handle_watch_notification(
         "timestamp": datetime.now(UTC).isoformat(),
     }
 
-    sqs = get_sqs_client()
     message_body = {
         "webhookUrl": channel.webhook_url,
         "method": "POST",
@@ -205,7 +205,7 @@ def handle_watch_notification(
         "timestamp": datetime.now(UTC).isoformat(),
     }
 
-    sqs.send_message(
+    queue.send_message(
         QueueUrl=settings.webhook_queue_url, MessageBody=json.dumps(message_body)
     )
 

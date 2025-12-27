@@ -47,8 +47,3 @@ htmlcov/
 
 # DynamoDB Local
 dynamodb_local/
-
-
-# There are some secrets in here. TODO: setup
-# environments for CI-CD on github runners
-tests/integration/

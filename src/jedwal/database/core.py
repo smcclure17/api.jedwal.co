@@ -7,6 +7,7 @@ import boto3
 from boto3.dynamodb.conditions import Attr, Key
 from fastapi import Depends
 from mypy_boto3_dynamodb.service_resource import Table
+from mypy_boto3_sqs.service_resource import Queue
 
 from jedwal.config import settings
 
@@ -29,7 +30,7 @@ def get_dynamodb_resource():
 
 
 @lru_cache
-def get_sqs_client():
+def get_sqs_client() -> Queue:
     """
     Get cached SQS client.
 
@@ -61,6 +62,8 @@ def get_table(table_name: str | None = None) -> Table:
 
 
 DbTable = Annotated[Table, Depends(get_table)]
+
+SqSClient = Annotated[Queue, Depends(get_sqs_client)]
 
 # Export condition helpers for easy imports
 __all__ = [

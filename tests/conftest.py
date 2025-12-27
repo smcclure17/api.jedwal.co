@@ -4,47 +4,61 @@ import os
 from collections.abc import Generator
 from datetime import UTC, datetime
 
-# Set test environment variables BEFORE importing application code
-# This ensures Settings loads test values instead of requiring .env file
-os.environ.update(
-    {
-        # Application
-        "ENVIRONMENT": "test",
-        "DEBUG": "false",
-        # AWS Configuration
-        "AWS_REGION": "us-east-1",
-        # DynamoDB Tables
-        "SHEETS_API_TABLE": "test-table",
-        # Google OAuth
-        "GOOGLE_CLIENT_ID": "test-client-id",
-        "GOOGLE_CLIENT_SECRET": "test-client-secret",
-        "OAUTH_SECRET_TOKEN": "test-oauth-secret-token-for-sessions",
-        # Sentry (disabled in tests)
-        "SENTRY_DSN": "https://test@sentry.io/test",
-        # Stripe (test keys)
-        "STRIPE_SECRET_KEY": "sk_test_dummy",
-        "STRIPE_WEBHOOK_SECRET": "whsec_test_dummy",
-        "STRIPE_SUBSCRIPTION_PRICE_ID": "price_test_subscription",
-        "STRIPE_USAGE_BASED_PRICE_ID": "price_test_usage",
-        # URLs
-        "API_BASE_URL": "http://localhost:8000",
-        "CLIENT_BASE_URL": "http://localhost:3000",
-        "CLIENT_APP_BASE_URL": "http://localhost:3001",
-        # Cookies
-        "COOKIE_ALLOWED_DOMAIN": ".localhost",
-        # CloudFront
-        "CLOUDFRONT_DISTRIBUTION_ID": "TEST123456",
-        # Encryption
-        "ENCRYPTION_KEY_ID": "test-kms-key-id",
-        # Email (disabled in tests)
-        "EMAILS_ENABLED": "false",
-        # Webhooks & Queues
-        "WEBHOOK_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
-        # Image Storage
-        "IMAGE_STORAGE_BUCKET": "test-images-bucket",
-        "IMAGE_STORAGE_BUCKET_URL": "https://test-images-bucket.s3.us-east-1.amazonaws.com",
-    }
-)
+from jedwal.posts.models import Post
+
+# Set test environment variables BEFORE importing application code.
+# This ensures Settings loads test values instead of requiring .env file.
+# Some values we want to load real values from the environment, others
+# we only ever want to use test values. These two groups are separated below.
+
+# ALWAYS use test values for these (override .env to prevent breaking tests)
+test_overrides = {
+    # Application
+    "ENVIRONMENT": "test",
+    "DEBUG": "false",
+    # AWS Configuration
+    "AWS_REGION": "us-east-1",
+    # DynamoDB Tables
+    "SHEETS_API_TABLE": "test-table",
+    # Oauth
+    "OAUTH_SECRET_TOKEN": "test-oauth-secret-token-for-sessions",
+    # Sentry (disabled in tests)
+    "SENTRY_DSN": "https://test@sentry.io/test",
+    # Stripe (test keys)
+    "STRIPE_SECRET_KEY": "sk_test_dummy",
+    "STRIPE_WEBHOOK_SECRET": "whsec_test_dummy",
+    "STRIPE_SUBSCRIPTION_PRICE_ID": "price_test_subscription",
+    "STRIPE_USAGE_BASED_PRICE_ID": "price_test_usage",
+    # URLs
+    "API_BASE_URL": "http://localhost:8000",
+    "CLIENT_BASE_URL": "http://localhost:3000",
+    "CLIENT_APP_BASE_URL": "http://localhost:3001",
+    # Cookies
+    "COOKIE_ALLOWED_DOMAIN": ".localhost",
+    # CloudFront
+    "CLOUDFRONT_DISTRIBUTION_ID": "TEST123456",
+    # Encryption
+    "ENCRYPTION_KEY_ID": "test-kms-key-id",
+    # Email (disabled in tests)
+    "EMAILS_ENABLED": "false",
+    # Webhooks & Queues
+    "WEBHOOK_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
+    # Image Storage
+    "IMAGE_STORAGE_BUCKET": "test-images-bucket",
+    "IMAGE_STORAGE_BUCKET_URL": "https://test-images-bucket.s3.us-east-1.amazonaws.com",
+}
+for key, value in test_overrides.items():
+    os.environ[key] = value
+
+# Use real values from .env if available (for integration tests), otherwise
+# fallback to dummy defaults
+test_defaults = {
+    "GOOGLE_CLIENT_ID": "test-client-id",
+    "GOOGLE_CLIENT_SECRET": "test-client-secret",
+    "TEST_DATA_REFRESH_TOKEN": "1//some-fake-token",
+}
+for key, value in test_defaults.items():
+    os.environ.setdefault(key, value)
 
 import boto3
 import pytest
@@ -125,6 +139,16 @@ def dynamodb_table(aws_credentials) -> Generator[Table]:
             BillingMode="PAY_PER_REQUEST",
         )
         yield table
+
+
+@pytest.fixture(scope="function")
+def sqs_client(aws_credentials):
+    """Create a mock SQS client for testing."""
+    with mock_aws():
+        sqs = boto3.client("sqs", region_name="us-east-1")
+        # Create the queue that's configured in test settings
+        queue_url = sqs.create_queue(QueueName="test-queue")["QueueUrl"]
+        yield sqs
 
 
 @pytest.fixture
@@ -238,4 +262,23 @@ def sample_billing_info() -> BillingInfo:
         billing_end=datetime(2025, 2, 1, 0, 0, 0, tzinfo=UTC),
         stripe_customer_id="cus_test123",
         stripe_subscription_id="sub_test456",
+    )
+
+
+@pytest.fixture
+def sample_post(sample_refresh_token_info) -> Post:
+    """Create a sample post for testing."""
+    return Post(
+        post_key="test-post-key",
+        owner_id="test-user-123",
+        google_doc_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+        refresh_token_info=sample_refresh_token_info,
+        frozen=False,
+        created_at=datetime(2024, 1, 1, 12, 0, 0),
+        updated_at=datetime(2024, 1, 1, 12, 0, 0),
+        google_doc_ast="{'root': node}",
+        google_doc_payload="{'raw': 'json from google'}",
+        title="fake title",
+        categories=[],
+        creator="me",
     )

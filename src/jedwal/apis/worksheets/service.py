@@ -2,7 +2,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import gspread
-from fastapi import HTTPException, status
 
 from jedwal.account.models import AccountId
 from jedwal.apis import google_sheets
@@ -10,6 +9,7 @@ from jedwal.apis.models import Api, ApiKey
 from jedwal.apis.repository import get_api
 from jedwal.apis.worksheets import repository
 from jedwal.apis.worksheets.models import WorksheetCreate
+from jedwal.common.exceptions import NotFoundException, UnprocessableContentException
 from jedwal.database.core import DbTable
 
 
@@ -47,17 +47,14 @@ def get_worksheet_data(
     try:
         ws = spreadsheet.worksheet(worksheet_name)
     except gspread.exceptions.WorksheetNotFound as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+        raise NotFoundException(
             detail=[{"msg": "Worksheet not found"}],
         ) from e
 
     try:
         data = google_sheets.read_worksheet(worksheet=ws)
     except google_sheets.NonUniqueColumnsError as e:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, detail=[{"msg": str(e)}]
-        ) from e
+        raise UnprocessableContentException(detail=[{"msg": str(e)}]) from e
 
     # update the worksheet for next time
     expires_at = datetime.now(UTC) + timedelta(seconds=api.cache_duration)
@@ -75,9 +72,6 @@ def get_worksheet_data(
     return data, expires_at
 
 
-# TODO: these next functions should maybe accept an API object instead,
-# but the functions that use this don't have an API object at the moment,
-# so it's easier/faster to just pass the keys.
 def delete_all_worksheets_for_api(
     *, table: DbTable, owner_id: AccountId, api_key: ApiKey
 ):
@@ -97,9 +91,7 @@ def get_google_worksheets_for_api(
     """
     api = get_api(table=table, owner_id=owner_id, api_id=api_key)
     if api is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=[{"msg": "Api Not Found"}]
-        ) from None
+        raise NotFoundException(detail=[{"msg": "Api Not Found"}]) from None
     gspread_client = google_sheets.gspread_from_refresh_token_info(
         refresh_token_info=api.refresh_token_info
     )

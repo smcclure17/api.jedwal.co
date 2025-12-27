@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     free_tier_request_limit: int = 5_000
 
     # Testing
-    test_data_refresh_info: str = ""
+    test_data_refresh_token: str | None = None
 
     # Webhooks & Queues
     webhook_queue_url: str
