@@ -19,6 +19,8 @@ TEST_SHEET_ID = "1IyPUd8hmNC0VsB4aLfsiYSDPZi_XILoMvexQ-8sA_7U"
 
 def fetch_access_token_from_refresh_token():
     """Fetch an access token for our stored test refresh token."""
+
+    print("TOKEN", settings.test_data_refresh_token[0:10])
     payload = {
         "client_id": settings.google_client_id,
         "client_secret": settings.google_client_secret,
