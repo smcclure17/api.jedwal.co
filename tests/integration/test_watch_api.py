@@ -26,6 +26,7 @@ def fetch_access_token_from_refresh_token():
         "grant_type": "refresh_token",
     }
     response = requests.post("https://oauth2.googleapis.com/token", data=payload)
+    print(response.status_code, response.text)
     response.raise_for_status()
     return response.json()["access_token"]
 
