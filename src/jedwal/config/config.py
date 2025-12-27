@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     image_storage_bucket: str
     image_storage_bucket_url: str
 
+    # Feature Flags
+    enable_encryption: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

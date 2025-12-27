@@ -5,6 +5,7 @@ import requests
 from google.oauth2.credentials import Credentials
 
 from jedwal.account.models import RefreshTokenInfo
+from jedwal.common.encryption.service import EncryptionService
 from jedwal.common.google_auth_fields import GoogleOauthFields
 
 
@@ -19,11 +20,12 @@ EMPTY_ACCESS_TOKEN = "Some Placeholder Value"  # empty strs fail the refresh
 class GoogleDocs:
     """Class for interacting with Google Sheets"""
 
+    encryption: EncryptionService
     creds: Credentials
     session: requests.Session
 
     @classmethod
-    def from_token_info(cls, info: RefreshTokenInfo):
+    def from_token_info(cls, info: RefreshTokenInfo, encryption: EncryptionService):
         """Create an instance using encrypted refresh token data, and optionally an access token
 
         We immediately just refresh/create a new one. This costs us a ~100ms, so not ideal but
@@ -31,7 +33,9 @@ class GoogleDocs:
         """
 
         auth = GoogleOauthFields.from_tokens(
-            access_token=EMPTY_ACCESS_TOKEN, refresh_token_info=info
+            encryption=encryption,
+            access_token=EMPTY_ACCESS_TOKEN,
+            refresh_token_info=info,
         )
         auth = auth.refresh_access_token()  # eventually we should fix/skip this
         return GoogleDocs(creds=auth.google_oauth_creds, session=requests.Session())

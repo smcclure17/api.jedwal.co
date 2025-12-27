@@ -4,6 +4,8 @@ import os
 from collections.abc import Generator
 from datetime import UTC, datetime
 
+from jedwal.common.encryption import pass_through_encryption
+from jedwal.common.encryption.service import EncryptionService
 from jedwal.posts.models import Post
 
 # Set test environment variables BEFORE importing application code.
@@ -158,6 +160,13 @@ def sample_refresh_token_info() -> RefreshTokenInfo:
         encrypted_refresh_token="encrypted_token_data",
         data_encryption_key="encryption_key",
         context={"user_id": "test-user"},
+    )
+
+
+@pytest.fixture
+def sample_passthrough_encryption():
+    return EncryptionService(
+        encrypt=pass_through_encryption.encrypt, decrypt=pass_through_encryption.decrypt
     )
 
 

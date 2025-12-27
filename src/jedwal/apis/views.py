@@ -14,6 +14,7 @@ from jedwal.apis.models import (
 from jedwal.apis.notifications.views import authenticated_notifications_router
 from jedwal.apis.worksheets.views import authenticated_worksheets_router
 from jedwal.auth.service import VerifiedAccount
+from jedwal.common.encryption.service import Encryption
 from jedwal.common.exceptions import NotFoundException
 from jedwal.database.core import DbTable
 
@@ -34,13 +35,16 @@ async def get_api_data(
     account_id: AccountId,
     api_id: ApiKey,
     table: DbTable,
+    encryption: Encryption,
     worksheet: str | None = None,
 ):
     """Get data from a sheet API endpoint."""
     api = service.get_api(table=table, owner_id=account_id, api_id=api_id)
     if api is None:
         raise NotFoundException(detail=[{"msg": "API not found."}]) from None
-    return service.get_api_data(table=table, api=api, worksheet_name=worksheet)
+    return service.get_api_data(
+        table=table, api=api, worksheet_name=worksheet, encryption=encryption
+    )
 
 
 @authenticated_apis_router.get("", response_model=list[ApiRead])

@@ -6,6 +6,7 @@ from fastapi import Depends
 
 from jedwal.account import service as account_service
 from jedwal.account.models import AccountId
+from jedwal.common.encryption.service import Encryption
 from jedwal.common.exceptions import ConflictException, UnsupportedMediaTypeException
 from jedwal.database.core import DbTable, SqSClient
 from jedwal.entitlements import service as entitlements_service
@@ -60,7 +61,11 @@ def delete_post(*, table: DbTable, owner_id: AccountId, post_id: PostKey):
 
 
 def create_post(
-    *, table: DbTable, post_create: PostCreate, image_handler: ImageHandler
+    *,
+    table: DbTable,
+    encryption: Encryption,
+    post_create: PostCreate,
+    image_handler: ImageHandler,
 ) -> Post:
     account = account_service.get_account(table=table, id=post_create.owner_id)
     existing_posts = repository.get_posts_by_owner(
@@ -80,7 +85,9 @@ def create_post(
             detail=f"Post already exists for this Google Doc: {existing_post.post_key}",
         ) from None
 
-    google_docs = GoogleDocs.from_token_info(info=post_create.refresh_token_info)
+    google_docs = GoogleDocs.from_token_info(
+        info=post_create.refresh_token_info, encryption=encryption
+    )
 
     try:
         google_doc_payload = google_docs.get_document(google_doc_id)
@@ -108,6 +115,7 @@ def create_post(
 def refresh_post_data(
     *,
     table: DbTable,
+    encryption: Encryption,
     queue: SqSClient,
     owner_id: AccountId,
     post_id: PostKey,
@@ -116,7 +124,9 @@ def refresh_post_data(
     from jedwal.posts.webhooks.service import trigger_webhooks_for_post
 
     post = get_post(table=table, owner_id=owner_id, post_id=post_id)
-    google_docs = GoogleDocs.from_token_info(info=post.refresh_token_info)
+    google_docs = GoogleDocs.from_token_info(
+        info=post.refresh_token_info, encryption=encryption
+    )
     google_doc_payload = google_docs.get_document(post.google_doc_id)
 
     parser = google_docs_parser.GoogleDocsParser(image_handler=image_handler)

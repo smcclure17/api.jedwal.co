@@ -116,7 +116,7 @@ def test_delete_api(dynamodb_table, sample_api):
     assert result is None
 
 
-def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account):
+def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account, sample_passthrough_encryption):
     """Test successful API creation with all validations passing."""
     from unittest.mock import Mock, patch
 
@@ -140,16 +140,13 @@ def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account
             "jedwal.apis.service.randomname.get_name", return_value="test-generated-key"
         ),
         patch(
-            "jedwal.common.google_auth_fields.GoogleOauthFields.from_tokens",
-            return_value=mock_oauth_fields,
-        ),
-        patch(
             "jedwal.apis.service.gspread.authorize", return_value=mock_gspread_client
         ),
     ):
         created_api = service.create_api(
             table=dynamodb_table,
             api_create=sample_api_create,
+            encryption=sample_passthrough_encryption
         )
 
         # Assert API was created successfully

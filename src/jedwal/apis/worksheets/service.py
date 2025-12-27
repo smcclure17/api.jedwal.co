@@ -9,6 +9,7 @@ from jedwal.apis.models import Api, ApiKey
 from jedwal.apis.repository import get_api
 from jedwal.apis.worksheets import repository
 from jedwal.apis.worksheets.models import WorksheetCreate
+from jedwal.common.encryption.service import Encryption
 from jedwal.common.exceptions import NotFoundException, UnprocessableContentException
 from jedwal.database.core import DbTable
 
@@ -22,6 +23,7 @@ def get_worksheet_model(*, table: DbTable, api: Api, worksheet_name: str):
 def get_worksheet_data(
     *,
     table: DbTable,
+    encryption: Encryption,
     api: Api,
     worksheet_name: str,
     spreadsheet: gspread.Spreadsheet | None = None,
@@ -42,7 +44,7 @@ def get_worksheet_data(
 
     # Use provided spreadsheet or fetch new one
     if spreadsheet is None:
-        spreadsheet = get_api_spreadsheet(api=api)
+        spreadsheet = get_api_spreadsheet(api=api, encryption=encryption)
 
     try:
         ws = spreadsheet.worksheet(worksheet_name)

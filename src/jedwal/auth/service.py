@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 
 from jedwal.account.models import Account, AccountId, RefreshTokenInfo
 from jedwal.account.service import create_account, get_account, get_account_by_email
-from jedwal.common.encryption import EnvelopeEncryption
+from jedwal.common.encryption.service import Encryption
 from jedwal.common.exceptions import (
     BadRequestException,
     ForbiddenException,
@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 
 # TODO: refactor this and pull out pieces into
-async def authenticate(*, table: DbTable, request: Request):
+async def authenticate(*, table: DbTable, encryption: Encryption, request: Request):
     try:
         token: dict = await oauth.google.authorize_access_token(request)
     except OAuthError as e:
@@ -52,8 +52,8 @@ async def authenticate(*, table: DbTable, request: Request):
                 "Is it possible a user with a deleted account is trying to create a new one?",
             ) from None
 
-        encryption_response = EnvelopeEncryption.encrypt(
-            refresh_token, context={"account_id": account_session.sub}
+        encryption_response = encryption.encrypt(
+            plaintext=refresh_token, context={"account_id": account_session.sub}
         )
 
         token_info = RefreshTokenInfo(
