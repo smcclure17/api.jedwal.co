@@ -3,9 +3,9 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from jedwal.config import settings
 from jedwal.common.encryption import kms_encryption, pass_through_encryption
 from jedwal.common.encryption.types import DecryptFn, EncryptFn
+from jedwal.config import settings
 
 
 @dataclass(frozen=True)

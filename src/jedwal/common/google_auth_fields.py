@@ -34,8 +34,8 @@ class GoogleOauthFields:
     @cached_property
     def google_oauth_creds(self):
         refresh_token = self.encryption.decrypt(
-            encrypted_data_b64=self.refresh_token_info.encrypted_refresh_token,
-            encrypted_key_b64=self.refresh_token_info.data_encryption_key,
+            encrypted_data=self.refresh_token_info.encrypted_refresh_token,
+            encrypted_key=self.refresh_token_info.data_encryption_key,
             context=self.refresh_token_info.context,
         )
 
@@ -76,8 +76,8 @@ class GoogleOauthFields:
     def refresh_access_token(self) -> "GoogleOauthFields":
         """Refresh the access token using the stored refresh token."""
         refresh_token = self.encryption.decrypt(
-            encrypted_data_b64=self.refresh_token_info.encrypted_refresh_token,
-            encrypted_key_b64=self.refresh_token_info.data_encryption_key,
+            encrypted_data=self.refresh_token_info.encrypted_refresh_token,
+            encrypted_key=self.refresh_token_info.data_encryption_key,
             context=self.refresh_token_info.context,
         )
 

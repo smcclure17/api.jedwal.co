@@ -116,7 +116,9 @@ def test_delete_api(dynamodb_table, sample_api):
     assert result is None
 
 
-def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account, sample_passthrough_encryption):
+def test_create_api_happy_path(
+    dynamodb_table, sample_api_create, sample_account, sample_passthrough_encryption
+):
     """Test successful API creation with all validations passing."""
     from unittest.mock import Mock, patch
 
@@ -146,7 +148,7 @@ def test_create_api_happy_path(dynamodb_table, sample_api_create, sample_account
         created_api = service.create_api(
             table=dynamodb_table,
             api_create=sample_api_create,
-            encryption=sample_passthrough_encryption
+            encryption=sample_passthrough_encryption,
         )
 
         # Assert API was created successfully
