@@ -1,9 +1,9 @@
 from jedwal.common.encryption.types import EncryptionOutput
 
-DEFAULT_CONTEXT = {"purpose": "data-encryption", "service": "envelope-encryption"}
+DEFAULT_CONTEXT = {"purpose": "data-encryption", "service": "pass-through-encryption"}
 
 
-def encrypt(plaintext: str, context: dict | None = None) -> EncryptionOutput:
+def encrypt(*, plaintext: str, context: dict | None = None) -> EncryptionOutput:
     """No-op encryption for testing."""
     return EncryptionOutput(
         encrypted_data=plaintext,
@@ -13,7 +13,7 @@ def encrypt(plaintext: str, context: dict | None = None) -> EncryptionOutput:
 
 
 def decrypt(
-    encrypted_data: str, encrypted_key: str, context: dict | None = None
+    *, encrypted_data: str, encrypted_key: str, context: dict | None = None
 ) -> str:
     """No-op decryption for testing."""
     return encrypted_data

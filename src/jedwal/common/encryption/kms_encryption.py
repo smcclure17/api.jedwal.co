@@ -58,7 +58,7 @@ def _decrypt_data_key(encrypted_key: str, context: dict | None = None) -> str:
     return fernet_key
 
 
-def encrypt(plaintext: str, context: dict | None = None) -> EncryptionOutput:
+def encrypt(*, plaintext: str, context: dict | None = None) -> EncryptionOutput:
     """Encrypt data using envelope encryption with KMS."""
     plaintext_key, encrypted_key = _generate_data_key(context)
 
@@ -74,7 +74,7 @@ def encrypt(plaintext: str, context: dict | None = None) -> EncryptionOutput:
 
 
 def decrypt(
-    encrypted_data: str, encrypted_key: str, context: dict | None = None
+    *, encrypted_data: str, encrypted_key: str, context: dict | None = None
 ) -> str:
     """Decrypt data using envelope encryption with KMS.
 
