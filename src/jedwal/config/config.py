@@ -78,6 +78,7 @@ class Settings(BaseSettings):
 
     # Feature Flags
     enable_encryption: bool = True
+    enable_internal_image_hosting: bool = True
 
 
 @lru_cache
