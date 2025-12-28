@@ -1,4 +1,8 @@
-"""Lambda handler to read CloudFront logs from S3 and write to DynamoDB."""
+"""
+Worker to track API and Post read analytics.
+
+Reads CloudFront logs from S3 (on item create) and writes them to DynamoDB.
+"""
 
 import gzip
 import logging

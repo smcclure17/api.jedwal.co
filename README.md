@@ -26,10 +26,13 @@ The main application/package code lives in
 src/jedwal
 ```
 
-More lambdas are used for background and async tasks (billing, webhook triggers, analytics). They live in
+Background and async tasks are handled by workers, typically also Lambda functions triggered by e.g., S3, SQS
+or a cron schedule.
+
+They have their own deploy process and live in
 
 ```bash
-lambdas/
+workers/
 ```
 
 ## Development

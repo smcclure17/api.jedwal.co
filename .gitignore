@@ -7,8 +7,8 @@ wheels/
 *.egg-info
 
 # Deploy scripts
-
-deploy-scripts/
+build*.sh
+deploy*.sh
 
 
 .DS_Store
