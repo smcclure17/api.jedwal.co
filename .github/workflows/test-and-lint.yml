@@ -31,10 +31,9 @@ jobs:
       - name: Run Ruff formatter check
         run: uv run ruff format --check
 
-  test:
-    name: Run Tests
+  unit-test:
+    name: Unit Tests
     runs-on: ubuntu-latest
-    environment: integration-tests
 
     steps:
       - name: Checkout code
@@ -55,6 +54,28 @@ jobs:
 
       - name: Run unit tests
         run: uv run pytest -m "not integration"
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    environment: integration-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras
 
       - name: Run integration tests
         env:

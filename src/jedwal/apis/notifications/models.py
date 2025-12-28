@@ -10,7 +10,7 @@ from jedwal.common.schemas import BaseSchema, TimestampMixin
 
 
 class ApiWatchChannelBase(BaseSchema):
-    """Base fields for worksheet operations.
+    """Base fields for api notification operations.
 
     Unique for each api_key, owner_id, and webhook_url.
     """
@@ -22,21 +22,6 @@ class ApiWatchChannelBase(BaseSchema):
         description="The URL to notify the user at. Note: not supplied to Google. This is used internally",
     )
     name: str = Field(..., description="Human-readable name for this watch channel")
-
-    @staticmethod
-    def create_channel_id(owner_id: AccountId, api_key: ApiKey, webhook_url: str):
-        webhook_hash = hashlib.sha256(webhook_url.encode()).hexdigest()[:10]
-        return f"api_watch_channel_{owner_id}_{api_key}_{webhook_hash}"
-
-    @staticmethod
-    def create_channel_expiration(hours=24):
-        """Generate a new expiration timestamp (in ms) for a watch channel"""
-        return int(time.time() * 1000) + (hours * 3600 * 1000)
-
-    @staticmethod
-    def create_channel_token():
-        """Generates a (secret) token used to verify incoming messages are not spoofed."""
-        return secrets.token_urlsafe(32)
 
 
 class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):
@@ -52,6 +37,22 @@ class ApiWatchChannel(ApiWatchChannelBase, TimestampMixin):
     channel_token: str = Field(
         ..., description="The secret token used to verify requests for this channel"
     )
+
+    @staticmethod
+    def create_channel_id(owner_id: AccountId, api_key: ApiKey, webhook_url: str):
+        """Create unique ID for this notification channel (to register with Google)"""
+        webhook_hash = hashlib.sha256(webhook_url.encode()).hexdigest()[:10]
+        return f"api_watch_channel_{owner_id}_{api_key}_{webhook_hash}"
+
+    @staticmethod
+    def create_channel_expiration(hours=24):
+        """Generate a new expiration timestamp (in ms) for a watch channel"""
+        return int(time.time() * 1000) + (hours * 3600 * 1000)
+
+    @staticmethod
+    def create_channel_token():
+        """Generates a (secret) token used to verify incoming messages are not spoofed."""
+        return secrets.token_urlsafe(32)
 
 
 class ApiWatchChannelRead(ApiWatchChannelBase, TimestampMixin):

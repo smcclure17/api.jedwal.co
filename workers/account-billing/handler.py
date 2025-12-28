@@ -1,4 +1,8 @@
-"""Lambda handler to report API usage to Stripe usage meters for billing."""
+"""
+Worker to report API usage to Stripe usage meters for billing.
+
+Runs on a daily schedule to bill all accounts whose billing cycle ends tomorrow.
+"""
 
 import logging
 import os

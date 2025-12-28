@@ -1,4 +1,9 @@
-"""Lambda handler to process webhook calls from SQS queue"""
+"""
+Worker to send out webhook callback requests.
+
+Reads incoming messages from SQS makes requests
+to the specified URLs.
+"""
 
 import json
 import logging

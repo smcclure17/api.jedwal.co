@@ -1,8 +1,8 @@
-"""Google Drive Watch API expires every 24 hours.
+"""
+Worker to renew Google Watch API subscriptions.
 
-This lambda runs every ~12 hours,
-looks for api watch channels expiring in the next 12 hours,
-and renews them
+Google Drive Watch API expires every 24 hours. This lambda runs every ~12 hours
+and renews any api watch channels expiring in the next 12 hours.
 """
 
 from jedwal.apis import service as api_service
