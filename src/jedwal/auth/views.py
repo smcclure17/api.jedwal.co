@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
 from jedwal.account.models import AccountRead
+from jedwal.common.encryption.service import Encryption
 from jedwal.config import settings
 from jedwal.database.core import DbTable
 
@@ -21,9 +22,9 @@ async def login(request: Request):
 
 
 @auth_router.get("/auth")
-async def auth(request: Request, table: DbTable):
+async def auth(request: Request, table: DbTable, encryption: Encryption):
     """OAuth callback - complete authentication."""
-    await authenticate(table=table, request=request)
+    await authenticate(table=table, request=request, encryption=encryption)
     return RedirectResponse(url=settings.client_app_base_url)
 
 

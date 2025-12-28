@@ -21,9 +21,6 @@ class Settings(BaseSettings):
     debug: bool = False
     environment: str
 
-    # API
-    allowed_origins: list[str] = ["*"]
-
     # AWS Configuration
     aws_region: str = "us-east-1"
     dynamodb_endpoint_url: str | None = None  # Only for local development
