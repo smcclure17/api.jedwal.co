@@ -51,10 +51,10 @@ We use [UV](https://docs.astral.sh/uv/) for package management, make sure you ha
     git clone https://github.com/smcclure17/api.jedwal.co.git
     ```
 
-- Install dependencies
+- Install dependencies (including dev dependencies)
 
     ```bash
-    uv sync
+    uv sync --all-extras
     ```
 
 ### Tests
