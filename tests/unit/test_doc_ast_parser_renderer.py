@@ -3,6 +3,8 @@ import pathlib
 
 from jedwal.posts.parsers import ast, google_docs_parser, markdown_renderer
 
+TEST_DATA_BASE_PATH = pathlib.Path.cwd() / "tests" / "data"
+
 
 def test_construct_simple_ast():
     ast_impl = ast.Root(
@@ -23,9 +25,8 @@ def test_construct_simple_ast():
 
 
 def test_google_doc_to_markdown():
-    base_path = pathlib.Path.cwd() / "tests" / "data"
-    google_doc_json_path = base_path / "test_google_document.json"
-    markdown_path = base_path / "test_markdown_output.md"
+    google_doc_json_path = TEST_DATA_BASE_PATH / "test_google_document.json"
+    markdown_path = TEST_DATA_BASE_PATH / "test_markdown_output.md"
 
     google_doc_json = json.loads(google_doc_json_path.read_text())
     parser = google_docs_parser.GoogleDocsParser()
@@ -100,3 +101,17 @@ def test_jsx_in_google_doc():
         ]
     )
     ast_tree == expected
+
+
+def test_google_style_and_md_codeblocks():
+    google_doc_json_path = TEST_DATA_BASE_PATH / "test_google_doc_codeblocks.json"
+    google_doc_json = json.loads(google_doc_json_path.read_text())
+    parser = google_docs_parser.GoogleDocsParser()
+    ast_tree = parser.parse(google_doc_json)
+
+    expected_code = ast.Code(
+        value='export const myFunc = () => {\n    return "pls do something!"\n}\n\n\n// multiple line breaks\nconst a = 1'
+    )
+
+    expected = ast.Root(children=[expected_code] * 2)
+    assert expected == ast_tree

@@ -14,6 +14,14 @@ class GoogleDocsParser:
         self.image_handler = image_handler
         self.inline_objects: dict | None = None
         self.lists_metadata: dict | None = None
+        # There are two ways to define code blocks: the "raw" markdown syntax
+        # and the "official" Google Docs code building block. These are represented
+        # differently in the Google Docs payload and must be handled separately.
+        self.code_block_delimiters_map = {"md": "```", "google_docs": "\ue907"}
+
+    @property
+    def code_block_delimiters(self):
+        return tuple(self.code_block_delimiters_map.values())
 
     def parse(self, doc_json) -> ast.Root:
         content = doc_json["body"]["content"]
@@ -47,7 +55,7 @@ class GoogleDocsParser:
         if "paragraph" not in item:
             return False
         text = self._get_text(item["paragraph"])
-        return text.startswith("```")
+        return text.startswith(self.code_block_delimiters)
 
     def is_heading(self, item):
         if "paragraph" not in item:
@@ -84,19 +92,30 @@ class GoogleDocsParser:
     def parse_code_block(self, content, start_idx):
         item = content[start_idx]
         text = self._get_text(item["paragraph"])
-        lang = text[3:].strip() or None
 
-        # Collect lines
         code_lines = []
+
+        # Google code block delimiter (\ue907) is treated as
+        # one char since everything is UTF encoded.
+        if text[0] == self.code_block_delimiters_map["google_docs"]:
+            lang = None  # Google docs API has no way to determine lang AFAICT
+
+            # Google doc style code blocks sometimes start content
+            # immediately after the delim (not on a new line), so
+            # we remove the delim but keep the rest of the line.
+            # E.g., "\ue907const a = 'b'" --> "const a = b"
+            code_lines.append(text[1:])
+        elif text[:3] == self.code_block_delimiters_map["md"]:
+            lang = text[3:].strip() or None  # grab lang from md e.g ```ts --> ts
+        else:
+            raise ValueError(f"code delimiter not supported for {text}")
+
         i = start_idx + 1
         while i < len(content):
-            if "paragraph" not in content[i]:
-                i += 1
-                continue
-
+            assert "paragraph" in content[i], "Non-paragraph item found in code block"
             line = self._get_text(content[i]["paragraph"])
-            if line.startswith("```"):
-                i += 1  # consume closing fence
+            if line.startswith(self.code_block_delimiters):
+                i += 1  # consume closing fence and exit
                 break
             code_lines.append(line)
             i += 1

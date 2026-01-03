@@ -1,0 +1,668 @@
+{
+  "title": "Code Blocks",
+  "body": {
+    "content": [
+      {
+        "startIndex": 14,
+        "endIndex": 45,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 14,
+              "endIndex": 15,
+              "textRun": { "content": "", "textStyle": {} }
+            },
+            {
+              "startIndex": 15,
+              "endIndex": 21,
+              "textRun": {
+                "content": "export",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.21568628,
+                        "green": 0.2784314,
+                        "blue": 0.30980393
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "startIndex": 21,
+              "endIndex": 28,
+              "textRun": {
+                "content": " const ",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.09803922,
+                        "green": 0.40392157,
+                        "blue": 0.8235294
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "startIndex": 28,
+              "endIndex": 45,
+              "textRun": {
+                "content": "myFunc = () => {\n",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.21568628,
+                        "green": 0.2784314,
+                        "blue": 0.30980393
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT",
+            "spaceBelow": { "unit": "PT" }
+          }
+        }
+      },
+      {
+        "startIndex": 45,
+        "endIndex": 76,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 45,
+              "endIndex": 49,
+              "textRun": {
+                "content": "    ",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.21568628,
+                        "green": 0.2784314,
+                        "blue": 0.30980393
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "startIndex": 49,
+              "endIndex": 56,
+              "textRun": {
+                "content": "return ",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.09803922,
+                        "green": 0.40392157,
+                        "blue": 0.8235294
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "startIndex": 56,
+              "endIndex": 76,
+              "textRun": {
+                "content": "\"pls do something!\"\n",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.09411765,
+                        "green": 0.5019608,
+                        "blue": 0.21960784
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT",
+            "spaceBelow": { "unit": "PT" }
+          }
+        }
+      },
+      {
+        "startIndex": 76,
+        "endIndex": 78,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 76,
+              "endIndex": 78,
+              "textRun": {
+                "content": "}\n",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.21568628,
+                        "green": 0.2784314,
+                        "blue": 0.30980393
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT",
+            "spaceBelow": { "unit": "PT" }
+          }
+        }
+      },
+      {
+        "startIndex": 78,
+        "endIndex": 79,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 78,
+              "endIndex": 79,
+              "textRun": {
+                "content": "\n",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.21568628,
+                        "green": 0.2784314,
+                        "blue": 0.30980393
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT",
+            "spaceBelow": { "unit": "PT" }
+          }
+        }
+      },
+      {
+        "startIndex": 79,
+        "endIndex": 80,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 79,
+              "endIndex": 80,
+              "textRun": {
+                "content": "\n",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.21568628,
+                        "green": 0.2784314,
+                        "blue": 0.30980393
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT",
+            "spaceBelow": { "unit": "PT" }
+          }
+        }
+      },
+      {
+        "startIndex": 80,
+        "endIndex": 104,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 80,
+              "endIndex": 104,
+              "textRun": {
+                "content": "// multiple line breaks\n",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.72156864,
+                        "green": 0.023529412,
+                        "blue": 0.44705883
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT",
+            "spaceBelow": { "unit": "PT" }
+          }
+        }
+      },
+      {
+        "startIndex": 104,
+        "endIndex": 116,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 104,
+              "endIndex": 110,
+              "textRun": {
+                "content": "const ",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.09803922,
+                        "green": 0.40392157,
+                        "blue": 0.8235294
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "startIndex": 110,
+              "endIndex": 114,
+              "textRun": {
+                "content": "a = ",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.21568628,
+                        "green": 0.2784314,
+                        "blue": 0.30980393
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "startIndex": 114,
+              "endIndex": 115,
+              "textRun": {
+                "content": "1",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.77254903,
+                        "green": 0.13333334,
+                        "blue": 0.12156863
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "startIndex": 115,
+              "endIndex": 116,
+              "textRun": {
+                "content": "\n",
+                "textStyle": {
+                  "foregroundColor": {
+                    "color": {
+                      "rgbColor": {
+                        "red": 0.72156864,
+                        "green": 0.023529412,
+                        "blue": 0.44705883
+                      }
+                    }
+                  },
+                  "fontSize": { "magnitude": 9, "unit": "PT" },
+                  "weightedFontFamily": {
+                    "fontFamily": "Roboto Mono",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT",
+            "spaceBelow": { "unit": "PT" }
+          }
+        }
+      },
+      {
+        "startIndex": 116,
+        "endIndex": 118,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 116,
+              "endIndex": 118,
+              "textRun": { "content": "\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 118,
+        "endIndex": 119,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 118,
+              "endIndex": 119,
+              "textRun": { "content": "\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 119,
+        "endIndex": 125,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 119,
+              "endIndex": 125,
+              "textRun": { "content": "```\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 125,
+        "endIndex": 155,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 125,
+              "endIndex": 138,
+              "textRun": { "content": "export const ", "textStyle": {} }
+            },
+            {
+              "startIndex": 138,
+              "endIndex": 155,
+              "textRun": { "content": "myFunc = () => {\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 155,
+        "endIndex": 186,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 155,
+              "endIndex": 159,
+              "textRun": { "content": "    ", "textStyle": {} }
+            },
+            {
+              "startIndex": 159,
+              "endIndex": 166,
+              "textRun": { "content": "return ", "textStyle": {} }
+            },
+            {
+              "startIndex": 166,
+              "endIndex": 186,
+              "textRun": {
+                "content": "\"pls do something!\"\n",
+                "textStyle": {}
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 186,
+        "endIndex": 188,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 186,
+              "endIndex": 188,
+              "textRun": { "content": "}\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 188,
+        "endIndex": 189,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 188,
+              "endIndex": 189,
+              "textRun": { "content": "\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 189,
+        "endIndex": 190,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 189,
+              "endIndex": 190,
+              "textRun": { "content": "\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 190,
+        "endIndex": 214,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 190,
+              "endIndex": 214,
+              "textRun": {
+                "content": "// multiple line breaks\n",
+                "textStyle": {}
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 214,
+        "endIndex": 226,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 214,
+              "endIndex": 220,
+              "textRun": { "content": "const ", "textStyle": {} }
+            },
+            {
+              "startIndex": 220,
+              "endIndex": 224,
+              "textRun": { "content": "a = ", "textStyle": {} }
+            },
+            {
+              "startIndex": 224,
+              "endIndex": 225,
+              "textRun": { "content": "1", "textStyle": {} }
+            },
+            {
+              "startIndex": 225,
+              "endIndex": 226,
+              "textRun": {
+                "content": "\n",
+                "textStyle": { "fontSize": { "magnitude": 13, "unit": "PT" } }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 226,
+        "endIndex": 230,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 226,
+              "endIndex": 230,
+              "textRun": { "content": "```\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      },
+      {
+        "startIndex": 230,
+        "endIndex": 231,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 230,
+              "endIndex": 231,
+              "textRun": { "content": "\n", "textStyle": {} }
+            }
+          ],
+          "paragraphStyle": {
+            "namedStyleType": "NORMAL_TEXT",
+            "direction": "LEFT_TO_RIGHT"
+          }
+        }
+      }
+    ]
+  }
+}
