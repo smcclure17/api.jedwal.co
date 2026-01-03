@@ -72,7 +72,7 @@ We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Pre-comm
 
 ```bash
 # Run linter
-uv run ruff check --fix
+uv run ruff check --fix --exclude tests/
 
 # Run formatter
 uv run ruff format
