@@ -62,9 +62,9 @@ We use [UV](https://docs.astral.sh/uv/) for package management, make sure you ha
 
 - Install pre-commit hooks
 
-```bash
-    uv run pre-commit install
-```
+    ```bash
+        uv run pre-commit install
+    ```
 
 ### Code Quality
 
