@@ -34,6 +34,7 @@ dev = [
     "ruff>=0.7.0",
     "moto[dynamodb]>=5.0.0",
     "pytest-dotenv>=0.5.2",
+    "pre-commit>=4.0.0",
 ]
 
 [build-system]

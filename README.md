@@ -60,6 +60,24 @@ We use [UV](https://docs.astral.sh/uv/) for package management, make sure you ha
     uv sync --all-extras
     ```
 
+- Install pre-commit hooks
+
+    ```bash
+        uv run pre-commit install
+    ```
+
+### Code Quality
+
+We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Pre-commit hooks will run automatically, but you can also run checks manually with
+
+```bash
+# Run linter
+uv run ruff check --fix --exclude tests/
+
+# Run formatter
+uv run ruff format
+```
+
 ### Tests
 
 Out of the box, you should be able to run unit tests. Run them with
