@@ -11,8 +11,7 @@ ResourceType = Literal["api", "post"]
 
 class AnalyticsLog(BaseSchema):
     owner_id: AccountId = Field(
-        ...,
-        description="Account or change to test pre commit ID that owns the resource",
+        ..., description="Account or organization ID that owns the resource"
     )
     resource_id: str = Field(..., description="API key or post key")
     resource_type: ResourceType = Field(..., description="Type of resource")
