@@ -68,7 +68,7 @@ We use [UV](https://docs.astral.sh/uv/) for package management, make sure you ha
 
 ### Code Quality
 
-We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Pre-commit hooks will run automatically, but you can also run checks manually:
+We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Pre-commit hooks will run automatically, but you can also run checks manually with
 
 ```bash
 # Run linter
