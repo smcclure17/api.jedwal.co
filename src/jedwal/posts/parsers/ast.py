@@ -167,3 +167,5 @@ Content = (
     | List
     | ListItem
 )
+
+InlineNode = Image | Link | Strong | Emphasis

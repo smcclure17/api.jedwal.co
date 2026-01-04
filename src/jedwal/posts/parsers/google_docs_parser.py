@@ -1,5 +1,9 @@
+from typing import Any
+
 from jedwal.posts.parsers import ast
 from jedwal.posts.parsers.image_handler import ImageHandler
+
+DocElement = dict[str, Any]
 
 
 class GoogleDocsParser:
@@ -20,13 +24,13 @@ class GoogleDocsParser:
         self.code_block_delimiters_map = {"md": "```", "google_docs": "\ue907"}
 
     @property
-    def code_block_delimiters(self):
+    def code_block_delimiters(self) -> tuple[str]:
         return tuple(self.code_block_delimiters_map.values())
 
-    def parse(self, doc_json) -> ast.Root:
+    def parse(self, doc_json: dict[str, Any]) -> ast.Root:
         content = doc_json["body"]["content"]
         self.inline_objects = doc_json.get("inlineObjects")
-        self.lists_metadata = doc_json.get("lists", {})  # Add this
+        self.lists_metadata = doc_json.get("lists", {})
 
         ast_children = []
         i = 0
@@ -51,19 +55,19 @@ class GoogleDocsParser:
 
         return ast.Root(children=ast_children, frontmatter=frontmatter)
 
-    def is_code_block(self, item):
+    def is_code_block(self, item: DocElement) -> bool:
         if "paragraph" not in item:
             return False
         text = self._get_text(item["paragraph"])
         return text.startswith(self.code_block_delimiters)
 
-    def is_heading(self, item):
+    def is_heading(self, item: DocElement) -> bool:
         if "paragraph" not in item:
             return False
         style = item["paragraph"]["paragraphStyle"]["namedStyleType"]
         return style.startswith("HEADING_")
 
-    def is_paragraph(self, item):
+    def is_paragraph(self, item: DocElement) -> bool:
         if "paragraph" not in item:
             return False
         style = item["paragraph"]["paragraphStyle"]["namedStyleType"]
@@ -86,10 +90,12 @@ class GoogleDocsParser:
 
         return False
 
-    def is_table(self, item):
+    def is_table(self, item: DocElement) -> bool:
         return "table" in item
 
-    def parse_code_block(self, content, start_idx):
+    def parse_code_block(
+        self, content: list[DocElement], start_idx: int
+    ) -> tuple[ast.Code, int]:
         item = content[start_idx]
         text = self._get_text(item["paragraph"])
 
@@ -112,7 +118,8 @@ class GoogleDocsParser:
 
         i = start_idx + 1
         while i < len(content):
-            assert "paragraph" in content[i], "Non-paragraph item found in code block"
+            if "paragraph" not in content[i]:
+                raise ValueError("Non-paragraph item found in code block")
             line = self._get_text(content[i]["paragraph"])
             if line.startswith(self.code_block_delimiters):
                 i += 1  # consume closing fence and exit
@@ -123,20 +130,26 @@ class GoogleDocsParser:
         consumed = i - start_idx
         return ast.Code(lang=lang, value="\n".join(code_lines)), consumed
 
-    def parse_heading(self, content, start_idx):
+    def parse_heading(
+        self, content: list[DocElement], start_idx: int
+    ) -> tuple[ast.Heading, int]:
         item = content[start_idx]
         style = item["paragraph"]["paragraphStyle"]["namedStyleType"]
         depth = int(style.split("_")[1])
         children = self._parse_inline_elements(item["paragraph"]["elements"])
         return ast.Heading(depth=depth, children=children), 1
 
-    def parse_paragraph(self, content, start_idx):
+    def parse_paragraph(
+        self, content: list[DocElement], start_idx: int
+    ) -> tuple[ast.Paragraph, int]:
         item = content[start_idx]
         children = self._parse_inline_elements(item["paragraph"]["elements"])
 
         return ast.Paragraph(children=children), 1
 
-    def parse_table(self, content, start_idx):
+    def parse_table(
+        self, content: list[DocElement], start_idx: int
+    ) -> tuple[ast.Table, int]:
         item = content[start_idx]
         table_data = item["table"]
 
@@ -159,7 +172,7 @@ class GoogleDocsParser:
 
         return ast.Table(children=rows), 1
 
-    def _get_text(self, paragraph):
+    def _get_text(self, paragraph: dict[str, Any]) -> str:
         """Extract only text content from paragraph (for code blocks, etc)"""
         res = []
         for el in paragraph["elements"]:
@@ -170,7 +183,9 @@ class GoogleDocsParser:
             res.append(content)
         return "".join(res).rstrip("\n")
 
-    def _parse_inline_elements(self, elements):
+    def _parse_inline_elements(
+        self, elements: list[dict[str, Any]]
+    ) -> list[ast.InlineNode]:
         children = []
 
         for element in elements:
@@ -196,7 +211,9 @@ class GoogleDocsParser:
 
         return children
 
-    def _wrap_with_formatting(self, content, text_style):
+    def _wrap_with_formatting(
+        self, content: list[DocElement], text_style: dict[str, Any]
+    ) -> ast.InlineNode:
         """Wrap text with formatting in consistent order: Link > Strong > Emphasis > Text"""
         node = ast.Text(value=content)
 
@@ -213,7 +230,7 @@ class GoogleDocsParser:
 
         return node
 
-    def _is_image(self, inline_object_element):
+    def _is_image(self, inline_object_element: dict) -> bool:
         """Check if inline object is an image"""
         object_id = inline_object_element.get("inlineObjectId")
         if not object_id or object_id not in self.inline_objects:
@@ -227,7 +244,7 @@ class GoogleDocsParser:
         except KeyError:
             return False
 
-    def _parse_image(self, inline_object_element):
+    def _parse_image(self, inline_object_element: dict[str, Any]) -> ast.Image:
         """Extract image from inline object (assumes _is_image returned True)"""
         object_id = inline_object_element["inlineObjectId"]
         inline_object = self.inline_objects[object_id]
@@ -248,7 +265,9 @@ class GoogleDocsParser:
 
         return ast.Image(url=url, alt=alt, title=title)
 
-    def _extract_frontmatter(self, content, start_idx):
+    def _extract_frontmatter(
+        self, content: list[DocElement], start_idx: int
+    ) -> tuple[ast.Frontmatter | None, int]:
         """Extract frontmatter from start of document if present"""
         if start_idx != 0:
             return None, 0  # Frontmatter must be at beginning
@@ -294,12 +313,14 @@ class GoogleDocsParser:
         consumed = i  # Return absolute index, not relative
         return frontmatter, consumed
 
-    def is_list_item(self, item):
+    def is_list_item(self, item: DocElement) -> bool:
         if "paragraph" not in item:
             return False
-        return "bullet" in item["paragraph"]  # Remove .get("paragraphStyle", {})
+        return "bullet" in item["paragraph"]
 
-    def parse_list(self, content, start_idx):
+    def parse_list(
+        self, content: list[DocElement], start_idx: int
+    ) -> tuple[ast.List, int]:
         """Parse a flat list with indent levels"""
         first_item = content[start_idx]["paragraph"]
         list_id = first_item["bullet"]["listId"]
@@ -338,7 +359,7 @@ class GoogleDocsParser:
 
         return list_node, consumed
 
-    def _is_ordered_list(self, list_id):
+    def _is_ordered_list(self, list_id: str) -> bool:
         """Check if list is ordered based on glyphType"""
         if not self.lists_metadata or list_id not in self.lists_metadata:
             return False
