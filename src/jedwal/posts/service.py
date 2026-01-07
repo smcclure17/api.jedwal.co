@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from jedwal.config import settings
 from jedwal.account import service as account_service
 from jedwal.account.models import AccountId
 from jedwal.common.encryption.service import Encryption
